@@ -133,7 +133,9 @@ enum life_op {
     LIFE_OP_START_FADE_IN_MUSIC_LOOP = 115,
     LIFE_OP_FADE_OUT_MUSIC_STOP = 116,
     LIFE_OP_MUSIC_ALTER_TEMPO = 117,
-    LIFE_OP_REP_SAMPLE_N_TIME = 118,
+    LIFE_OP_REP_SAMPLE_N_TIME = 118, /* not handled by the TG interpreter */
+    LIFE_OP_TG_VALUE_LIST = 121,    /* count, then that many expressions */
+    LIFE_OP_TG_122 = 122,
     /* Alone in the Dark 1 only. */
     LIFE_OP_MESSAGE_VALUE = 200,
     LIFE_OP_CAMERA = 201,
@@ -191,6 +193,8 @@ enum life_var {
     LIFE_VAR_MATRIX = 38,
     LIFE_VAR_MATERIAL = 39,
     LIFE_VAR_TEST_PROTECT = 40,
+    LIFE_VAR_END_WAY = 41,          /* Time Gate */
+    LIFE_VAR_DIV_BY_2 = 42,         /* Time Gate: an expression halved */
     /* Alone in the Dark 1 only. */
     LIFE_VAR_ROOM_Y = 200,
     LIFE_VAR_TEST_ZV_END_ANIM = 201

@@ -110,6 +110,14 @@ static s16 test_zv_end_anim(const struct actor *a, s16 anim_index, s16 dy)
     return hardcol_test(zv, g_floor_rooms[a->room]) ? 1 : 0;
 }
 
+/* Time Gate reads extra operands in a dozen opcodes (operand shapes taken
+ * from the TG320.EX_ interpreter at 0x418ccb, checked against every
+ * LISTLIFE script of the DOS data). */
+static int time_gate(void)
+{
+    return game_id() == GAME_TIMEGATE;
+}
+
 /* Titles before Alone in the Dark 2 read some operands differently. */
 static int before_aitd2(void)
 {
@@ -291,7 +299,7 @@ static s16 eval(void)
     }
     case LIFE_VAR_ACTION: return g_action;
     case LIFE_VAR_POSREL: {
-        s16 target = object_get(fetch())->actor;
+        s16 target = object_get(time_gate() ? eval() : fetch())->actor;
         if (target == -1) {
             return 0;
         }
@@ -331,7 +339,13 @@ static s16 eval(void)
     case LIFE_VAR_ROOM: return a->room;
     case LIFE_VAR_LIFE: return a->life;
     case LIFE_VAR_OBJECT_TAKEN: return (object_get(fetch())->flags2 & 0xc000) ? 1 : 0;
-    case LIFE_VAR_MUSIC: return g_music_pending;
+    case LIFE_VAR_MUSIC:
+        if (time_gate()) {
+            fetch();    /* a music channel */
+        }
+        return g_music_pending;
+    case LIFE_VAR_DIV_BY_2: return (s16)(eval() / 2);
+    case LIFE_VAR_END_WAY: return 0;
     case LIFE_VAR_DEFINE: return (s16)g_defines_itd[fetch()];
     case LIFE_VAR_STAGE: return a->stage;
     case LIFE_VAR_THROW: return (object_get(fetch())->flags2 & 0x1000) ? 1 : 0;
@@ -1077,7 +1091,14 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_ANIM_SAMPLE: {
-            s16 sample = eval(), anim = fetch(), frame = fetch();
+            s16 sample = eval();
+            s16 anim, frame;
+
+            if (time_gate()) {
+                fetch();    /* volume */
+            }
+            anim = fetch();
+            frame = fetch();
             if (a->end_frame && a->anim == anim && a->frame == frame) {
                 sample_play(sample);
             }
@@ -1085,7 +1106,14 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_SPECIAL: special_spawn(fetch()); break;
         case LIFE_OP_DO_REAL_ZV: zv_from_pose(a); break;
-        case LIFE_OP_SAMPLE: sample_play(before_aitd2() ? eval() : fetch()); break;
+        case LIFE_OP_SAMPLE: {
+            s16 s = (before_aitd2() || time_gate()) ? eval() : fetch();
+            if (time_gate()) {
+                fetch();    /* volume */
+            }
+            sample_play(s);
+            break;
+        }
         case LIFE_OP_TYPE: {
             s16 v = (s16)(fetch() & 0x5d1);
             u16 old = a->flags;
@@ -1111,7 +1139,14 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_MANUAL_ROT: actor_turn_keys(game_id() == GAME_AITD1 ? 240 : 0x5a); break;
         case LIFE_OP_RND_FREQ: fetch(); break;
-        case LIFE_OP_MUSIC: music_play(fetch()); break;
+        case LIFE_OP_MUSIC: {
+            s16 m = fetch();
+            if (time_gate()) {
+                fetch();
+            }
+            music_play(m);
+            break;
+        }
         case LIFE_OP_SET_BETA: {
             s16 v = fetch(), speed = fetch();
             turn_angle(a, &a->beta, v, speed);
@@ -1193,8 +1228,17 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_SAMPLE_THEN: {
-            s16 s = before_aitd2() ? eval() : fetch();
-            g_sample_pending = before_aitd2() ? eval() : fetch();
+            s16 s;
+
+            if (time_gate()) {
+                s = eval();
+                fetch();
+                g_sample_pending = eval();
+                fetch();
+            } else {
+                s = before_aitd2() ? eval() : fetch();
+                g_sample_pending = before_aitd2() ? eval() : fetch();
+            }
             sample_play(s);
             break;
         }
@@ -1213,7 +1257,12 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_INVENTORY: g_inventory_enabled = fetch(); break;
         case LIFE_OP_FOUND_WEIGHT: object_get(a->object)->position_in_track = fetch(); break;
-        case LIFE_OP_PUT_AT: { s16 v = fetch(), w = fetch(); object_drop(v, w); break; }
+        case LIFE_OP_PUT_AT: {
+            s16 v = fetch();
+            s16 w = time_gate() ? eval() : fetch();
+            object_drop(v, w);
+            break;
+        }
         case LIFE_OP_DEF_ZV: {
             a->zv[0] = (s16)(fetch() + a->room_x + a->step_x);
             a->zv[1] = (s16)(fetch() + a->room_x + a->step_x);
@@ -1231,7 +1280,7 @@ void life_run(s16 life, int flag)
             break;
         case LIFE_OP_ANGLE: a->alpha = fetch(); a->beta = fetch(); a->gamma = fetch(); break;
         case LIFE_OP_REP_SAMPLE: {
-            s16 s = game_id() == GAME_AITD1 ? eval() : fetch();
+            s16 s = (game_id() == GAME_AITD1 || time_gate()) ? eval() : fetch();
             s16 n = fetch();
             sample_repeat(s, (u16)n);
             break;
@@ -1244,10 +1293,27 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_WATER: break;
-        case LIFE_OP_PICTURE: { s16 entry = fetch(), time = fetch(), sample = fetch(); show_picture(entry, time, sample); break; }
-        case LIFE_OP_STOP_SAMPLE: sound_stop_all(); break;
+        case LIFE_OP_PICTURE: {
+            s16 entry = fetch(), time = fetch();
+            s16 sample = time_gate() ? eval() : fetch();
+            if (time_gate()) {
+                fetch();
+            }
+            show_picture(entry, time, sample);
+            break;
+        }
+        case LIFE_OP_STOP_SAMPLE:
+            if (time_gate()) {
+                fetch();
+            }
+            sound_stop_all();
+            break;
         case LIFE_OP_NEXT_MUSIC: {
             s16 m = fetch();
+            if (time_gate()) {
+                fetch();
+                fetch();
+            }
             if (g_music_pending != -1) {
                 g_music_next = m;
             } else {
@@ -1255,7 +1321,15 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_FADE_MUSIC: music_play(fetch()); break;
+        case LIFE_OP_FADE_MUSIC: {
+            s16 m = fetch();
+            if (time_gate()) {
+                fetch();
+                fetch();
+            }
+            music_play(m);
+            break;
+        }
         case LIFE_OP_STOP_HIT_OBJECT:
             if (a->anim_action_type == ACTION_HIT_OBJECT) {
                 a->anim_action_type = ACTION_NONE;
@@ -1279,8 +1353,18 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_SAMPLE_THEN_REPEAT: {
-            s16 s = game_id() == GAME_AITD1 ? eval() : fetch();
-            g_sample_pending = (s16)((game_id() == GAME_AITD1 ? eval() : fetch()) | 0x4000);
+            int evals = game_id() == GAME_AITD1 || time_gate();
+            s16 s = evals ? eval() : fetch();
+            s16 next;
+
+            if (time_gate()) {
+                fetch();
+            }
+            next = evals ? eval() : fetch();
+            if (time_gate()) {
+                fetch();
+            }
+            g_sample_pending = (s16)(next | 0x4000);
             sample_play(s);
             break;
         }
@@ -1424,6 +1508,10 @@ void life_run(s16 life, int flag)
             s16 anim = eval(), frame = fetch(), hot = fetch(), w4 = fetch();
             s16 w5 = fetch(), w6 = fetch(), w7 = fetch();
             s16 next = eval();
+            if (time_gate()) {
+                fetch();
+                fetch();
+            }
             actor_fire(anim, frame, hot, w4, w5, w6, w7, next, 1);
             break;
         }
@@ -1434,6 +1522,40 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_STOP_CLUT: g_palette_effect = 0; break;
+        /* Time Gate. The music and volume opcodes only consume their
+         * operands until the music system is rebuilt for this title. */
+        case LIFE_OP_IF_IN:
+        case LIFE_OP_IF_OUT: {
+            s16 v = eval(), lo = eval(), hi = eval();
+            int inside = v >= lo && v <= hi;
+
+            if (inside == (op == LIFE_OP_IF_IN)) {
+                s_pc += 2;
+            } else {
+                s16 off = fetch();
+                s_pc += off * 2;
+            }
+            break;
+        }
+        case LIFE_OP_MUSIC_AND_LOOP: { s16 m = fetch(); fetch(); music_play(m); break; }
+        case LIFE_OP_MUSIC_THEN:
+        case LIFE_OP_MUSIC_THEN_LOOP: { s16 m = fetch(); fetch(); g_music_next = fetch(); music_play(m); break; }
+        case LIFE_OP_FADE_OUT_MUSIC_STOP: fetch(); fetch(); music_play(-1); break;
+        case LIFE_OP_SET_VOLUME_SAMPLE:
+        case LIFE_OP_SET_MUSIC_VOLUME:
+        case LIFE_OP_MUSIC_ALTER_TEMPO: fetch(); fetch(); break;
+        case LIFE_OP_FADE_IN_MUSIC: { s16 m = fetch(); fetch(); fetch(); music_play(m); break; }
+        case LIFE_OP_START_FADE_IN_MUSIC:
+        case LIFE_OP_START_FADE_IN_MUSIC_LOOP: { s16 m = fetch(); fetch(); fetch(); fetch(); fetch(); music_play(m); break; }
+        case LIFE_OP_START_FADE_IN_MUSIC_THEN: { s16 m = fetch(); fetch(); fetch(); fetch(); fetch(); g_music_next = fetch(); music_play(m); break; }
+        case LIFE_OP_TG_VALUE_LIST: {
+            s16 n = fetch();
+            while (n-- > 0) {
+                eval();
+            }
+            break;
+        }
+        case LIFE_OP_TG_122: break;
         default:
             break;                                               /* 79, 84, 95 */
         }
