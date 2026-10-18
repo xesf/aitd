@@ -1,0 +1,455 @@
+/*
+ * reader.c - documents, letters and books read on screen.
+ *
+ *   text_reader     0x4156a6  page through a TEXTES.PAK entry
+ *   read_document   0x4160b6  opcode 33: a letter, book or note picture
+ *   read_book       0x40584e  opcode 98, inline in the life interpreter
+ *
+ * Text markup: words are separated by spaces and line ends; an empty line
+ * ends a paragraph (7 extra pixels); 0x1a ends the text. '#' commands:
+ * #P new page (unless at the top), #C centre the line, #T a tab, #X<n>
+ * a CD voice track. Lines are justified unless they end a paragraph.
+ */
+
+#include <stdlib.h>
+#include <string.h>
+
+#include "aitd.h"
+#include "anim.h"
+#include "draw.h"
+#include "font.h"
+#include "hyb.h"
+#include "life.h"
+#include "menu.h"
+#include "palette.h"
+#include "platform.h"
+#include "raster.h"
+#include "subsystems.h"
+
+enum reader_mode {
+    READER_ARROWS = 0,      /* arrows beside the text, keys turn pages */
+    READER_AUTO = 1,        /* pages turn by themselves */
+    READER_ARROWS_LOW = 2   /* arrows under the text, silent, Enter quits */
+};
+
+/* read_document types (opcode 33). */
+enum document_type {
+    DOCUMENT_NOTE = 0,
+    DOCUMENT_BOOK = 1,
+    DOCUMENT_LETTER = 2
+};
+
+enum line_flag {
+    LINE_JUSTIFY = 1,
+    LINE_PARAGRAPH = 2,
+    LINE_END = 4,
+    LINE_CENTRE = 8
+};
+
+enum {
+    LINE_PITCH = 14,
+    PARAGRAPH_GAP = 7,
+    WORD_GAP = 3,
+    PAGE_MAX = 77,
+    WORD_MAX = 80,
+    ARROW_NEXT = 1,
+    ARROW_PREV = 2
+};
+
+s16 g_page_turn_style;   /* 0x4350a5: 1 book, 3 fade, 0 none */
+s16 g_voice_allowed;     /* 0x4350e3 */
+
+struct word {
+    const char *text;
+    s16 width;
+};
+
+static const char s_tab[] = "    ";   /* 0x42f3fe */
+
+/* 0x402fc4 */
+static int sample_busy(void)
+{
+    return platform_sound_playing();
+}
+
+/* The sample list of opcode 97 plays one after another while reading. */
+static void next_sample(u8 *index)
+{
+    if (*index < g_cutscene_sample_count && !sample_busy()) {
+        sample_play(g_cutscene_samples[(*index)++ * 2 + 1]);
+    }
+}
+
+static void keep_samples_going(u8 *index)
+{
+    if (!sample_busy()) {
+        g_sample_priority = -1;
+        g_sample_current = -1;
+        next_sample(index);
+    }
+}
+
+static void voice_play(s16 track)
+{
+    platform_cdaudio_play_track(g_voice_cfg_value + track);   /* 0x40110a */
+}
+
+static void page_sound(void)
+{
+    sample_play((s16)g_defines_itd[0]);
+    g_sample_current = -1;
+}
+
+/* 0x4156a6 - eax text, edx xmin, ebx ymin, ecx xmax, then ymax, mode,
+ * colour and shadow colour (-1: no shadow, fade the first page in).
+ * Returns the mode, cleared when an automatic reading ran to the end. */
+s16 text_reader(s16 text, s16 xmin, s16 ymin, s16 xmax, s16 ymax, s16 mode,
+                s16 colour, s16 shadow)
+{
+    struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+    struct word words[WORD_MAX];
+    char *pages[PAGE_MAX];
+    char *buffer;
+    struct game_timer timer = { 0 };
+    s16 width = (s16)(xmax - xmin + 4);
+    s16 page = 0;
+    s16 previous = -1;
+    s16 voice = 0;
+    int voice_on = 0;
+    int first = 1;
+    int quit = 0;
+    u8 sample_index = 0;
+
+    buffer = file_load_alloc("TEXTES.PAK", (u16)text);
+    if (buffer == NULL) {
+        fatal_error(1, "TEXTES.PAK");
+    }
+    pages[0] = buffer;
+    g_sample_current = -1;
+    g_sample_priority = -1;
+    next_sample(&sample_index);
+
+    while (!quit) {
+        char *p = pages[page];
+        s16 y = ymin;
+        int end = 0;
+
+        raster_blit(0, 0, &back);
+        raster_set_clip((s16)(xmin - 1), (s16)(ymin - 1), (s16)(xmax + 1), (s16)(ymax + 1));
+        if (shadow == -1) {
+            screen_present();
+            palette_fade(0x10, 0);
+            timer_reset(&timer);
+            raster_rect((s16)(xmin - 3), (s16)(xmax + 3), (s16)(ymin - 3), (s16)(ymax + 3), 0);
+            first = 0;
+        }
+
+        while (y <= ymax - LINE_PITCH) {
+            int flags = LINE_JUSTIFY;
+            s16 line_width = 0;
+            s16 count = 0;
+            s16 extra = 0;
+            s16 x;
+            int i;
+
+            for (;;) {
+                char *start;
+                char c;
+                s16 w;
+
+                while (*p == '#') {
+                    char command = p[1];
+
+                    p += 2;
+                    switch (command) {
+                    case 'X':
+                    case 'x': {
+                        char digits[12];
+                        int n = 0;
+
+                        while (*p >= '0' && *p <= '9' && n < 11) {
+                            digits[n++] = *p++;
+                        }
+                        digits[n] = '\0';
+                        voice = (s16)atoi(digits);
+                        break;
+                    }
+                    case 'P':
+                    case 'p':
+                        if (y > ymin) {
+                            goto page_done;
+                        }
+                        break;
+                    case 'C':
+                    case 'c':
+                        flags = (flags & ~LINE_JUSTIFY) | LINE_CENTRE;
+                        break;
+                    case 'T':
+                    case 't':
+                        if (count < WORD_MAX) {
+                            words[count].text = s_tab;
+                            words[count].width = (s16)(font_string_width(s_tab) + WORD_GAP);
+                            line_width = (s16)(line_width + words[count].width);
+                            count++;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                }
+
+                start = p;
+                do {
+                    c = *p++;
+                } while ((u8)c > 0x20);
+                p[-1] = '\0';
+                w = (s16)(font_string_width(start) + WORD_GAP);
+
+                if (w > width) {
+                    quit = 1;   /* a word wider than the page */
+                    break;
+                }
+                if (line_width + w > width || count >= WORD_MAX) {
+                    p = start;  /* goes to the next line */
+                    break;
+                }
+                words[count].text = start;
+                words[count].width = w;
+                line_width = (s16)(line_width + w);
+                count++;
+
+                if (c == 0x1a) {
+                    flags = (flags & ~LINE_JUSTIFY) | LINE_END;
+                    end = 1;
+                    break;
+                }
+                if ((c == '\r' || c == '\0') && (u8)*p < 0x20) {
+                    p++;
+                    if (*p == '\r') {
+                        p += 2;
+                        flags = (flags & ~LINE_JUSTIFY) | LINE_PARAGRAPH;
+                        break;
+                    }
+                    if (*p == '#') {
+                        flags &= ~LINE_JUSTIFY;
+                        break;
+                    }
+                }
+            }
+
+            /* 0x415a8e. A lone justified word would divide by zero in the
+             * original. */
+            if ((flags & LINE_JUSTIFY) && count > 1) {
+                extra = (s16)((width - line_width) / (count - 1));
+            }
+            x = (flags & LINE_CENTRE) ? (s16)(xmin + (width - line_width) / 2) : xmin;
+            for (i = 0; i < count; i++) {
+                if (colour != shadow && shadow != -1) {
+                    text_draw_string(x, (s16)(y + 1), words[i].text, (u8)shadow);
+                }
+                text_draw_string(x, y, words[i].text, (u8)colour);
+                x = (s16)(x + words[i].width + extra);
+            }
+            if (flags & LINE_PARAGRAPH) {
+                y = (s16)(y + PARAGRAPH_GAP);
+            }
+            y = (s16)(y + LINE_PITCH);
+            if (end) {
+                break;
+            }
+        }
+
+page_done:
+        if (end) {
+            p[-1] = 0x1a;   /* put the terminator back for a later visit */
+        } else if (page + 1 < PAGE_MAX) {
+            pages[page + 1] = p;
+        }
+        raster_set_clip(0, 0, 319, 199);
+
+        if (mode == READER_ARROWS) {
+            if (page > 0) {
+                hyb_render(ARROW_PREV, (s16)(xmin - 19), 185, engine_resource(ITD_RESS_UI_SPRITES));
+            }
+            if (!end) {
+                hyb_render(ARROW_NEXT, (s16)(xmax + 4), 185, engine_resource(ITD_RESS_UI_SPRITES));
+            }
+        }
+        if (mode == READER_ARROWS_LOW) {
+            if (page > 0) {
+                hyb_render(ARROW_PREV, (s16)(xmin - 3), 191, engine_resource(ITD_RESS_UI_SPRITES));
+            }
+            if (!end) {
+                hyb_render(ARROW_NEXT, (s16)(xmax - 10), 191, engine_resource(ITD_RESS_UI_SPRITES));
+            }
+        }
+
+        if (first) {
+            input_poll();
+            while (timer_elapsed(&timer) < 120 && !(g_last_scancode & 0xff) && !g_key_confirm) {
+                keep_samples_going(&sample_index);
+                input_poll();
+            }
+            screen_present();   /* 0x41565e / 0x415682 page flips only present */
+            if (mode != READER_AUTO && g_page_turn_style) {
+                palette_fade(0x10, 0);
+            }
+            first = 0;
+            voice_on = g_voice_allowed && voice;
+            if (voice_on) {
+                voice_play(voice);
+            }
+        } else {
+            screen_present();
+            if (voice_on) {
+                voice_play(voice);
+            }
+        }
+        (void)previous;
+
+        if (mode == READER_AUTO) {
+            timer_reset(&timer);
+            input_poll();
+            while (timer_elapsed(&timer) < 300 && !(g_last_scancode & 0xff) && !g_key_confirm) {
+                keep_samples_going(&sample_index);
+                input_poll();
+            }
+            if ((g_last_scancode & 0xff) || g_key_confirm) {
+                quit = 1;
+            }
+            if (end) {
+                quit = 1;
+                mode = 0;
+            } else {
+                page++;
+                page_sound();
+            }
+            continue;
+        }
+
+        /* Wait for the keys that turned the page to come up. */
+        do {
+            input_poll();
+            keep_samples_going(&sample_index);
+        } while ((g_last_scancode & 0xff) || g_key_dir_flags || g_key_confirm);
+
+        for (;;) {
+            input_poll();
+            keep_samples_going(&sample_index);
+            g_scene_scancode = (s16)(g_last_scancode & 0xff);
+            g_scene_dir_flags = (s16)g_key_dir_flags;
+            g_scene_confirm = (s16)g_key_confirm;
+
+            if (g_scene_scancode == SC_ESC || g_scene_confirm) {
+                quit = 1;
+                break;
+            }
+            if (mode == READER_ARROWS_LOW && g_scene_scancode == SC_ENTER) {
+                quit = 1;
+                break;
+            }
+            if ((g_key_dir_flags & (DIR_DOWN | DIR_RIGHT)) || g_scene_scancode == SC_ENTER) {
+                if (!end) {
+                    previous = page++;
+                    if (mode != READER_ARROWS_LOW) {
+                        page_sound();
+                        g_sample_priority = -1;
+                    }
+                    break;
+                }
+                if (g_scene_scancode == SC_ENTER) {
+                    quit = 1;
+                    break;
+                }
+            }
+            if ((g_key_dir_flags & (DIR_UP | DIR_LEFT)) && page > 0) {
+                previous = page--;
+                if (mode != READER_ARROWS_LOW) {
+                    page_sound();
+                    g_sample_priority = -1;
+                }
+                break;
+            }
+        }
+    }
+
+    if (voice_on) {
+        platform_cdaudio_stop();   /* 0x4011ce */
+        if (g_music_pending != -1) {
+            music_play(g_music_pending);
+        }
+    }
+    g_sample_pending = -1;
+    mem_free(buffer);
+    return mode;
+}
+
+/* Background and palette for a reading: an ITD_RESS picture with the
+ * interface colours over its first 16 entries. */
+static void load_backdrop(s16 entry)
+{
+    u8 *picture = load_malloc_hqr("itd_ress.pak", entry);   /* 0x414822 */
+
+    if (picture != NULL) {
+        memcpy(g_back_buffer, picture + 4, 64000 + 0x300);
+        mem_free(picture);
+    }
+    memcpy(g_palette_buffer, g_back_buffer + 64000, 0x300);
+    memcpy(g_palette_buffer, g_palette_overlay, 0x30);
+}
+
+/* 0x4160b6 - opcode 33. */
+void read_document(s16 text, s16 type)
+{
+    s16 music;
+
+    ticks_freeze();
+    g_voice_allowed = 1;
+    switch (type) {
+    case DOCUMENT_NOTE:
+        load_backdrop(ITD_RESS_NOTE);
+        g_page_turn_style = 3;
+        text_reader(text, 60, 10, 245, 190, READER_ARROWS, 124, 124);
+        break;
+    case DOCUMENT_BOOK:
+        load_backdrop(ITD_RESS_BOOK);
+        g_page_turn_style = 1;
+        text_reader(text, 48, 2, 260, 197, READER_ARROWS, 124, 124);
+        break;
+    case DOCUMENT_LETTER:
+        load_backdrop(ITD_RESS_LETTER);
+        g_page_turn_style = 3;
+        text_reader(text, 50, 20, 250, 199, READER_ARROWS, 124, 124);
+        break;
+    default:
+        break;
+    }
+    g_voice_allowed = 1;
+    music = g_music_pending;
+    g_music_pending = -1;
+    ticks_unfreeze();
+    if (g_cdaudio_ready) {
+        music_play(music);
+    }
+}
+
+/* 0x40584e - opcode 98: picture, text, xmin, ymin, xmax, ymax, colour,
+ * shadow. */
+void read_book(const s16 *args)
+{
+    struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+
+    ticks_freeze();
+    memcpy(g_back_buffer, g_screen, 64000);   /* 0x402c8b */
+    screen_clear();
+    screen_present();
+    load_backdrop(args[0]);
+    palette_set_range(g_palette_buffer, 0, 256);
+    g_page_turn_style = 0;
+    raster_blit(0, 0, &back);
+    screen_present();
+    text_reader((s16)(args[1] + 1), args[2], args[3], args[4], args[5],
+                READER_ARROWS, args[6], args[7]);
+    g_init_view = 2;
+    ticks_unfreeze();
+}

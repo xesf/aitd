@@ -1,0 +1,12 @@
+.claude/
+build/
+data/
+ida/WAITD3.EXE
+aitd3
+pak_dump
+.DS_Store
+ida/*.id0
+ida/*.id1
+ida/*.id2
+ida/*.nam
+ida/*.til
