@@ -690,14 +690,19 @@ static void collect_primitives(const u8 *p)
             }
             break;
         }
-        case PRIM_POLY: { /* 0x4231b8 */
+        case PRIM_POLY: /* 0x4231b8 */
+        case PRIM_POLY_TEXTURE:
+        case PRIM_POLY_TEXTURE_UV:
+        case PRIM_POLY_TEXTURE_UV2: {
             int n = *p++;
             s16 zmin = 0x7d00, zmax = (s16)0x8300;
             u8 *pts;
             int k;
 
             rec[0] = (u8)n;
-            rec[1] = p[0];
+            /* Time Gate's textured polygons are drawn flat in their colour
+             * until texture mapping is rebuilt. */
+            rec[1] = type == PRIM_POLY ? p[0] : 0;
             rec[2] = p[1];
             rec[3] = 0;
             p += 2;
@@ -709,6 +714,9 @@ static void collect_primitives(const u8 *p)
                 wr16(pts + k * 4 + 2, pt[1]);
                 if (pt[2] < zmin) zmin = pt[2];
                 if (pt[2] > zmax) zmax = pt[2];
+            }
+            if (type == PRIM_POLY_TEXTURE_UV || type == PRIM_POLY_TEXTURE_UV2) {
+                p += n * 2;     /* u, v per vertex */
             }
             if (zmin > 0 && n >= 3) {
                 /* 0x423216: screen space winding of the first three points. */

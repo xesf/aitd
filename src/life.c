@@ -346,7 +346,10 @@ static s16 eval(void)
         return g_music_pending;
     case LIFE_VAR_DIV_BY_2: return (s16)(eval() / 2);
     case LIFE_VAR_END_WAY: return 0;
-    case LIFE_VAR_DEFINE: return (s16)g_defines_itd[fetch()];
+    case LIFE_VAR_DEFINE: {
+        s16 index = fetch();
+        return (index >= 0 && index < DEFINES_WORDS_MAX) ? (s16)g_defines_itd[index] : 0;
+    }
     case LIFE_VAR_STAGE: return a->stage;
     case LIFE_VAR_THROW: return (object_get(fetch())->flags2 & 0x1000) ? 1 : 0;
     case LIFE_VAR_MATRIX: {
@@ -1400,7 +1403,13 @@ void life_run(s16 life, int flag)
         case LIFE_OP_STOP_BETA: a->rot[2] = 0; break;
         /* Alone in the Dark 1 only. */
         case LIFE_OP_MESSAGE_VALUE: { s16 text = fetch(); fetch(); message_show(text); break; }
-        case LIFE_OP_C_VAR: { s16 index = fetch(); g_defines_itd[index] = (u16)eval(); break; }
+        case LIFE_OP_C_VAR: {
+            s16 index = fetch(), value = eval();
+            if (index >= 0 && index < DEFINES_WORDS_MAX) {
+                g_defines_itd[index] = (u16)value;
+            }
+            break;
+        }
         case LIFE_OP_UP_COOR_Y: interp_init(0, -2000, -1, a->fall); break;
         case LIFE_OP_GET_HARD_CLIP: get_hard_clip(a); break;
         case LIFE_OP_CAMERA:
@@ -1410,8 +1419,12 @@ void life_run(s16 life, int flag)
         case LIFE_OP_ANIM_HYBRIDE_REPEAT: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 1); break; }
         case LIFE_OP_MODIF_C_VAR: {
             s16 index = fetch();
-            g_defines_itd[index] = (u16)eval();
-            if (index == 2) {
+            s16 value = eval();
+            if (index < 0 || index >= DEFINES_WORDS_MAX) {
+                break;
+            }
+            g_defines_itd[index] = (u16)value;
+            if (index == 2 && game_id() == GAME_AITD3) {
                 s16 *v = &g_vars[(s16)g_defines_itd[2]];
                 if (g_difficulty[0] == 2) {
                     *v = (s16)(*v << 1);

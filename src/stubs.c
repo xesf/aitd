@@ -17,6 +17,8 @@
 #include "life.h"
 #include "text.h"
 #include "savegame.h"
+#include "game.h"
+#include "picture.h"
 
 s16 g_init_view;             /* 0x4350b9 */
 
@@ -105,16 +107,16 @@ u8 *g_escape_picture;   /* 0x444360, ITD_RESS 17 */
 u8 *g_menu_picture;     /* 0x444364, ITD_RESS 13 */
 u8 *g_tab_picture;      /* 0x444368, ITD_RESS 48 */
 
-/* A full screen picture plus its palette, past the 4 byte header. */
+/* A full screen picture plus its palette. These slots are Alone in the
+ * Dark 3's; the other titles get a black picture until their own menus
+ * are rebuilt. */
 static u8 *load_picture(int index)
 {
     u8 *picture = mem_alloc_checked(0xfd00);
-    u8 *entry = load_malloc_hqr("itd_ress.pak", index);
 
     memset(picture, 0, 0xfd00);
-    if (entry != NULL) {
-        memcpy(picture, entry + 4, 0xfd00);
-        mem_free(entry);
+    if (game_id() == GAME_AITD3) {
+        picture_load(index, picture, picture + 64000);
     }
     return picture;
 }

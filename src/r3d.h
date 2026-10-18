@@ -18,7 +18,12 @@ enum prim_type {
     PRIM_SPHERE = 3,
     PRIM_POLY_ALT = 4,          /* drawn as a polygon; no collector emits it */
     PRIM_BIG_POINT = 6,
-    PRIM_ZIXEL = 7
+    PRIM_ZIXEL = 7,
+    /* Time Gate: polygons with a texture (material byte), 9 and 10 with a
+     * u, v byte pair per vertex after the points. */
+    PRIM_POLY_TEXTURE = 8,
+    PRIM_POLY_TEXTURE_UV = 9,
+    PRIM_POLY_TEXTURE_UV2 = 10
 };
 
 /* Type word (+8) of an animated bone record. */

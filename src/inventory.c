@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "game.h"
 #include "anim.h"
 #include "draw.h"
 #include "font.h"
@@ -133,6 +134,16 @@ static void inventory_draw_object(s16 counter)
 /* 0x40f1c3 */
 void inventory_open(void)
 {
+    /* The screens below are Alone in the Dark 3's (ITD_RESS 0x0e..0x14);
+     * the other titles lay theirs out differently and are not rebuilt yet. */
+    if (game_id() != GAME_AITD3) {
+        static int reported;
+        if (!reported) {
+            reported = 1;
+            fprintf(stderr, "inventory: not rebuilt for %s yet\n", game_current()->name);
+        }
+        return;
+    }
     const u8 *background;
     s16 first = 0, cursor = 0, drawn = -1, action = 0;
     s16 object = -1;

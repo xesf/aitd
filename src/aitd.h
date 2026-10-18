@@ -158,7 +158,10 @@ extern void *g_font_data;           /* 0x444b18 */
 extern void *g_anim_buffer;         /* 0x444aa4, 0xcd00 bytes */
 extern void *g_object_table;        /* 0x444974, 0x2ba6 bytes */
 extern void *g_priority_itd;        /* 0x444980 */
-extern u16 g_defines_itd[0x46];     /* 0x444b20, DEFINES.ITD: 0x46 big-endian words */
+/* DEFINES.ITD: 0x46 big-endian words at 0x444b20 in AITD3; Time Gate
+ * scripts use indexes past 80, so the array is larger than any file. */
+#define DEFINES_WORDS_MAX 128
+extern u16 g_defines_itd[DEFINES_WORDS_MAX];
 extern u16 g_game_vars[0xfdc];      /* 0x4423a4, 0x1fb8 bytes, cleared per new game */
 
 extern struct hqr_resource *g_cache_body;   /* 0x444a80 */
