@@ -84,6 +84,8 @@ struct game_profile {
     int font_entry;                 /* ITD_RESS entries */
     int frame_entry;                /* the window frame sprites */
     int font_spacing;
+    int hyb_frame;                  /* frame_entry is a HYB sprite bank (AITD3);
+                                       the older titles use 16 bit offset sprites */
 
     const char *sample_pak;         /* LISTSAMP or SAMPLES, without .PAK */
 

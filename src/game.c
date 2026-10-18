@@ -28,7 +28,7 @@ static const struct game_profile s_aitd1 = {
     FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 12, 0, PALETTE_GLOBAL, NULL,
     MASK_COVER_ZONES,
     52, 45, LIFE_DIALECT_AITD1,
-    5, 4, 0,
+    5, 4, 0, 0,
     "LISTSAMP",
     0, 0, 7, 1
 };
@@ -39,7 +39,7 @@ static const struct game_profile s_jack = {
     FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16, 0, PALETTE_CAMERA_6BIT, s_overlay_aitd2,
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
-    1, 0, 1,
+    1, 0, 1, 0,
     "LISTSAMP",
     16, 1, -1, -1
 };
@@ -50,7 +50,7 @@ static const struct game_profile s_aitd2 = {
     FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16, 0, PALETTE_CAMERA_6BIT, s_overlay_aitd2,
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
-    1, 0, 1,
+    1, 0, 1, 0,
     "LISTSAMP",
     8, 7, 8, 0
 };
@@ -61,7 +61,7 @@ static const struct game_profile s_aitd3 = {
     FLOOR_SAL_CAM, "SAL", "CAM", "CAMERA", 16, 4, PALETTE_CAMERA_8BIT, g_palette_overlay,
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
-    1, 0, 1,
+    1, 0, 1, 1,
     "LISTSAMP",
     0, 12, 1, 0
 };
@@ -72,7 +72,7 @@ static const struct game_profile s_timegate = {
     FLOOR_ETAGE_CAMSAL, "ETAGE", "CAMSAL", "CAMERA", 22, 0, PALETTE_CAMERA_8BIT, NULL,
     MASK_NONE,
     54, 70, LIFE_DIALECT_AITD2,
-    2, 0, 1,
+    2, 0, 1, 0,
     "SAMPLES",
     0, 5, -1, -1
 };

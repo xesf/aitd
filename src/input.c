@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -178,10 +179,30 @@ u8 *presented_buffer(void)
     return g_present_buffer != NULL ? g_present_buffer : g_blit_source;
 }
 
+/* AITD_TIMEOUT=<seconds> ends an unattended run even inside a modal loop
+ * (a document, a menu) that AITD_FRAMES does not reach. */
+static void harness_timeout(void)
+{
+    static time_t deadline = -1;
+
+    if (deadline == -1) {
+        const char *env = getenv("AITD_TIMEOUT");
+
+        deadline = (env != NULL && atoi(env) > 0) ? time(NULL) + atoi(env) : 0;
+    }
+    if (deadline != 0 && time(NULL) >= deadline) {
+        fprintf(stderr, "harness: AITD_TIMEOUT reached\n");
+        engine_shutdown();
+        exit(0);
+    }
+}
+
 /* 0x402c67 -> 0x41f0cf -> 0x41f220 */
 void input_poll(void)
 {
     struct platform_event event;
+
+    harness_timeout();
 
     while (platform_poll_event(&event)) {
         u8 sc;

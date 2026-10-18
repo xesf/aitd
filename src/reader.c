@@ -269,7 +269,7 @@ page_done:
         }
         raster_set_clip(0, 0, 319, 199);
 
-        if (mode == READER_ARROWS) {
+        if (mode == READER_ARROWS && game_current()->hyb_frame) {
             if (page > 0) {
                 hyb_render(ARROW_PREV, (s16)(xmin - 19), 185, engine_resource(ITD_RESS_UI_SPRITES));
             }
@@ -277,7 +277,7 @@ page_done:
                 hyb_render(ARROW_NEXT, (s16)(xmax + 4), 185, engine_resource(ITD_RESS_UI_SPRITES));
             }
         }
-        if (mode == READER_ARROWS_LOW) {
+        if (mode == READER_ARROWS_LOW && game_current()->hyb_frame) {
             if (page > 0) {
                 hyb_render(ARROW_PREV, (s16)(xmin - 3), 191, engine_resource(ITD_RESS_UI_SPRITES));
             }
