@@ -19,6 +19,9 @@ int font_string_width(const char *text);
 int font_glyph_advance(u8 ch);
 int font_height(void);
 
+/* Alone in the Dark 1/2 and Jack use the older 1-bit font. */
+void font_set_old_format(int old, int letter_space);
+
 /* 0x4029cb */
 void font_set_colour(u8 *table, u8 colour);
 

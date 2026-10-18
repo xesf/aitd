@@ -34,6 +34,8 @@
 #include "font.h"
 
 #define GLYPH_RECORD_SIZE 10
+
+
 #define FONT_FLAG_HIDDEN 0x02  /* 0x43522e bit 1 suppresses drawing */
 
 /* Mirrors of the globals font_set_data writes. */
@@ -44,6 +46,82 @@ static u8 s_last_char;           /* 0x43522d */
 static u8 s_flags;               /* 0x43522e */
 static const u8 *s_colour_table; /* 0x435220 */
 static u16 s_spacing;            /* 0x435226 */
+
+/*
+ * The 1-bit font of Alone in the Dark 1 and 2 and Jack in the Dark (after
+ * FITD's SetFont / PrintFont):
+ *   +0 u8  first character        +1 u8  unused
+ *   +2 u8  character height       +3 u8  row stride in bytes, 0 for the
+ *   +4 u16 stride when +3 is 0           u16 that follows
+ *   +6 u16 big-endian offset of the character table
+ *   +8     the bitmap, one bit per pixel, most significant bit first
+ * Each character is a big-endian u16: width in the top 4 bits, x of its
+ * first column (in bits) in the other 12. Width 0 is a space. All set
+ * pixels take one colour.
+ */
+static int s_old_format;
+static int s_old_letter_space = 1;
+static const int OLD_WORD_SPACE = 2;
+
+void font_set_old_format(int old, int letter_space)
+{
+    s_old_format = old;
+    s_old_letter_space = letter_space;
+}
+
+static u16 old_glyph(u8 ch)
+{
+    const u8 *b = s_blob;
+    u16 table = (u16)((b[6] << 8) | b[7]);
+    const u8 *e = b + table - b[0] * 2 + ch * 2;
+
+    return (u16)((e[0] << 8) | e[1]);
+}
+
+static int old_stride(void)
+{
+    return s_blob[3] != 0 ? s_blob[3] : (s_blob[4] | (s_blob[5] << 8));
+}
+
+static int old_advance(u8 ch)
+{
+    int width = old_glyph(ch) >> 12;
+
+    return (width != 0 ? width : OLD_WORD_SPACE) + s_old_letter_space;
+}
+
+static void old_draw(u8 *target, int pitch, int height, int x, int y,
+                     const char *text, u8 colour)
+{
+    const u8 *bitmap = s_blob + 8;
+    int rows = s_blob[2];
+    int stride = old_stride();
+
+    for (; *text != '\0'; text++) {
+        u16 g = old_glyph((u8)*text);
+        int width = g >> 12;
+        int bit = g & 0xfff;
+        int r, c;
+
+        for (r = 0; width != 0 && r < rows; r++) {
+            int py = y + r;
+            const u8 *row = bitmap + r * stride;
+
+            if (py < 0 || py >= height) {
+                continue;
+            }
+            for (c = 0; c < width; c++) {
+                int b = bit + c;
+                int px = x + c;
+
+                if ((row[b >> 3] & (0x80 >> (b & 7))) && px >= 0 && px < pitch) {
+                    target[py * pitch + px] = colour;
+                }
+            }
+        }
+        x += old_advance((u8)*text);
+    }
+}
 
 /* 0x420eea. Returns the previous blob so callers can save and restore it.
  * Glyph records start at blob + 8. */
@@ -117,7 +195,12 @@ static u32 read_u32(const u8 *p)
 
 int font_glyph_advance(u8 ch)
 {
-    const u8 *record = glyph_record(ch);
+    const u8 *record;
+
+    if (s_old_format) {
+        return s_blob != NULL ? old_advance(ch) : 0;
+    }
+    record = glyph_record(ch);
 
     if (record == NULL) {
         return 0;
@@ -141,6 +224,10 @@ int font_height(void)
 {
     int tallest = 0;
     int ch;
+
+    if (s_old_format) {
+        return s_blob != NULL ? s_blob[2] : 0;
+    }
 
     for (ch = s_first_char; ch <= s_last_char; ch++) {
         const u8 *record = glyph_record((u8)ch);
@@ -196,6 +283,11 @@ void font_draw_string(u8 *target, int pitch, int height,
                       int x, int y, const char *text)
 {
     if (s_glyphs == NULL || target == NULL || text == NULL) {
+        return;
+    }
+    if (s_old_format) {
+        old_draw(target, pitch, height, x, y, text,
+                 s_colour_table != NULL ? s_colour_table[1] : 15);
         return;
     }
 

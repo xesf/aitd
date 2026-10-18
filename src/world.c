@@ -152,6 +152,24 @@ static void load_floor_blobs(s16 floor)
     g_floor_cameras = split_blob(s_camera_blob, camera_size, &g_floor_camera_count);
 }
 
+static void free_all_entries(u8 **table);
+
+/* Rooms and cameras of the current floor, however they were loaded. */
+static void free_floor(void)
+{
+    if (s_room_blob != NULL) {
+        mem_free(g_floor_cameras);
+        mem_free(g_floor_rooms);
+        mem_free(s_room_blob);
+        mem_free(s_camera_blob);
+        s_room_blob = s_camera_blob = NULL;
+    } else {
+        free_all_entries(g_floor_cameras);
+        free_all_entries(g_floor_rooms);
+    }
+    g_floor_cameras = g_floor_rooms = NULL;
+}
+
 /* 0x414e0b */
 static void free_all_entries(u8 **table)
 {
@@ -175,19 +193,7 @@ void world_set_floor(s16 floor)
 
     ticks_freeze();
 
-    if (s_room_blob != NULL) {
-        mem_free(g_floor_cameras);
-        mem_free(g_floor_rooms);
-        mem_free(s_room_blob);
-        mem_free(s_camera_blob);
-        s_room_blob = s_camera_blob = NULL;
-        g_floor_cameras = g_floor_rooms = NULL;
-    } else if (g_floor_cameras != NULL) {
-        free_all_entries(g_floor_cameras);
-        g_floor_cameras = NULL;
-        free_all_entries(g_floor_rooms);
-        g_floor_rooms = NULL;
-    }
+    free_floor();
     if (g_camera_masks != NULL) {
         mem_free(g_camera_masks);
         g_camera_masks = NULL;
@@ -463,12 +469,7 @@ void world_free(void)
     music_shutdown();
     sound_stop_all();
 
-    if (g_floor_cameras != NULL) {
-        free_all_entries(g_floor_cameras);
-        free_all_entries(g_floor_rooms);
-        g_floor_rooms = NULL;
-        g_floor_cameras = NULL;
-    }
+    free_floor();
     if (g_camera_masks != NULL) {
         mem_free(g_camera_masks);
         g_camera_masks = NULL;

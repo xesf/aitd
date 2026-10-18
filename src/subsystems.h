@@ -48,7 +48,8 @@ int sound_init(void);                /* 0x402d9b */
 int cdaudio_init(void);              /* 0x401010 */
 
 /* Text table bring-up; text_get_by_id (0x414fcb) is useless before this. */
-void text_table_init(void);          /* 0x414e53 */
+void text_table_init(void);
+const char *text_pak_name(void);          /* 0x414e53 */
 
 /* Constructor dispatched through the pointer stored at object+0x2b7e. */
 void save_screens_init(void *object_table);  /* 0x419129 */

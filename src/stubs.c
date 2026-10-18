@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -43,7 +44,38 @@ int sys_is_already_running(void)
  * selects is not established yet. */
 void text_table_init(void)
 {
-    text_table_load("TEXTES.PAK", 0);
+    text_table_load(text_pak_name(), 0);
+}
+
+/* The text container: TEXTES.PAK in Alone in the Dark 3, one file per
+ * language in the other titles. AITD_LANG picks one (e.g. ENGLISH). */
+const char *text_pak_name(void)
+{
+    static const char *const names[] = {
+        "TEXTES.PAK", "ENGLISH.PAK", "USA.PAK", "FRANCAIS.PAK", "DEUTSCH.PAK",
+        "ESPAGNOL.PAK", "ITALIANO.PAK"
+    };
+    static char chosen[32];
+    char path[1024];
+    size_t i;
+
+    if (chosen[0] != '\0') {
+        return chosen;
+    }
+    if (getenv("AITD_LANG") != NULL) {
+        snprintf(chosen, sizeof(chosen), "%s.PAK", getenv("AITD_LANG"));
+        if (platform_resolve_path(chosen, path, sizeof(path))) {
+            return chosen;
+        }
+    }
+    for (i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        if (platform_resolve_path(names[i], path, sizeof(path))) {
+            snprintf(chosen, sizeof(chosen), "%s", names[i]);
+            return chosen;
+        }
+    }
+    snprintf(chosen, sizeof(chosen), "%s", names[0]);
+    return chosen;
 }
 
 /* 0x419129, dispatched through [object_table + 0x2b7e] at 0x407418: builds

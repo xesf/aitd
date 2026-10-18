@@ -330,6 +330,37 @@ static void project_point(s16 *out, s16 x, s16 y, s16 z, s16 min_z)
     out[2] = d;
 }
 
+/* 0x423cff..0x423d6f: s_model to world, clip at s_clip_y, camera, then
+ * project (z <= 50 is dropped). */
+static void project_model(s16 rel_x, s16 rel_y, s16 rel_z)
+{
+    int i;
+
+    for (i = 0; i < s_point_count; i++) {
+        s16 x = (s16)(s_model[i * 3] + rel_x);
+        s16 y = (s16)(s_model[i * 3 + 1] + rel_y);
+        s16 z;
+
+        if (y > s_clip_y) {
+            s_projected[i * 3] = s_projected[i * 3 + 1] = s_projected[i * 3 + 2] = R3D_INVALID;
+            continue;
+        }
+        y = (s16)(y - s_cam_y);
+        z = (s16)(s_model[i * 3 + 2] + rel_z);
+        camera_rotate(&x, &y, &z);
+        s_projected[i * 3] = x;
+        s_projected[i * 3 + 1] = y;
+        s_projected[i * 3 + 2] = z;
+    }
+
+    /* 0x423d6f: project, z <= 50 is dropped. */
+    for (i = 0; i < s_point_count; i++) {
+        s16 *pt = &s_projected[i * 3];
+        project_point(pt, pt[0], pt[1], pt[2], 50);
+    }
+
+}
+
 /*
  * 0x423ba9 - animated body. body points just past the extra-data block.
  * Returns the pointer to the primitive list.
@@ -430,31 +461,95 @@ static const u8 *transform_animated(u8 *body)
         }
     }
 
-    /* 0x423cff: world, clip, camera. */
-    for (i = 0; i < s_point_count; i++) {
-        s16 x = (s16)(s_model[i * 3] + rel_x);
-        s16 y = (s16)(s_model[i * 3 + 1] + rel_y);
-        s16 z;
-
-        if (y > s_clip_y) {
-            s_projected[i * 3] = s_projected[i * 3 + 1] = s_projected[i * 3 + 2] = R3D_INVALID;
-            continue;
-        }
-        y = (s16)(y - s_cam_y);
-        z = (s16)(s_model[i * 3 + 2] + rel_z);
-        camera_rotate(&x, &y, &z);
-        s_projected[i * 3] = x;
-        s_projected[i * 3 + 1] = y;
-        s_projected[i * 3 + 2] = z;
-    }
-
-    /* 0x423d6f: project, z <= 50 is dropped. */
-    for (i = 0; i < s_point_count; i++) {
-        s16 *pt = &s_projected[i * 3];
-        project_point(pt, pt[0], pt[1], pt[2], 50);
-    }
+    project_model(rel_x, rel_y, rel_z);
 
     return bones + bone_count * 0x10;
+}
+
+/*
+ * Bodies with flag 8 (Jack in the Dark) keep 24 byte group records: the
+ * usual 16, then a rotation (x, y, z) and a pad word, and keyframes carry
+ * both. WAITD3.EXE has no such bodies and no code for them; this follows
+ * FITD's AnimNuage: each group in table order is translated or zoomed,
+ * rotated about its own origin by its rotation, then every group is moved
+ * to its parent's vertex and the whole model takes the object's angles.
+ */
+static const u8 *transform_optimised(u8 *body)
+{
+    u8 *p = body;
+    u8 *bones;
+    int bone_count;
+    int i;
+    u16 bone_offsets[64];
+
+    s_point_count = rds16(p);
+    p += 2;
+    if (s_point_count > R3D_MAX_POINTS) {
+        s_point_count = R3D_MAX_POINTS;
+    }
+    for (i = 0; i < s_point_count * 3; i++) {
+        s_model[i] = rds16(p + i * 2);
+    }
+    p += rds16(body) * 6;
+
+    bone_count = rds16(p);
+    p += 2;
+    for (i = 0; i < bone_count && i < 64; i++) {
+        bone_offsets[i] = rd16(p + i * 2);
+    }
+    p += bone_count * 2;
+    bones = p;
+
+    for (i = 0; i < bone_count && i < 64; i++) {
+        u8 *bone = bones + bone_offsets[i];
+        s16 *pt = &s_model[rd16(bone) / 2];
+        int n = rds16(bone + 2);
+        s16 a = rds16(bone + 0x0a), b = rds16(bone + 0x0c), c = rds16(bone + 0x0e);
+        int k;
+
+        if (rds16(bone + 8) == BONE_TRANSLATE && (a | b | c)) {
+            for (k = 0; k < n; k++) {
+                pt[k * 3] = (s16)(pt[k * 3] + a);
+                pt[k * 3 + 1] = (s16)(pt[k * 3 + 1] + b);
+                pt[k * 3 + 2] = (s16)(pt[k * 3 + 2] + c);
+            }
+        } else if (rds16(bone + 8) == BONE_ZOOM && (a | b | c)) {
+            for (k = 0; k < n; k++) {
+                pt[k * 3] = (s16)(((s32)pt[k * 3] * (a + 256)) / 256);
+                pt[k * 3 + 1] = (s16)(((s32)pt[k * 3 + 1] * (b + 256)) / 256);
+                pt[k * 3 + 2] = (s16)(((s32)pt[k * 3 + 2] * (c + 256)) / 256);
+            }
+        }
+        if (bone[7] != 0) {
+            axis_set(&s_bone_alpha, rds16(bone + 0x10), 1);
+            axis_set(&s_bone_beta, rds16(bone + 0x12), 1);
+            axis_set(&s_bone_gamma, rds16(bone + 0x14), 1);
+            bone_rotate_points(pt, n);
+        }
+    }
+
+    for (i = 0; i < bone_count; i++) {
+        const u8 *bone = bones + i * 0x18;
+        const s16 *pivot = &s_model[rd16(bone + 4) / 2];
+        s16 *pt = &s_model[rd16(bone) / 2];
+        s16 px = pivot[0], py = pivot[1], pz = pivot[2];
+        int n = rds16(bone + 2);
+
+        while (n-- > 0) {
+            pt[0] = (s16)(pt[0] + px);
+            pt[1] = (s16)(pt[1] + py);
+            pt[2] = (s16)(pt[2] + pz);
+            pt += 3;
+        }
+    }
+
+    axis_set(&s_bone_alpha, s_obj_alpha, 1);
+    axis_set(&s_bone_beta, s_obj_beta, 1);
+    axis_set(&s_bone_gamma, s_obj_gamma, 1);
+    bone_rotate_points(s_model, s_point_count);
+
+    project_model((s16)(s_obj_x - s_cam_x), s_obj_y, (s16)(s_obj_z - s_cam_z));
+    return bones + bone_count * 0x18;
 }
 
 /* 0x423e59 - static body. Returns NULL when a point falls behind the eye. */
@@ -835,7 +930,9 @@ int r3d_draw_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
     s_rejected = 0;
     s_sort_count = 0;
 
-    if (flags & 2) {
+    if ((flags & 2) && (flags & 8)) {
+        prims = transform_optimised(body_points(body));
+    } else if (flags & 2) {
         prims = transform_animated(body_points(body));
     } else if (!(flags & 4)) {
         prims = transform_static(body_points(body));
@@ -871,7 +968,9 @@ void r3d_measure_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
     s_rejected = 0;
     s_sort_count = 0;
 
-    if (rd16(body) & 2) {
+    if ((rd16(body) & 0xa) == 0xa) {
+        transform_optimised(body_points(body));
+    } else if (rd16(body) & 2) {
         transform_animated(body_points(body));
     }
 }

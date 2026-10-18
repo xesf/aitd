@@ -23,6 +23,8 @@
 #include "menu.h"
 #include "palette.h"
 #include "platform.h"
+#include "game.h"
+#include "picture.h"
 #include "raster.h"
 #include "subsystems.h"
 
@@ -120,9 +122,9 @@ s16 text_reader(s16 text, s16 xmin, s16 ymin, s16 xmax, s16 ymax, s16 mode,
     int quit = 0;
     u8 sample_index = 0;
 
-    buffer = file_load_alloc("TEXTES.PAK", (u16)text);
+    buffer = file_load_alloc(text_pak_name(), (u16)text);
     if (buffer == NULL) {
-        fatal_error(1, "TEXTES.PAK");
+        fatal_error(1, text_pak_name());
     }
     pages[0] = buffer;
     g_sample_current = -1;
@@ -384,45 +386,84 @@ page_done:
     return mode;
 }
 
-/* Background and palette for a reading: an ITD_RESS picture with the
- * interface colours over its first 16 entries. */
+/* Background and palette for a reading: an ITD_RESS picture, with the
+ * interface colours over its first 16 entries when the title has them.
+ * Alone in the Dark 1 pictures carry no palette and keep the game's. */
 static void load_backdrop(s16 entry)
 {
-    u8 *picture = load_malloc_hqr("itd_ress.pak", entry);   /* 0x414822 */
+    const u8 *overlay = game_current()->palette_overlay;
 
-    if (picture != NULL) {
-        memcpy(g_back_buffer, picture + 4, 64000 + 0x300);
-        mem_free(picture);
+    if (picture_load(entry, g_back_buffer, g_back_buffer + 64000) == 1) {
+        memcpy(g_palette_buffer, g_back_buffer + 64000, 0x300);
+        if (overlay != NULL) {
+            memcpy(g_palette_buffer, overlay, 0x30);
+            if (game_current()->palette_source == PALETTE_CAMERA_6BIT) {
+                int i;
+                for (i = 0; i < 0x30; i++) {
+                    g_palette_buffer[i] = (u8)((overlay[i] * 255u) / 63u);
+                }
+            }
+        }
+    } else {
+        memcpy(g_back_buffer + 64000, g_palette_buffer, 0x300);
     }
-    memcpy(g_palette_buffer, g_back_buffer + 64000, 0x300);
-    memcpy(g_palette_buffer, g_palette_overlay, 0x30);
+}
+
+/* Where each title draws a document: backdrop entry, text box, page turn
+ * style, colours. AITD3 from 0x4160b6, the others after FITD. */
+struct document_layout {
+    s16 entry;
+    s16 xmin, ymin, xmax, ymax;
+    s16 turn_style;
+    s16 colour, shadow;
+};
+
+static const struct document_layout *document_layout(s16 type)
+{
+    static const struct document_layout aitd1[3] = {
+        { 6, 60, 10, 245, 190, 3, 26, 0 },
+        { 7, 48, 2, 260, 197, 1, 26, 0 },
+        { 8, 50, 20, 250, 199, 3, 26, 0 },
+    };
+    static const struct document_layout aitd2[3] = {
+        { 2, 60, 10, 245, 190, 3, 124, 124 },
+        { 3, 60, 10, 245, 190, 1, 124, 124 },
+        { 4, 60, 10, 245, 190, 3, 124, 124 },
+    };
+    static const struct document_layout jack[3] = {
+        { 2, 60, 10, 245, 190, 1, 124, 124 },
+        { 2, 60, 10, 245, 190, 1, 124, 124 },
+        { 2, 60, 10, 245, 190, 1, 124, 124 },
+    };
+    static const struct document_layout aitd3[3] = {
+        { ITD_RESS_NOTE, 60, 10, 245, 190, 3, 124, 124 },
+        { ITD_RESS_BOOK, 48, 2, 260, 197, 1, 124, 124 },
+        { ITD_RESS_LETTER, 50, 20, 250, 199, 3, 124, 124 },
+    };
+    const struct document_layout *table;
+
+    switch (game_id()) {
+    case GAME_AITD1: table = aitd1; break;
+    case GAME_AITD2: table = aitd2; break;
+    case GAME_JACK: table = jack; break;
+    default: table = aitd3; break;
+    }
+    return (type >= 0 && type < 3) ? &table[type] : NULL;
 }
 
 /* 0x4160b6 - opcode 33. */
 void read_document(s16 text, s16 type)
 {
+    const struct document_layout *d = document_layout(type);
     s16 music;
 
     ticks_freeze();
     g_voice_allowed = 1;
-    switch (type) {
-    case DOCUMENT_NOTE:
-        load_backdrop(ITD_RESS_NOTE);
-        g_page_turn_style = 3;
-        text_reader(text, 60, 10, 245, 190, READER_ARROWS, 124, 124);
-        break;
-    case DOCUMENT_BOOK:
-        load_backdrop(ITD_RESS_BOOK);
-        g_page_turn_style = 1;
-        text_reader(text, 48, 2, 260, 197, READER_ARROWS, 124, 124);
-        break;
-    case DOCUMENT_LETTER:
-        load_backdrop(ITD_RESS_LETTER);
-        g_page_turn_style = 3;
-        text_reader(text, 50, 20, 250, 199, READER_ARROWS, 124, 124);
-        break;
-    default:
-        break;
+    if (d != NULL) {
+        load_backdrop(d->entry);
+        g_page_turn_style = d->turn_style;
+        text_reader(text, d->xmin, d->ymin, d->xmax, d->ymax, READER_ARROWS,
+                    d->colour, d->shadow);
     }
     g_voice_allowed = 1;
     music = g_music_pending;

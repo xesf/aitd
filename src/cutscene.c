@@ -20,6 +20,7 @@
 #include "life.h"
 #include "menu.h"
 #include "palette.h"
+#include "picture.h"
 #include "raster.h"
 #include "subsystems.h"
 
@@ -212,20 +213,27 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
 void show_picture(s16 entry, s16 time, s16 sample)
 {
     u8 palette[0x300];
-    u8 *picture;
     struct game_timer timer;
 
     ticks_freeze();
-    picture = file_load_alloc("itd_ress.pak", (u16)entry);
-    if (picture != NULL) {
-        memcpy(palette, picture + 0xfa04, sizeof(palette));
+    {
+        int has_palette;
+
         screen_clear();
         screen_present();
-        memcpy(g_palette_buffer, palette, sizeof(palette));
-        blit_frame(picture + 4);
-        palette_set_range(palette, 0, 256);
-        screen_present();
-        mem_free(picture);
+        has_palette = picture_load(entry, g_back_buffer, palette);
+        if (has_palette >= 0) {
+            struct raster_image frame = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+
+            if (has_palette == 1) {
+                memcpy(g_palette_buffer, palette, sizeof(palette));
+            }
+            raster_blit(0, 0, &frame);
+            if (has_palette == 1) {
+                palette_set_range(palette, 0, 256);
+            }
+            screen_present();
+        }
     }
     sample_play(sample);
 

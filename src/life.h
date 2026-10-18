@@ -187,10 +187,19 @@ enum life_var {
     LIFE_VAR_MUSIC = 34,
     LIFE_VAR_DEFINE = 35,
     LIFE_VAR_STAGE = 36,
-    LIFE_VAR_OBJECT_FLAG_1000 = 37, /* flags2 0x1000 */
+    LIFE_VAR_THROW = 37,            /* flags2 0x1000 */
     LIFE_VAR_MATRIX = 38,
-    LIFE_VAR_MATERIAL = 39
+    LIFE_VAR_MATERIAL = 39,
+    LIFE_VAR_TEST_PROTECT = 40,
+    /* Alone in the Dark 1 only. */
+    LIFE_VAR_ROOM_Y = 200,
+    LIFE_VAR_TEST_ZV_END_ANIM = 201
 };
+
+/* Raw opcode / variable of the title in force -> life_op / life_var
+ * (lifemap.c). */
+s16 life_opcode_map(s16 raw);
+s16 life_var_map(s16 raw);
 
 /* 0x4038f6 - run one life script for g_cur_actor. */
 void life_run(s16 life, int flag);

@@ -16,6 +16,7 @@
 
 #include "actor.h"
 #include "aitd.h"
+#include "game.h"
 #include "anim.h"
 #include "draw.h"
 #include "exe_tables.h"
@@ -44,6 +45,76 @@ static u16 s_rand_lo = 0x349a, s_rand_hi = 0xacdc;  /* 0x43524c */
 
 
 s16 g_palette_effect;   /* 0x444ff6 */
+
+/* Alone in the Dark 1: the scenery box GET_HARD_CLIP found around the
+ * actor, empty (32000 / -32000) when none. */
+s16 g_hard_clip[6];
+
+static void get_hard_clip(const struct actor *a)
+{
+    const u8 *room = g_floor_rooms[a->room];
+    const u8 *box = room + (blob_s16(room, 0) & ~1);
+    int count = blob_s16(box, 0);
+    int i;
+
+    box += 2;
+    for (i = 0; i < count; i++, box += 16) {
+        s16 zv[6];
+        int k;
+
+        for (k = 0; k < 6; k++) {
+            zv[k] = blob_s16(box, k * 2);
+        }
+        if (zv_overlap(a->zv, zv)) {
+            memcpy(g_hard_clip, zv, sizeof(g_hard_clip));
+            return;
+        }
+    }
+    g_hard_clip[0] = g_hard_clip[2] = g_hard_clip[4] = 32000;
+    g_hard_clip[1] = g_hard_clip[3] = g_hard_clip[5] = -32000;
+}
+
+/* Alone in the Dark 1 variable TEST_ZV_END_ANIM: would the actor, moved by
+ * the whole of `anim` and raised by dy, stand clear of the scenery while
+ * the same box 100 lower touches it (i.e. land on something)? */
+static s16 test_zv_end_anim(const struct actor *a, s16 anim_index, s16 dy)
+{
+    const u8 *anim = hqr_get(g_cache_anim, anim_index, NULL);
+    const u8 *body = hqr_get(g_cache_body, a->body, NULL);
+    s16 zv[6];
+    s16 forward = 0;
+    int frames, bones, size, f;
+
+    if (anim == NULL || body == NULL) {
+        return 0;
+    }
+    frames = blob_s16(anim, 0);
+    bones = blob_s16(anim, 2);
+    size = (blob_s16(body, 0) & 8) ? bones * 16 + 8 : (bones + 1) * 8;
+    for (f = 0; f < frames; f++) {
+        forward = (s16)(forward + blob_s16(anim, 4 + f * size + 6));
+    }
+    r3d_rotate_2d(0, forward, a->beta);
+    memcpy(zv, a->zv, sizeof(zv));
+    zv[0] = (s16)(zv[0] + g_r3d_x);
+    zv[1] = (s16)(zv[1] + g_r3d_x);
+    zv[2] = (s16)(zv[2] + dy);
+    zv[3] = (s16)(zv[3] + dy);
+    zv[4] = (s16)(zv[4] + g_r3d_y);
+    zv[5] = (s16)(zv[5] + g_r3d_y);
+    if (hardcol_test(zv, g_floor_rooms[a->room])) {
+        return 0;
+    }
+    zv[2] = (s16)(zv[2] + 100);
+    zv[3] = (s16)(zv[3] + 100);
+    return hardcol_test(zv, g_floor_rooms[a->room]) ? 1 : 0;
+}
+
+/* Titles before Alone in the Dark 2 read some operands differently. */
+static int before_aitd2(void)
+{
+    return game_id() == GAME_AITD1 || game_id() == GAME_JACK;
+}
 
 static s16 fetch(void)
 {
@@ -151,7 +222,7 @@ static s16 eval(void)
         a_index = o->actor;
         if (a_index == -1) {
             /* 0x4030d9: the object has no actor. */
-            switch (op & 0x7fff) {
+            switch (life_var_map((s16)(op & 0x7fff))) {
             case LIFE_VAR_DIST:
                 if (o->room != g_cur_room) {
                     return 32000;
@@ -179,7 +250,7 @@ static s16 eval(void)
         a = s_owner;
     }
 
-    switch (op & 0x7fff) {
+    switch (life_var_map((s16)(op & 0x7fff))) {
     case LIFE_VAR_COL: return actor_object(a->col[0]);
     case LIFE_VAR_HARD_DEC: return a->hard_dec;
     case LIFE_VAR_HARD_COL: return a->hard_col;
@@ -263,13 +334,18 @@ static s16 eval(void)
     case LIFE_VAR_MUSIC: return g_music_pending;
     case LIFE_VAR_DEFINE: return (s16)g_defines_itd[fetch()];
     case LIFE_VAR_STAGE: return a->stage;
-    case LIFE_VAR_OBJECT_FLAG_1000: return (object_get(fetch())->flags2 & 0x1000) ? 1 : 0;
+    case LIFE_VAR_THROW: return (object_get(fetch())->flags2 & 0x1000) ? 1 : 0;
     case LIFE_VAR_MATRIX: {
         s16 table = fetch();
         s16 other = fetch();
         return matrix_lookup(table, a_index, object_get(other)->actor);
     }
     case LIFE_VAR_MATERIAL: return a->material;
+    case LIFE_VAR_ROOM_Y: return a->room_y;
+    case LIFE_VAR_TEST_ZV_END_ANIM: {
+        s16 anim = fetch(), dy = fetch();
+        return test_zv_end_anim(a, anim, dy);
+    }
     default:
         return 0;
     }
@@ -300,7 +376,7 @@ static void object_opcode(s16 op, struct world_object *o)
     }
     case LIFE_OP_LIFE: o->life = fetch(); break;
     case LIFE_OP_DELETE: {
-        s16 obj = eval();
+        s16 obj = before_aitd2() ? fetch() : eval();
         struct world_object *t;
 
         object_delete(obj);
@@ -843,7 +919,7 @@ void life_run(s16 life, int flag)
 
     while (!done) {
         s16 opcode = fetch();
-        s16 op = (s16)(opcode & 0x7fff);
+        s16 op = life_opcode_map((s16)(opcode & 0x7fff));
         int targeted = 0;
         struct actor *a;
 
@@ -943,7 +1019,7 @@ void life_run(s16 life, int flag)
         case LIFE_OP_SUB: { s16 v = fetch(); g_vars[v] = (s16)(g_vars[v] - eval()); break; }
         case LIFE_OP_LIFE_MODE: {
             s16 mode = fetch();
-            if (mode != (a->life_mode & 3)) {
+            if (mode != (before_aitd2() ? a->life_mode : (a->life_mode & 3))) {
                 a->life_mode = mode;
                 g_objects_dirty = 1;
             }
@@ -976,10 +1052,10 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_FOUND: object_found(fetch(), flag ? 2 : 1); break;
+        case LIFE_OP_FOUND: object_found(fetch(), (flag && game_id() != GAME_AITD1) ? 2 : 1); break;
         case LIFE_OP_LIFE: a->life = fetch(); break;
         case LIFE_OP_DELETE: {
-            s16 obj = eval();
+            s16 obj = before_aitd2() ? fetch() : eval();
             struct world_object *t;
             object_delete(obj);
             t = object_get(obj);
@@ -989,9 +1065,12 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_TAKE: object_take(fetch()); break;
-        case LIFE_OP_IN_HAND: g_in_hand[g_inventory_index] = eval(); break;
+        case LIFE_OP_IN_HAND: g_in_hand[g_inventory_index] = before_aitd2() ? fetch() : eval(); break;
         case LIFE_OP_READ: {
             s16 a1 = fetch(), a2 = fetch();
+            if (game_id() == GAME_AITD1) {
+                fetch();    /* the CD version's voice number */
+            }
             palette_fade_out(0x20, 0);
             read_document((s16)(a2 + 1), a1);
             g_init_view = 2;
@@ -1006,7 +1085,7 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_SPECIAL: special_spawn(fetch()); break;
         case LIFE_OP_DO_REAL_ZV: zv_from_pose(a); break;
-        case LIFE_OP_SAMPLE: sample_play(fetch()); break;
+        case LIFE_OP_SAMPLE: sample_play(before_aitd2() ? eval() : fetch()); break;
         case LIFE_OP_TYPE: {
             s16 v = (s16)(fetch() & 0x5d1);
             u16 old = a->flags;
@@ -1030,7 +1109,7 @@ void life_run(s16 life, int flag)
             done = 1;
             break;
         }
-        case LIFE_OP_MANUAL_ROT: actor_turn_keys(0x5a); break;
+        case LIFE_OP_MANUAL_ROT: actor_turn_keys(game_id() == GAME_AITD1 ? 240 : 0x5a); break;
         case LIFE_OP_RND_FREQ: fetch(); break;
         case LIFE_OP_MUSIC: music_play(fetch()); break;
         case LIFE_OP_SET_BETA: {
@@ -1054,10 +1133,17 @@ void life_run(s16 life, int flag)
         case LIFE_OP_CAMERA_TARGET: change_player(fetch()); break;
         case LIFE_OP_DROP: { s16 v = eval(); s16 w = fetch(); start_fall(v, w); break; }
         case LIFE_OP_FIRE: {
-            s16 anim = eval(), frame = fetch(), hot = fetch(), w4 = fetch();
-            s16 w5 = fetch(), w6 = fetch();
-            s16 next = eval();
-            actor_fire(anim, frame, hot, w4, w5, w6, 0, next, 0);
+            if (game_id() == GAME_AITD1) {
+                /* No emitter model: anim, frame, hot point, box, force, next. */
+                s16 anim = fetch(), frame = fetch(), hot = fetch(), size = fetch();
+                s16 force = fetch(), next = fetch();
+                actor_fire(anim, frame, hot, -1, size, force, 0, next, 0);
+            } else {
+                s16 anim = eval(), frame = fetch(), hot = fetch(), w4 = fetch();
+                s16 w5 = fetch(), w6 = fetch();
+                s16 next = eval();
+                actor_fire(anim, frame, hot, w4, w5, w6, 0, next, 0);
+            }
             break;
         }
         case LIFE_OP_TEST_COL:
@@ -1106,7 +1192,12 @@ void life_run(s16 life, int flag)
             zv_add_room(a);
             break;
         }
-        case LIFE_OP_SAMPLE_THEN: { s16 s = fetch(); g_sample_pending = fetch(); sample_play(s); break; }
+        case LIFE_OP_SAMPLE_THEN: {
+            s16 s = before_aitd2() ? eval() : fetch();
+            g_sample_pending = before_aitd2() ? eval() : fetch();
+            sample_play(s);
+            break;
+        }
         case LIFE_OP_LIGHT: {
             s16 v = (s16)(2 - fetch() * 2);
             if (v != g_black_screen) {
@@ -1139,7 +1230,12 @@ void life_run(s16 life, int flag)
             a->hot_point_id = -1;
             break;
         case LIFE_OP_ANGLE: a->alpha = fetch(); a->beta = fetch(); a->gamma = fetch(); break;
-        case LIFE_OP_REP_SAMPLE: { s16 s = fetch(), n = fetch(); sample_repeat(s, (u16)n); break; }
+        case LIFE_OP_REP_SAMPLE: {
+            s16 s = game_id() == GAME_AITD1 ? eval() : fetch();
+            s16 n = fetch();
+            sample_repeat(s, (u16)n);
+            break;
+        }
         case LIFE_OP_THROW: {
             s16 w[7];
             int i;
@@ -1182,7 +1278,12 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_SAMPLE_THEN_REPEAT: { s16 s = fetch(); g_sample_pending = (s16)(fetch() | 0x4000); sample_play(s); break; }
+        case LIFE_OP_SAMPLE_THEN_REPEAT: {
+            s16 s = game_id() == GAME_AITD1 ? eval() : fetch();
+            g_sample_pending = (s16)((game_id() == GAME_AITD1 ? eval() : fetch()) | 0x4000);
+            sample_play(s);
+            break;
+        }
         case LIFE_OP_WAIT_GAME_OVER:
             while ((g_last_scancode & 0xff) || g_key_dir_flags || g_key_confirm) {
                 input_poll();
@@ -1211,7 +1312,16 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_RESET_MOVE_MANUAL: a->rot[2] = 0; break;
+        case LIFE_OP_RESET_MOVE_MANUAL:
+        case LIFE_OP_STOP_BETA: a->rot[2] = 0; break;
+        /* Alone in the Dark 1 only. */
+        case LIFE_OP_MESSAGE_VALUE: { s16 text = fetch(); fetch(); message_show(text); break; }
+        case LIFE_OP_C_VAR: { s16 index = fetch(); g_defines_itd[index] = (u16)eval(); break; }
+        case LIFE_OP_UP_COOR_Y: interp_init(0, -2000, -1, a->fall); break;
+        case LIFE_OP_GET_HARD_CLIP: get_hard_clip(a); break;
+        case LIFE_OP_CAMERA:
+        case LIFE_OP_SPEED: fetch(); break;
+        case LIFE_OP_END_SEQUENCE: break;
         case LIFE_OP_ANIM_HYBRIDE_ONCE: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 0); break; }
         case LIFE_OP_ANIM_HYBRIDE_REPEAT: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 1); break; }
         case LIFE_OP_MODIF_C_VAR: {
@@ -1271,7 +1381,16 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_PLAY_SEQUENCE: { s16 number = fetch(), flags = fetch(), repeat = fetch(); ticks_freeze(); play_cutscene(number, flags, repeat); ticks_unfreeze(); break; }
+        case LIFE_OP_PLAY_SEQUENCE: {
+            /* Jack in the Dark gives only the sequence. */
+            s16 number = fetch();
+            s16 flags = game_id() == GAME_JACK ? 0 : fetch();
+            s16 repeat = game_id() == GAME_JACK ? 1 : fetch();
+            ticks_freeze();
+            play_cutscene(number, flags, repeat);
+            ticks_unfreeze();
+            break;
+        }
         case LIFE_OP_2D_ANIM_SAMPLE: {
             s16 sample = eval(), idx = fetch(), frame = fetch();
             if (bganim_frame_is(idx, frame)) {
