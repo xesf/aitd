@@ -13,6 +13,7 @@
 
 #include "actor.h"
 #include "aitd.h"
+#include "game.h"
 #include "anim.h"
 #include "draw.h"
 #include "life.h"
@@ -376,6 +377,9 @@ void actor_make_static(s16 index)
 int anim_init(s16 anim, s16 type, s16 info)
 {
     struct actor *a = g_cur_actor;
+    /* Alone in the Dark 1 keeps the frame counter when an animation starts
+     * and refuses any change while either animation is uninterruptible. */
+    int aitd1 = game_id() == GAME_AITD1;
 
     if (a->anim == anim) {
         if (a->flags & 1) {
@@ -391,7 +395,9 @@ int anim_init(s16 anim, s16 type, s16 info)
                        hqr_get(g_cache_body, a->body, NULL));
         a->anim_type = type;
         a->anim_info = info;
-        a->frame = 0;
+        if (!aitd1) {
+            a->frame = 0;
+        }
         return 1;
     }
 
@@ -410,11 +416,18 @@ int anim_init(s16 anim, s16 type, s16 info)
         a->new_anim = anim;
         a->new_anim_type = type;
         a->new_anim_info = info;
-        a->frame = 0;
+        if (!aitd1) {
+            a->frame = 0;
+        }
         return 1;
     }
 
-    if (a->anim_type & ANIM_UNINTERRUPTIBLE) {
+    if (aitd1) {
+        if ((a->anim_type & ANIM_UNINTERRUPTIBLE)
+            || (a->new_anim_type & ANIM_UNINTERRUPTIBLE)) {
+            return 0;
+        }
+    } else if (a->anim_type & ANIM_UNINTERRUPTIBLE) {
         if (a->new_anim_type & ANIM_UNINTERRUPTIBLE) {
             return 0;
         }
@@ -425,7 +438,9 @@ int anim_init(s16 anim, s16 type, s16 info)
     a->new_anim = anim;
     a->new_anim_type = type;
     a->new_anim_info = info;
-    a->frame = 0;
+    if (!aitd1) {
+        a->frame = 0;
+    }
     return 1;
 }
 
@@ -1525,6 +1540,11 @@ int camera_select(void)
     s16 best;
 
     if (g_cur_camera != -1 && player_in_camera(g_cur_camera)) {
+        return 0;
+    }
+    /* No camera target until the player object has an actor (the AITD1
+     * hero only gets one once a camera shows it). */
+    if (g_player_actor < 0 || g_actors[g_player_actor].object != g_player_object) {
         return 0;
     }
 

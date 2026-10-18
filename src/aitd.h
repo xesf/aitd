@@ -217,6 +217,7 @@ u32 file_size(const char *name);                     /* 0x42067e */
 /* 0x4195fc - name doubles as the backing container's base name (ListBody ->
  * LISTBODY.PAK), which is how the caches find their data. */
 struct hqr_resource *hqr_init_resource(const char *name, u32 byte_size, s16 entries);
+void hqr_set_file(struct hqr_resource *cache, const char *name);
 struct hqr_resource *hqr_init_resource_raw(u32 byte_size, s16 entries); /* 0x41991a */
 void hqr_free_resource(struct hqr_resource *cache);
 

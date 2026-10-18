@@ -292,6 +292,24 @@ struct hqr_resource *hqr_init_resource(const char *name, u32 byte_size, s16 entr
     return cache;
 }
 
+/* Points a cache at another container, dropping what it holds (Alone in
+ * the Dark 1 swaps body and animation files with the chosen hero). */
+void hqr_set_file(struct hqr_resource *cache, const char *name)
+{
+    int i;
+
+    if (cache == NULL || strcmp(cache->name, name) == 0) {
+        return;
+    }
+    for (i = 0; i < cache->entry_count; i++) {
+        mem_free(cache->entries[i]);
+        cache->entries[i] = NULL;
+        cache->sizes[i] = 0;
+    }
+    snprintf(cache->name, sizeof(cache->name), "%s", name);
+    snprintf(cache->pak_name, sizeof(cache->pak_name), "%s.PAK", name);
+}
+
 /* 0x41991a - same shape with no backing container, used once at 0x407581. */
 struct hqr_resource *hqr_init_resource_raw(u32 byte_size, s16 entries)
 {

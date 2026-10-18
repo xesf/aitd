@@ -598,6 +598,10 @@ int world_in_view_zone(s16 x, s16 z)
     if (g_cur_camera == -1) {
         return 0;
     }
+    /* Alone in the Dark 1 views have no zone list (+8 is the light). */
+    if (g_camera_view_size < 16) {
+        return 1;
+    }
 
     cam = g_room_cameras[g_cur_camera];
     zones = cam + (blob_s16(CAMERA_VIEW(cam, g_viewed_room), 8) & ~1);

@@ -89,6 +89,16 @@ void world_reset_flags(void)
     g_fade_request = 0;
     g_player_object = 1;
     g_player_actor = 0;
+    if (game_id() == GAME_AITD1) {
+        /* DEFINES word 7 is the player object (WORLD_NUM_PERSO); word 8
+         * the hero chosen (CHOOSE_PERSO): 0 Carnby, 1 Emily, each with
+         * their own bodies and animations. */
+        int emily = g_defines_itd[8] != 0;
+
+        g_player_object = (s16)g_defines_itd[7];
+        hqr_set_file(g_cache_body, emily ? "LISTBOD2" : "LISTBODY");
+        hqr_set_file(g_cache_anim, emily ? "LISTANI2" : "LISTANIM");
+    }
     g_inventory_enabled = 1;
     message_reset();
 }
@@ -267,6 +277,17 @@ static void step_actors(void)
     }
 }
 
+/* Whether an actor's script runs this frame. AITD1 and Jack run every
+ * script whose mode is not -1; from AITD2 on the mode must ask for it and
+ * bit 4 (kept only because a camera shows it) holds it back. */
+static int life_mode_runs(s16 mode)
+{
+    if (game_id() == GAME_AITD1 || game_id() == GAME_JACK) {
+        return mode != -1;
+    }
+    return (mode & 3) && !(mode & 4);
+}
+
 /* 0x4081be..0x408240 */
 static void run_lives(void)
 {
@@ -282,8 +303,7 @@ static void run_lives(void)
         g_cur_actor = a;
         g_cur_actor_index = i;
 
-        if (a->object >= 0 && a->life != -1 && (a->life_mode & 3)
-            && !(a->life_mode & 4)) {
+        if (a->object >= 0 && a->life != -1 && life_mode_runs(a->life_mode)) {
             life_run(a->life, 0);
         }
         if (g_change_floor) {
@@ -392,8 +412,8 @@ void game_scene_loop(s16 flag)
         }
         if (getenv("AITD_TRACE")) {
             const struct actor *p = &g_actors[g_player_actor];
-            fprintf(stderr, "f%d pl=%d obj=%d life=%d lm=%d tm=%d anim=%d fr=%d/%d sp=%d pos=%d,%d,%d step=%d,%d beta=%d keys=%d cam=%d room=%d act=%d inhand=%d\n",
-                    s_frame_number, g_player_actor, p->object, p->life, p->life_mode,
+            fprintf(stderr, "f%d fl=%x pl=%d obj=%d life=%d lm=%d tm=%d anim=%d fr=%d/%d sp=%d pos=%d,%d,%d step=%d,%d beta=%d keys=%d cam=%d room=%d act=%d inhand=%d\n",
+                    s_frame_number, p->flags, g_player_actor, p->object, p->life, p->life_mode,
                     p->track_mode, p->anim, p->frame, p->frame_count, p->speed,
                     p->room_x, p->room_y, p->room_z, p->step_x, p->step_z, p->beta,
                     (int)g_key_dir_flags, g_cur_camera, g_cur_room, p->anim_action_type, g_in_hand[g_inventory_index]);
