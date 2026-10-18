@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "game.h"
 #include "savegame.h"
 #include "platform.h"
 #include "subsystems.h"
@@ -106,7 +107,7 @@ const u8 *engine_resource(int index)
  */
 static void load_font(void)
 {
-    g_font_data = load_malloc_hqr(PAK_RESOURCES, ITD_RESS_FONT);  /* 0x407203 */
+    g_font_data = load_malloc_hqr(PAK_RESOURCES, game_current()->font_entry);  /* 0x407203 */
 
     if (g_font_data == NULL) {                        /* 0x40720d */
         sys_error_box("?", "Error loading font file"); /* 0x407220 */
@@ -114,7 +115,7 @@ static void load_font(void)
     }
 
     font_set_data(g_font_data);       /* 0x407234 */
-    font_set_spacing(1);              /* 0x40723e */
+    font_set_spacing((u16)game_current()->font_spacing); /* 0x40723e */
     font_set_color_table(g_font_color_table); /* 0x407248, 0x44485c */
 }
 
@@ -214,7 +215,8 @@ static void init_audio(void)
 /*
  * 0x407440..0x40747e
  *
- * DEFINES.ITD is read as a flat 0x46 byte record, not parsed.
+ * DEFINES.ITD: 0x46 big-endian words (45 in Alone in the Dark 1, 15 in
+ * Jack in the Dark; the read stops at the end of the file).
  */
 static void load_defines(void)
 {
@@ -224,7 +226,7 @@ static void load_defines(void)
         fatal_error(0, FILE_DEFINES);         /* 0x407462 */
     }
 
-    file_read_be16(handle, g_defines_itd, 0x46);   /* 0x407475 */
+    file_read_be16(handle, g_defines_itd, (u32)game_current()->defines_words); /* 0x407475 */
     file_close(handle);                       /* 0x40747e */
 }
 
@@ -264,12 +266,12 @@ static void alloc_caches(void)
 
     memset(g_slot_table, 0xff, sizeof(g_slot_table));  /* 0x407516 */
 
-    g_pak_entry_0 = load_malloc_hqr(PAK_RESOURCES, ITD_RESS_UI_SPRITES); /* 0x40751b */
+    g_pak_entry_0 = load_malloc_hqr(PAK_RESOURCES, game_current()->frame_entry); /* 0x40751b */
     g_priority_itd = load_malloc(FILE_PRIORITY);                 /* 0x407531 */
 
     /* Samples are only cached when digital audio actually came up. */
     if (g_sound_ready) {                                    /* 0x40753b */
-        g_cache_sample = hqr_init_resource("ListSamp", 0x186a0, 20);  /* 0x407554 */
+        g_cache_sample = hqr_init_resource(game_current()->sample_pak, 0x186a0, 20); /* 0x407554 */
     }
 
     g_cache_mat = hqr_init_resource("ListMat", 0xfa00, 5);       /* 0x40756d */

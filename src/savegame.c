@@ -107,7 +107,7 @@ static struct save_block s_blocks[] = {
     { &g_inventory_index, 2 },
     { &g_quit_requested, 2 },
     { &g_black_screen, 2 },
-    { &g_saved_speech_flag, 2 },
+    { &g_saved_shaking, 2 },
     { &s_unknown_44502a, 2 },
     { &g_ticks, 4 },
     { NULL, 4 },                    /* ticks frozen at, filled below */

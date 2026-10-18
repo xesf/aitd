@@ -410,7 +410,7 @@ void game_scene_loop(s16 flag)
         }
     }
 
-    g_speech_flag = 0;   /* 0x430da4 */
+    g_shaking = 0;   /* 0x430da4 */
     sound_stop_all();    /* 0x40b2e8 */
 }
 
@@ -427,7 +427,7 @@ void game_run(s16 floor, s16 room, s16 flag)
     if (handle == 0) {
         fatal_error(0, "DEFINES.ITD");
     }
-    file_read_be16(handle, g_defines_itd, 0x46);
+    file_read_be16(handle, g_defines_itd, (u32)game_current()->defines_words);
     file_close(handle);
 
     draw_init();

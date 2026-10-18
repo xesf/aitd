@@ -101,6 +101,57 @@ static u8 **load_all_entries(const char *name, int *out_count)
     return table;
 }
 
+static void build_name(char *out, size_t size, const char *prefix, int index)
+{
+    snprintf(out, size, "%s%02d.PAK", prefix, index);
+}
+
+int g_camera_view_size = 16;
+
+/* ETAGE##.PAK blobs of the earlier titles: entry 0 holds every room and
+ * entry 1 every camera, each behind a u32 offset table. The tables built
+ * from them point into the blobs. */
+static u8 *s_room_blob;
+static u8 *s_camera_blob;
+
+static u8 **split_blob(u8 *blob, u32 size, int *out_count)
+{
+    u32 first = blob_u32(blob, 0);
+    int max = (int)(first / 4);
+    u32 last = 0;
+    u8 **table = mem_alloc_checked(sizeof(*table) * (size_t)(max + 1));
+    int count = 0;
+
+    /* Offsets rise until the table ends (FITD reads it the same way). */
+    while (count < max) {
+        u32 offset = blob_u32(blob, count * 4);
+
+        if (offset >= size || offset <= last) {
+            break;
+        }
+        table[count++] = blob + offset;
+        last = offset;
+    }
+    table[count] = NULL;
+    *out_count = count;
+    return table;
+}
+
+static void load_floor_blobs(s16 floor)
+{
+    char name[32];
+    u32 room_size = 0, camera_size = 0;
+
+    build_name(name, sizeof(name), game_current()->room_prefix, floor);
+    s_room_blob = pak_load(name, 0, &room_size);
+    s_camera_blob = pak_load(name, 1, &camera_size);
+    if (s_room_blob == NULL || s_camera_blob == NULL) {
+        fatal_error(0, name);
+    }
+    g_floor_rooms = split_blob(s_room_blob, room_size, &g_floor_room_count);
+    g_floor_cameras = split_blob(s_camera_blob, camera_size, &g_floor_camera_count);
+}
+
 /* 0x414e0b */
 static void free_all_entries(u8 **table)
 {
@@ -115,10 +166,6 @@ static void free_all_entries(u8 **table)
     mem_free(table);
 }
 
-static void build_name(char *out, size_t size, const char *prefix, int index)
-{
-    snprintf(out, size, "%s%02d.PAK", prefix, index);
-}
 
 /* 0x40a9b3 */
 void world_set_floor(s16 floor)
@@ -128,7 +175,14 @@ void world_set_floor(s16 floor)
 
     ticks_freeze();
 
-    if (g_floor_cameras != NULL) {
+    if (s_room_blob != NULL) {
+        mem_free(g_floor_cameras);
+        mem_free(g_floor_rooms);
+        mem_free(s_room_blob);
+        mem_free(s_camera_blob);
+        s_room_blob = s_camera_blob = NULL;
+        g_floor_cameras = g_floor_rooms = NULL;
+    } else if (g_floor_cameras != NULL) {
         free_all_entries(g_floor_cameras);
         g_floor_cameras = NULL;
         free_all_entries(g_floor_rooms);
@@ -147,12 +201,17 @@ void world_set_floor(s16 floor)
      * move in this port, so there is nothing to rewind. */
 
     g_cur_floor = floor;
+    g_camera_view_size = profile->camera_view_size;
 
-    build_name(name, sizeof(name), profile->room_prefix, floor);      /* "SAL" */
-    g_floor_rooms = load_all_entries(name, &g_floor_room_count);
+    if (profile->floor_layout == FLOOR_ETAGE_BLOB) {
+        load_floor_blobs(floor);
+    } else {
+        build_name(name, sizeof(name), profile->room_prefix, floor);   /* SAL / ETAGE */
+        g_floor_rooms = load_all_entries(name, &g_floor_room_count);
 
-    build_name(name, sizeof(name), "CAM", floor);
-    g_floor_cameras = load_all_entries(name, &g_floor_camera_count);
+        build_name(name, sizeof(name), profile->camera_prefix, floor); /* CAM / CAMSAL */
+        g_floor_cameras = load_all_entries(name, &g_floor_camera_count);
+    }
 
     g_cur_camera = -1;
     g_change_room = 1;
@@ -275,18 +334,18 @@ void world_load_background(s16 camera)
     u8 *picture;
     size_t i;
 
-    for (i = 0; i < sizeof(swaps) / sizeof(swaps[0]); i++) {
+    for (i = 0; game_id() == GAME_AITD3 && i < sizeof(swaps) / sizeof(swaps[0]); i++) {
         if (g_alt_bg_flag(swaps[i].flag) && g_cur_floor == swaps[i].floor
             && (g_cur_room == swaps[i].room || g_cur_room == swaps[i].room2)
             && camera == swaps[i].camera) {
             entry = swaps[i].entry;
-            pak = profile->resource_pak;
+            pak = "ITD_RESS.PAK";
             break;
         }
     }
 
     if (entry < 0) {
-        build_name(name, sizeof(name), profile->camera_prefix, g_cur_floor);
+        build_name(name, sizeof(name), profile->background_prefix, g_cur_floor);
         entry = camera;
     }
 
@@ -327,7 +386,7 @@ void world_setup_camera(void)
     g_cur_camera = g_new_camera;
 
     /* 0x40a192: the alternate mask set NASK01 replaces MASK01. */
-    if (g_alt_bg_flag(6) && g_cur_floor == 1) {
+    if (game_id() == GAME_AITD3 && g_alt_bg_flag(6) && g_cur_floor == 1) {
         mask_prefix = "NASK";
     }
     build_name(name, sizeof(name), mask_prefix, g_cur_floor);
@@ -412,10 +471,16 @@ void world_load_objects(void)
     if (g_objects == NULL) {
         g_objects = mem_alloc_checked(sizeof(struct world_object) * (size_t)g_object_count);
     }
-    file_read(handle, g_objects, sizeof(struct world_object) * (u32)g_object_count);
-
     for (i = 0; i < g_object_count; i++) {
-        g_objects[i].flags |= 0x20;
+        /* Alone in the Dark 1 records stop before `mark` (52 bytes). */
+        struct world_object *o = &g_objects[i];
+
+        memset(o, 0, sizeof(*o));
+        file_read(handle, o, (u32)game_current()->object_size);
+        if (game_current()->object_size < (int)sizeof(*o)) {
+            o->mark = -1;
+        }
+        o->flags |= 0x20;
     }
     file_close(handle);
 

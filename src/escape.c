@@ -100,7 +100,7 @@ int scene_escape_menu(void)
     s16 selected = 0;
 
     ticks_freeze();
-    speech_save();
+    shaking_save();
     palette_blackout();
     memcpy(g_back_buffer, g_screen, (size_t)g_screen_width * (size_t)g_screen_height); /* 0x402c8b */
     savegame_make_thumbnail(g_back_buffer);
@@ -181,7 +181,7 @@ int scene_escape_menu(void)
             if (savegame_restore(g_object_table, 1)) {
                 g_init_view = 2;
                 ticks_unfreeze();
-                speech_restore();
+                shaking_restore();
                 return 1;
             }
             restore_menu_palette();
@@ -228,6 +228,6 @@ int scene_escape_menu(void)
     wait_keys_up(0);
     g_init_view = 2;
     ticks_unfreeze();
-    speech_restore();
+    shaking_restore();
     return 0;
 }

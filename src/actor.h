@@ -16,7 +16,7 @@ enum track_op {
     TRACK_OP_END = 2,
     TRACK_OP_REWIND = 3,
     TRACK_OP_MARK = 4,
-    TRACK_OP_STOP = 5,                 /* waits for LIFE_OP_SKIP_TRACK_MARK */
+    TRACK_OP_STOP = 5,                 /* waits for LIFE_OP_CONTINUE_TRACK */
     TRACK_OP_ROTATE = 6,
     TRACK_OP_COL_OFF = 7,
     TRACK_OP_COL_ON = 8,

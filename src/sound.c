@@ -22,8 +22,8 @@
 #include "platform.h"
 #include "subsystems.h"
 
-s16 g_speech_flag;           /* 0x430da4 */
-s16 g_saved_speech_flag;     /* 0x445020 */
+s16 g_shaking;           /* 0x430da4 */
+s16 g_saved_shaking;     /* 0x445020 */
 s16 g_sample_priority = -1;  /* 0x444ffc */
 s16 g_sample_current = -1;   /* 0x445004 */
 static u32 s_music_timer;        /* 0x4415e4 */
@@ -162,16 +162,16 @@ void music_toggle(void)
 }
 
 /* 0x40b59d - mute speech while a menu or dialog is up. */
-void speech_save(void)
+void shaking_save(void)
 {
-    g_saved_speech_flag = g_speech_flag;
-    g_speech_flag = 0;
+    g_saved_shaking = g_shaking;
+    g_shaking = 0;
 }
 
 /* 0x40b5d6 */
-void speech_restore(void)
+void shaking_restore(void)
 {
-    g_speech_flag = g_saved_speech_flag;
+    g_shaking = g_saved_shaking;
 }
 
 /* 0x40b452 */

@@ -169,7 +169,7 @@ void inventory_open(void)
     memcpy(g_back_buffer, g_screen, 64000);
 
     ticks_freeze();
-    speech_save();
+    shaking_save();
     if (g_black_screen) {
         palette_blackout();
     }
@@ -296,5 +296,5 @@ void inventory_open(void)
     if (use) {
         life_run_global(object);
     }
-    speech_restore();
+    shaking_restore();
 }

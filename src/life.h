@@ -9,21 +9,24 @@
 #include "aitd.h"
 #include "world.h"
 
-/* Life script opcodes (jump table at 0x4041a3). Bit 15 on an opcode makes
- * it act on the object whose index follows; an object without an actor
- * only accepts the subset in object_opcode (0x403a7e). Names in capitals
- * in the comments are the classic AITD ones where the behaviour matches. */
+/* Life script opcodes. The values are the raw opcodes of Alone in the Dark
+ * 2 and 3, Jack in the Dark and Time Gate (jump table at 0x4041a3 in
+ * WAITD3.EXE); Alone in the Dark 1 numbers them differently and is mapped
+ * onto these by life_opcode_map (lifemap.c). Opcodes only AITD1 has get
+ * values from 200. Bit 15 makes an opcode act on the object whose index
+ * follows; an object without an actor only accepts the subset in
+ * object_opcode (0x403a7e). Names are the classic ones. */
 enum life_op {
     LIFE_OP_DO_MOVE = 0,            /* run the track / manual movement */
     LIFE_OP_ANIM_ONCE = 1,
     LIFE_OP_ANIM_ALL_ONCE = 2,      /* once, cannot be interrupted */
     LIFE_OP_BODY = 3,
-    LIFE_OP_IF_DIFFERENT = 4,
-    LIFE_OP_IF_EQUAL = 5,
-    LIFE_OP_IF_INF = 6,
-    LIFE_OP_IF_INF_EQUAL = 7,
-    LIFE_OP_IF_SUP = 8,
-    LIFE_OP_IF_SUP_EQUAL = 9,
+    LIFE_OP_IF_EQUAL = 4,           /* IF_xx run on when true, else jump */
+    LIFE_OP_IF_DIFFERENT = 5,
+    LIFE_OP_IF_SUP_EQUAL = 6,
+    LIFE_OP_IF_SUP = 7,
+    LIFE_OP_IF_INF_EQUAL = 8,
+    LIFE_OP_IF_INF = 9,
     LIFE_OP_GOTO = 10,
     LIFE_OP_RETURN = 11,
     LIFE_OP_END = 12,
@@ -32,7 +35,7 @@ enum life_op {
     LIFE_OP_MOVE = 15,              /* track mode and track number */
     LIFE_OP_HIT = 16,
     LIFE_OP_MESSAGE = 17,
-    LIFE_OP_SET = 18,
+    LIFE_OP_VAR = 18,
     LIFE_OP_INC = 19,
     LIFE_OP_DEC = 20,
     LIFE_OP_ADD = 21,
@@ -47,19 +50,19 @@ enum life_op {
     LIFE_OP_DELETE = 30,
     LIFE_OP_TAKE = 31,
     LIFE_OP_IN_HAND = 32,
-    LIFE_OP_READ_DOCUMENT = 33,     /* 0x4160b6 */
-    LIFE_OP_SAMPLE_ON_FRAME = 34,
+    LIFE_OP_READ = 33,              /* read_document, 0x4160b6 */
+    LIFE_OP_ANIM_SAMPLE = 34,
     LIFE_OP_SPECIAL = 35,
     LIFE_OP_DO_REAL_ZV = 36,
     LIFE_OP_SAMPLE = 37,
     LIFE_OP_TYPE = 38,
     LIFE_OP_GAME_OVER = 39,
     LIFE_OP_MANUAL_ROT = 40,
-    LIFE_OP_SKIP_ONE = 41,          /* reads one word, does nothing */
+    LIFE_OP_RND_FREQ = 41,          /* reads one word, does nothing */
     LIFE_OP_MUSIC = 42,
     LIFE_OP_SET_BETA = 43,
     LIFE_OP_DO_ROT_ZV = 44,
-    LIFE_OP_CHANGE_ROOM = 45,
+    LIFE_OP_STAGE = 45,
     LIFE_OP_FOUND_NAME = 46,
     LIFE_OP_FOUND_FLAG = 47,
     LIFE_OP_FOUND_LIFE = 48,
@@ -69,50 +72,78 @@ enum life_op {
     LIFE_OP_TEST_COL = 52,
     LIFE_OP_FOUND_BODY = 53,
     LIFE_OP_SET_ALPHA = 54,
-    LIFE_OP_DO_CARRE_ZV = 55,
+    LIFE_OP_DO_MAX_ZV = 55,
     LIFE_OP_PUT = 56,               /* 0x40e366 */
     LIFE_OP_DO_NORMAL_ZV = 57,
-    LIFE_OP_DO_CADRE_ZV = 58,
+    LIFE_OP_DO_CARRE_ZV = 58,
     LIFE_OP_SAMPLE_THEN = 59,
     LIFE_OP_LIGHT = 60,
-    LIFE_OP_SPEECH = 61,            /* sets g_speech_flag */
+    LIFE_OP_SHAKING = 61,           /* g_shaking */
     LIFE_OP_INVENTORY = 62,         /* enables the inventory */
-    LIFE_OP_SET_TRACK_POSITION = 63,
+    LIFE_OP_FOUND_WEIGHT = 63,
     LIFE_OP_PUT_AT = 64,            /* 0x40e41b */
     LIFE_OP_DEF_ZV = 65,
     LIFE_OP_HIT_OBJECT = 66,
     LIFE_OP_ANGLE = 67,
-    LIFE_OP_SAMPLE_REPEAT = 68,
+    LIFE_OP_REP_SAMPLE = 68,
     LIFE_OP_THROW = 69,
-    LIFE_OP_NOP = 70,
+    LIFE_OP_WATER = 70,             /* no-op in AITD3 */
     LIFE_OP_PICTURE = 71,
     LIFE_OP_STOP_SAMPLE = 72,
     LIFE_OP_NEXT_MUSIC = 73,
-    LIFE_OP_MUSIC_NOW = 74,
+    LIFE_OP_FADE_MUSIC = 74,
     LIFE_OP_STOP_HIT_OBJECT = 75,
     LIFE_OP_COPY_ANGLE = 76,
     LIFE_OP_SAMPLE_THEN_REPEAT = 77,
     LIFE_OP_WAIT_GAME_OVER = 78,
-    LIFE_OP_ZONE_LIFE = 80,         /* object +0x24, the life a zone of type 10 starts */
-    LIFE_OP_SKIP_TRACK_MARK = 81,   /* step over a track MARK the actor is on */
+    LIFE_OP_GET_MATRICE = 79,       /* no-op in AITD3 */
+    LIFE_OP_STAGE_LIFE = 80,        /* object +0x24, the life a zone of type 10 starts */
+    LIFE_OP_CONTINUE_TRACK = 81,    /* step over a TRACK_OP_STOP */
     LIFE_OP_ANIM_RESET = 82,        /* once, from the rest pose */
-    LIFE_OP_STOP_BETA = 83,
-    LIFE_OP_SPRITE_ANIM = 85,
-    LIFE_OP_SPRITE_ANIM_REPEAT = 86,
-    LIFE_OP_SET_DEFINE = 87,
-    LIFE_OP_OPEN_INVENTORY = 88,
-    LIFE_OP_BODY_ANIM = 89,
-    LIFE_OP_DELETE_INVENTORY = 90,
+    LIFE_OP_RESET_MOVE_MANUAL = 83,
+    LIFE_OP_PLUIE = 84,             /* rain; no-op in AITD3 */
+    LIFE_OP_ANIM_HYBRIDE_ONCE = 85,
+    LIFE_OP_ANIM_HYBRIDE_REPEAT = 86,
+    LIFE_OP_MODIF_C_VAR = 87,       /* set a DEFINES word */
+    LIFE_OP_CALL_INVENTORY = 88,
+    LIFE_OP_BODY_RESET = 89,
+    LIFE_OP_DEL_INVENTORY = 90,
     LIFE_OP_SET_INVENTORY = 91,
-    LIFE_OP_CUTSCENE = 92,          /* 0x4025a3 */
-    LIFE_OP_SAMPLE_ON_BGANIM = 93,
-    LIFE_OP_WATER = 94,
-    LIFE_OP_SET_ZV = 96,
-    LIFE_OP_SAMPLE_LIST = 97,
-    LIFE_OP_READ = 98,
+    LIFE_OP_PLAY_SEQUENCE = 92,     /* 0x4025a3 */
+    LIFE_OP_2D_ANIM_SAMPLE = 93,
+    LIFE_OP_SET_GROUND = 94,
+    LIFE_OP_PROTECT = 95,           /* no-op in AITD3 */
+    LIFE_OP_DEF_ABS_ZV = 96,
+    LIFE_OP_DEF_SEQUENCE_SAMPLE = 97,
+    LIFE_OP_READ_ON_PICTURE = 98,
     LIFE_OP_FIRE_UP_DOWN = 99,
-    LIFE_OP_PALETTE_CYCLE = 100,
-    LIFE_OP_PALETTE_CYCLE_OFF = 101
+    LIFE_OP_DO_ROT_CLUT = 100,
+    LIFE_OP_STOP_CLUT = 101,
+    /* Time Gate. */
+    LIFE_OP_IF_IN = 102,
+    LIFE_OP_IF_OUT = 103,
+    LIFE_OP_SET_VOLUME_SAMPLE = 105,
+    LIFE_OP_FADE_IN_MUSIC = 108,
+    LIFE_OP_SET_MUSIC_VOLUME = 109,
+    LIFE_OP_MUSIC_AND_LOOP = 110,
+    LIFE_OP_MUSIC_THEN = 111,
+    LIFE_OP_MUSIC_THEN_LOOP = 112,
+    LIFE_OP_START_FADE_IN_MUSIC = 113,
+    LIFE_OP_START_FADE_IN_MUSIC_THEN = 114,
+    LIFE_OP_START_FADE_IN_MUSIC_LOOP = 115,
+    LIFE_OP_FADE_OUT_MUSIC_STOP = 116,
+    LIFE_OP_MUSIC_ALTER_TEMPO = 117,
+    LIFE_OP_REP_SAMPLE_N_TIME = 118,
+    /* Alone in the Dark 1 only. */
+    LIFE_OP_MESSAGE_VALUE = 200,
+    LIFE_OP_CAMERA = 201,
+    LIFE_OP_STOP_BETA = 202,
+    LIFE_OP_C_VAR = 203,
+    LIFE_OP_UP_COOR_Y = 204,
+    LIFE_OP_SPEED = 205,
+    LIFE_OP_GET_HARD_CLIP = 206,
+    LIFE_OP_END_SEQUENCE = 207,
+    LIFE_OP_INVALID = -1
 };
 
 /* Variables read by the evaluator (0x403002). -1 is a constant and 0 a
@@ -260,10 +291,10 @@ extern s16 g_action;           /* 0x44502c, the ACTION variable */
 extern s16 g_new_floor;        /* 0x44500c */
 extern s16 g_new_room;         /* 0x44500a */
 extern s16 g_inventory_enabled; /* 0x435056 */
-void speech_save(void);     /* 0x40b59d */
-void speech_restore(void);  /* 0x40b5d6 */
-extern s16 g_speech_flag;      /* 0x430da4 */
-extern s16 g_saved_speech_flag; /* 0x445020 */
+void shaking_save(void);     /* 0x40b59d */
+void shaking_restore(void);  /* 0x40b5d6 */
+extern s16 g_shaking;      /* 0x430da4 */
+extern s16 g_saved_shaking; /* 0x445020 */
 extern u8 g_frame_flag;        /* 0x435137 */
 
 #endif /* AITD_LIFE_H */

@@ -289,7 +289,9 @@ static inline u32 blob_u32(const u8 *p, int offset)
 
 /* Camera viewed-room records start at +0x14, 16 bytes each. */
 #define CAMERA_VIEW_COUNT(cam) blob_s16((cam), 0x12)
-#define CAMERA_VIEW(cam, i) ((cam) + 0x14 + (i) * 16)
+/* Bytes per viewed room: 12 in AITD1, 16, 22 in Time Gate. */
+extern int g_camera_view_size;
+#define CAMERA_VIEW(cam, i) ((cam) + 0x14 + (i) * g_camera_view_size)
 
 struct world_object *object_get(int index);    /* 0x407b1b */
 

@@ -316,7 +316,7 @@ static void object_opcode(s16 op, struct world_object *o)
         break;
     }
     case LIFE_OP_SET_BETA: { s16 v = fetch(); fetch(); o->beta = v; break; }
-    case LIFE_OP_CHANGE_ROOM:
+    case LIFE_OP_STAGE:
         o->stage = fetch();
         o->room = fetch();
         o->x = fetch();
@@ -332,7 +332,7 @@ static void object_opcode(s16 op, struct world_object *o)
         break;
     case LIFE_OP_FOUND_BODY: o->found_body = fetch(); break;
     case LIFE_OP_SET_ALPHA: { s16 v = fetch(); fetch(); o->alpha = v; break; }
-    case LIFE_OP_SET_TRACK_POSITION: o->position_in_track = fetch(); break;
+    case LIFE_OP_FOUND_WEIGHT: o->position_in_track = fetch(); break;
     case LIFE_OP_ANGLE: o->alpha = fetch(); o->beta = fetch(); o->gamma = fetch(); break;
     case LIFE_OP_COPY_ANGLE: {
         struct world_object *src = object_get(fetch());
@@ -348,8 +348,8 @@ static void object_opcode(s16 op, struct world_object *o)
         }
         break;
     }
-    case LIFE_OP_ZONE_LIFE: o->field_24 = fetch(); break;
-    case LIFE_OP_SKIP_TRACK_MARK: {
+    case LIFE_OP_STAGE_LIFE: o->field_24 = fetch(); break;
+    case LIFE_OP_CONTINUE_TRACK: {
         const u8 *track = hqr_get(g_cache_trak, o->track_number, NULL);
         if (blob_s16(track, o->position_in_track * 2) == TRACK_OP_STOP) {
             o->position_in_track++;
@@ -357,7 +357,7 @@ static void object_opcode(s16 op, struct world_object *o)
         break;
     }
     case LIFE_OP_ANIM_RESET: o->anim = fetch(); o->anim_info = fetch(); o->anim_type = ANIM_RESET; o->frame = 0; break;
-    case LIFE_OP_BODY_ANIM: o->body = eval(); o->anim = eval(); break;
+    case LIFE_OP_BODY_RESET: o->body = eval(); o->anim = eval(); break;
     default:
         break;
     }
@@ -898,15 +898,15 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_IF_DIFFERENT: case LIFE_OP_IF_EQUAL: case LIFE_OP_IF_INF: case LIFE_OP_IF_INF_EQUAL: case LIFE_OP_IF_SUP: case LIFE_OP_IF_SUP_EQUAL: {   /* IF_xx */
+        case LIFE_OP_IF_EQUAL: case LIFE_OP_IF_DIFFERENT: case LIFE_OP_IF_SUP_EQUAL: case LIFE_OP_IF_SUP: case LIFE_OP_IF_INF_EQUAL: case LIFE_OP_IF_INF: {   /* IF_xx */
             s16 l = eval(), r = eval();
             int jump;
             switch (op) {
-            case LIFE_OP_IF_DIFFERENT: jump = l != r; break;
-            case LIFE_OP_IF_EQUAL: jump = l == r; break;
-            case LIFE_OP_IF_INF: jump = l < r; break;
-            case LIFE_OP_IF_INF_EQUAL: jump = l <= r; break;
-            case LIFE_OP_IF_SUP: jump = l > r; break;
+            case LIFE_OP_IF_EQUAL: jump = l != r; break;
+            case LIFE_OP_IF_DIFFERENT: jump = l == r; break;
+            case LIFE_OP_IF_SUP_EQUAL: jump = l < r; break;
+            case LIFE_OP_IF_SUP: jump = l <= r; break;
+            case LIFE_OP_IF_INF_EQUAL: jump = l > r; break;
             default: jump = l >= r; break;
             }
             if (jump) {
@@ -936,7 +936,7 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_MESSAGE: message_show(fetch()); break;
-        case LIFE_OP_SET: { s16 v = fetch(); g_vars[v] = eval(); break; }
+        case LIFE_OP_VAR: { s16 v = fetch(); g_vars[v] = eval(); break; }
         case LIFE_OP_INC: g_vars[fetch()]++; break;
         case LIFE_OP_DEC: g_vars[fetch()]--; break;
         case LIFE_OP_ADD: { s16 v = fetch(); g_vars[v] = (s16)(g_vars[v] + eval()); break; }
@@ -990,14 +990,14 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_TAKE: object_take(fetch()); break;
         case LIFE_OP_IN_HAND: g_in_hand[g_inventory_index] = eval(); break;
-        case LIFE_OP_READ_DOCUMENT: {
+        case LIFE_OP_READ: {
             s16 a1 = fetch(), a2 = fetch();
             palette_fade_out(0x20, 0);
             read_document((s16)(a2 + 1), a1);
             g_init_view = 2;
             break;
         }
-        case LIFE_OP_SAMPLE_ON_FRAME: {
+        case LIFE_OP_ANIM_SAMPLE: {
             s16 sample = eval(), anim = fetch(), frame = fetch();
             if (a->end_frame && a->anim == anim && a->frame == frame) {
                 sample_play(sample);
@@ -1031,7 +1031,7 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_MANUAL_ROT: actor_turn_keys(0x5a); break;
-        case LIFE_OP_SKIP_ONE: fetch(); break;
+        case LIFE_OP_RND_FREQ: fetch(); break;
         case LIFE_OP_MUSIC: music_play(fetch()); break;
         case LIFE_OP_SET_BETA: {
             s16 v = fetch(), speed = fetch();
@@ -1039,7 +1039,7 @@ void life_run(s16 life, int flag)
             break;
         }
         case LIFE_OP_DO_ROT_ZV: zv_rotated(hqr_get(g_cache_body, a->body, NULL), a->zv, a->alpha, a->beta, a->gamma, a); zv_add_room(a); break;
-        case LIFE_OP_CHANGE_ROOM: {
+        case LIFE_OP_STAGE: {
             s16 f = fetch(), r = fetch(), x = fetch(), y = fetch(), z = fetch();
             actor_teleport(f, r, x, y, z);
             break;
@@ -1069,7 +1069,7 @@ void life_run(s16 life, int flag)
             turn_angle(a, &a->alpha, v, speed);
             break;
         }
-        case LIFE_OP_DO_CARRE_ZV: {
+        case LIFE_OP_DO_MAX_ZV: {
             const u8 *body = hqr_get(g_cache_body, a->body, NULL);
             s16 size;
             zv_from_body(body, a->zv);
@@ -1095,7 +1095,7 @@ void life_run(s16 life, int flag)
             zv_add_room(a);
             break;
         }
-        case LIFE_OP_DO_CADRE_ZV: {
+        case LIFE_OP_DO_CARRE_ZV: {
             s16 half;
             zv_from_body(hqr_get(g_cache_body, a->body, NULL), a->zv);
             half = (s16)((u16)(a->zv[1] + a->zv[5]) >> 1);
@@ -1115,13 +1115,13 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_SPEECH: {
+        case LIFE_OP_SHAKING: {
             s16 v = fetch();
-            g_speech_flag = v;
+            g_shaking = v;
             break;
         }
         case LIFE_OP_INVENTORY: g_inventory_enabled = fetch(); break;
-        case LIFE_OP_SET_TRACK_POSITION: object_get(a->object)->position_in_track = fetch(); break;
+        case LIFE_OP_FOUND_WEIGHT: object_get(a->object)->position_in_track = fetch(); break;
         case LIFE_OP_PUT_AT: { s16 v = fetch(), w = fetch(); object_drop(v, w); break; }
         case LIFE_OP_DEF_ZV: {
             a->zv[0] = (s16)(fetch() + a->room_x + a->step_x);
@@ -1139,7 +1139,7 @@ void life_run(s16 life, int flag)
             a->hot_point_id = -1;
             break;
         case LIFE_OP_ANGLE: a->alpha = fetch(); a->beta = fetch(); a->gamma = fetch(); break;
-        case LIFE_OP_SAMPLE_REPEAT: { s16 s = fetch(), n = fetch(); sample_repeat(s, (u16)n); break; }
+        case LIFE_OP_REP_SAMPLE: { s16 s = fetch(), n = fetch(); sample_repeat(s, (u16)n); break; }
         case LIFE_OP_THROW: {
             s16 w[7];
             int i;
@@ -1147,7 +1147,7 @@ void life_run(s16 life, int flag)
             actor_throw(w[0], w[1], w[2], w[3], w[4], w[5], w[6]);
             break;
         }
-        case LIFE_OP_NOP: break;
+        case LIFE_OP_WATER: break;
         case LIFE_OP_PICTURE: { s16 entry = fetch(), time = fetch(), sample = fetch(); show_picture(entry, time, sample); break; }
         case LIFE_OP_STOP_SAMPLE: sound_stop_all(); break;
         case LIFE_OP_NEXT_MUSIC: {
@@ -1159,7 +1159,7 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_MUSIC_NOW: music_play(fetch()); break;
+        case LIFE_OP_FADE_MUSIC: music_play(fetch()); break;
         case LIFE_OP_STOP_HIT_OBJECT:
             if (a->anim_action_type == ACTION_HIT_OBJECT) {
                 a->anim_action_type = ACTION_NONE;
@@ -1193,8 +1193,8 @@ void life_run(s16 life, int flag)
             g_quit_requested = 1;
             done = 1;
             break;
-        case LIFE_OP_ZONE_LIFE: object_get(a->object)->field_24 = fetch(); break;
-        case LIFE_OP_SKIP_TRACK_MARK: {
+        case LIFE_OP_STAGE_LIFE: object_get(a->object)->field_24 = fetch(); break;
+        case LIFE_OP_CONTINUE_TRACK: {
             const u8 *track = hqr_get(g_cache_trak, a->track_number, NULL);
             if (blob_s16(track, a->position_in_track * 2) == TRACK_OP_STOP) {
                 a->position_in_track++;
@@ -1211,10 +1211,10 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_STOP_BETA: a->rot[2] = 0; break;
-        case LIFE_OP_SPRITE_ANIM: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 0); break; }
-        case LIFE_OP_SPRITE_ANIM_REPEAT: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 1); break; }
-        case LIFE_OP_SET_DEFINE: {
+        case LIFE_OP_RESET_MOVE_MANUAL: a->rot[2] = 0; break;
+        case LIFE_OP_ANIM_HYBRIDE_ONCE: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 0); break; }
+        case LIFE_OP_ANIM_HYBRIDE_REPEAT: { s16 anim = fetch(), body = fetch(); sprite_anim(a, anim, body, 1); break; }
+        case LIFE_OP_MODIF_C_VAR: {
             s16 index = fetch();
             g_defines_itd[index] = (u16)eval();
             if (index == 2) {
@@ -1227,8 +1227,8 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_OPEN_INVENTORY: inventory_open(); break;
-        case LIFE_OP_BODY_ANIM: {
+        case LIFE_OP_CALL_INVENTORY: inventory_open(); break;
+        case LIFE_OP_BODY_RESET: {
             s16 body = eval(), anim = eval();
             struct world_object *o = object_get(a->object);
             o->body = body;
@@ -1247,7 +1247,7 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_DELETE_INVENTORY: {
+        case LIFE_OP_DEL_INVENTORY: {
             int i;
             for (i = 0; i < g_inventory_count[g_inventory_index]; i++) {
                 object_get(g_inventory[g_inventory_index][i])->flags2 &= ~0x8000;
@@ -1271,21 +1271,21 @@ void life_run(s16 life, int flag)
             }
             break;
         }
-        case LIFE_OP_CUTSCENE: { s16 number = fetch(), flags = fetch(), repeat = fetch(); ticks_freeze(); play_cutscene(number, flags, repeat); ticks_unfreeze(); break; }
-        case LIFE_OP_SAMPLE_ON_BGANIM: {
+        case LIFE_OP_PLAY_SEQUENCE: { s16 number = fetch(), flags = fetch(), repeat = fetch(); ticks_freeze(); play_cutscene(number, flags, repeat); ticks_unfreeze(); break; }
+        case LIFE_OP_2D_ANIM_SAMPLE: {
             s16 sample = eval(), idx = fetch(), frame = fetch();
             if (bganim_frame_is(idx, frame)) {
                 sample_play(sample);
             }
             break;
         }
-        case LIFE_OP_WATER: g_clip_y_default = fetch(); break;
-        case LIFE_OP_SET_ZV: {
+        case LIFE_OP_SET_GROUND: g_clip_y_default = fetch(); break;
+        case LIFE_OP_DEF_ABS_ZV: {
             int i;
             for (i = 0; i < 6; i++) a->zv[i] = fetch();
             break;
         }
-        case LIFE_OP_SAMPLE_LIST: {
+        case LIFE_OP_DEF_SEQUENCE_SAMPLE: {
             s16 n = fetch();
             s16 used = (s16)(n > 30 ? 30 : n);
             memcpy(g_cutscene_samples, s_pc, (size_t)used * 4);
@@ -1293,7 +1293,7 @@ void life_run(s16 life, int flag)
             g_cutscene_sample_count = used;
             break;
         }
-        case LIFE_OP_READ: {
+        case LIFE_OP_READ_ON_PICTURE: {
             s16 w[8];
             int i;
             for (i = 0; i < 8; i++) w[i] = fetch();
@@ -1308,13 +1308,13 @@ void life_run(s16 life, int flag)
             actor_fire(anim, frame, hot, w4, w5, w6, w7, next, 1);
             break;
         }
-        case LIFE_OP_PALETTE_CYCLE: {
+        case LIFE_OP_DO_ROT_CLUT: {
             s16 first = fetch(), last = fetch(), speed = fetch();
             g_palette_effect = 1;
             palette_cycle_init(first, last, speed);
             break;
         }
-        case LIFE_OP_PALETTE_CYCLE_OFF: g_palette_effect = 0; break;
+        case LIFE_OP_STOP_CLUT: g_palette_effect = 0; break;
         default:
             break;                                               /* 79, 84, 95 */
         }

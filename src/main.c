@@ -101,7 +101,7 @@ static void load_saved_game(void)
 
     if (savegame_restore(g_object_table, 0)) { /* 0x4192f6 */
         g_menu_state = menu_state;             /* 0x407aa3 */
-        speech_restore();                 /* 0x40b5d6 */
+        shaking_restore();                 /* 0x40b5d6 */
         g_init_view = 2;                       /* 0x4350b9 */
         game_scene_loop(1);                    /* 0x407c7c */
         world_free();                          /* 0x4095a3 */

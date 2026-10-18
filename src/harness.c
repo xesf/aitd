@@ -39,7 +39,7 @@ static void report_state(void)
 
     printf("game            : %s%s\n",
            profile != NULL ? profile->name : "(none)",
-           (profile != NULL && !profile->verified) ? " (profile unverified)" : "");
+           "");
     printf("screen          : %dx%d\n", g_screen_width, g_screen_height);
     printf("front/back      : %p / %p\n",
            (void *)g_front_buffer, (void *)g_back_buffer);
@@ -235,7 +235,8 @@ int harness_run(int argc, char **argv)
         engine_init();
         g_frame_limit = frame_budget();
         g_frame_dump_path = getenv("AITD_DUMP_FRAME");
-        game_run(floor ? (s16)atoi(floor) : 0, room ? (s16)atoi(room) : 0x0c, 1);
+        game_run(floor ? (s16)atoi(floor) : (s16)game_current()->start_floor,
+                 room ? (s16)atoi(room) : (s16)game_current()->start_room, 1);
         engine_shutdown();
         return 1;
     }

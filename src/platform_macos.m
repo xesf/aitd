@@ -309,9 +309,39 @@ int platform_save_path(const char *dir_name, const char *file_name, char *out,
     return 1;
 }
 
+static char s_overlay_dir[64];
+
+/* A folder under the data directory searched before the data directory
+ * itself (Time Gate for Windows keeps its per-resolution files apart). */
+void platform_set_overlay_dir(const char *name)
+{
+    snprintf(s_overlay_dir, sizeof(s_overlay_dir), "%s", name != NULL ? name : "");
+}
+
+int platform_is_directory(const char *path)
+{
+    struct stat st;
+
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+static int resolve_in(const char *dir, const char *name, char *out, size_t out_size);
+
 int platform_resolve_path(const char *name, char *out, size_t out_size)
 {
-    const char *dir = data_dir();
+    if (s_overlay_dir[0] != '\0') {
+        char dir[1024];
+
+        snprintf(dir, sizeof(dir), "%s/%s", data_dir(), s_overlay_dir);
+        if (resolve_in(dir, name, out, out_size)) {
+            return 1;
+        }
+    }
+    return resolve_in(data_dir(), name, out, out_size);
+}
+
+static int resolve_in(const char *dir, const char *name, char *out, size_t out_size)
+{
     DIR *handle;
     struct dirent *entry;
 

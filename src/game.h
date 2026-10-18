@@ -1,83 +1,98 @@
 /*
  * game.h - per-title configuration.
  *
- * WAITD3.EXE is one of the later builds of an engine that also shipped as
- * Alone in the Dark 1 and 2, Jack in the Dark and Time Gate: Knight's Chase.
- * The container format, the cache system and the startup shape are common to
- * all of them; what differs is which asset files exist and what they are
- * called.
+ * WAITD3.EXE is one build of an engine that also shipped as Alone in the
+ * Dark 1 and 2, Jack in the Dark and Time Gate: Knight's Chase (DOS, and a
+ * Windows SVGA build named KNIGHTS). Everything that differs between the
+ * titles is described here so the core tests a property, never a game.
  *
- * Everything the engine needs to vary between titles is collected here so the
- * core never tests for a specific game inline.
- *
- * Only the Alone in the Dark 3 profile has been checked against real data.
- * The others carry the file names the engine would look for and are marked
- * unverified; each becomes fact as soon as a data set is available to probe.
+ * Facts come from the shipped data sets (data/<GAME>/) and, where noted,
+ * from the FITD project (Free in the Dark), used as a reference only.
  */
 
 #ifndef AITD_GAME_H
 #define AITD_GAME_H
+
+#include <stddef.h>
 
 #include "aitd.h"
 
 enum game_id {
     GAME_UNKNOWN = 0,
     GAME_AITD1,
+    GAME_JACK,      /* Jack in the Dark */
     GAME_AITD2,
     GAME_AITD3,
-    GAME_JACK,      /* Jack in the Dark, the AITD2 promo title */
-    GAME_TIMEGATE   /* Time Gate: Knight's Chase */
+    GAME_TIMEGATE   /* Time Gate: Knight's Chase, DOS or Windows (KNIGHTS) */
+};
+
+/* Where a floor's rooms and cameras live. */
+enum floor_layout {
+    FLOOR_ETAGE_BLOB,   /* ETAGE##.PAK: entry 0 all rooms, entry 1 all cameras,
+                           each a u32 offset table (AITD1, AITD2, Jack) */
+    FLOOR_SAL_CAM,      /* SAL##.PAK one room per entry, CAM##.PAK one camera
+                           per entry (AITD3) */
+    FLOOR_ETAGE_CAMSAL  /* ETAGE##.PAK one room per entry, CAMSAL##.PAK one
+                           camera per entry (Time Gate) */
+};
+
+/* How the masks drawn over actors are stored. */
+enum mask_layout {
+    MASK_COVER_ZONES,   /* none: the camera's cover polygons (AITD1) */
+    MASK_RAW,           /* MASK##.PAK is a plain offset table (AITD2, Jack) */
+    MASK_PAK            /* MASK##.PAK is a container (AITD3) */
+};
+
+/* Raw life opcode and variable numbering. */
+enum life_dialect {
+    LIFE_DIALECT_AITD1, /* its own order, see lifemap.c */
+    LIFE_DIALECT_AITD2  /* AITD2, Jack, AITD3, Time Gate: the life_op values */
 };
 
 struct game_profile {
     enum game_id id;
     const char *name;
+    const char *marker_file;        /* only this title ships it */
 
-    /* Container holding the font and the shared UI resources. Every known
-     * title uses this name (0x4071fe). */
-    const char *resource_pak;
+    int screen_width;
+    int screen_height;
+    const char *resolution_dir;     /* overlay folder searched first, or NULL */
 
-    /* Per-room geometry and per-room camera containers. The number suffix is
-     * two digits, zero padded. */
-    const char *room_prefix;
-    const char *camera_prefix;
-    const char *mask_prefix;
+    enum floor_layout floor_layout;
+    const char *room_prefix;        /* "ETAGE" or "SAL" */
+    const char *camera_prefix;      /* CAM / CAMSAL, unused for ETAGE blobs */
+    const char *background_prefix;  /* "CAMERA" */
+    int camera_view_size;           /* bytes per viewed room in a camera */
 
-    /* Cache backing files. These match the cache names passed to cache_create
-     * at 0x40756d..0x4075fe. */
-    const char *list_body;
-    const char *list_anim;
-    const char *list_life;
-    const char *list_trak;
-    const char *list_hyb;
-    const char *list_mat;
-    const char *list_samp;
+    enum mask_layout mask_layout;
 
-    /* Flat .ITD records loaded at startup. */
-    const char *defines_itd;
-    const char *priority_itd;
-    const char *objects_itd;
-    const char *vars_itd;
+    int object_size;                /* OBJETS.ITD record: 52 or 54 */
+    int defines_words;              /* DEFINES.ITD length in words */
+    enum life_dialect life_dialect;
 
-    /* Byte count read from the defines record; 0x46 for Alone in the Dark 3
-     * (0x407467). Other titles may carry a different record length. */
-    u32 defines_size;
+    int font_entry;                 /* ITD_RESS entries */
+    int frame_entry;                /* the window frame sprites */
+    int font_spacing;
 
-    /* A file that exists only in this title's data set, used for detection. */
-    const char *marker_file;
+    const char *sample_pak;         /* LISTSAMP or SAMPLES, without .PAK */
 
-    /* Set when the profile has been confirmed against a real data set. */
-    int verified;
+    /* game_run arguments for a new game and for the intro (-1: none). */
+    int start_floor, start_room;
+    int intro_floor, intro_room;
 };
 
 /* Chooses a profile by probing the data directory. AITD_GAME overrides the
- * probe with one of: aitd1, aitd2, aitd3, jack, timegate. */
+ * probe with one of: aitd1, jack, aitd2, aitd3, timegate. AITD_RES selects
+ * the Windows Time Gate resolution, 320 or 640 (default 640). */
 const struct game_profile *game_detect(void);
 
 /* The profile in force. NULL before game_detect has run. */
 const struct game_profile *game_current(void);
 
 const struct game_profile *game_profile_by_id(enum game_id id);
+
+/* Shorthand for game_current()->id. */
+enum game_id game_id(void);
 
 /* Builds a numbered asset name, e.g. ("SAL", 3) -> "SAL03.PAK". */
 void game_build_room_name(const char *prefix, int index, char *out, size_t out_size);
