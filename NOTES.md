@@ -283,15 +283,52 @@ substituted for each other.
 
 ## Multi-game support
 
-`src/game.h` holds one profile per title — container names, room/camera/mask
-prefixes, cache backing files, defines record length — so the core never tests
-for a specific game inline. `game_detect()` probes the data directory for a
-marker file; `AITD_GAME=aitd1|aitd2|aitd3|jack|timegate` overrides the probe.
+The data sets live in `data/<GAME>/` (INDARK = AITD1, INDARK2 = AITD2,
+JACK, INDARK3 = AITD3, TIMEGATE = Time Gate DOS, KNIGHTS = Time Gate for
+Windows with `320/` and `640/` resolution folders). `game.c` detects the
+title from a marker file (FITD's markers: LISTBOD2, PERE, MER, AN1,
+PURSUIT) and every difference is a profile field. FITD (Free in the Dark,
+GPLv2) was used as a reference for facts about the older formats, never
+for code; everything taken from it was checked against the data.
 
-Only the **Alone in the Dark 3** profile is verified against real data. The
-other four carry the names the engine would look for and are flagged
-`verified = 0`; each becomes fact once a data set is available to probe. The
-`SAL`/`CAM` vs `ETAGE`/`CAMERA` prefix split is the main expected divergence.
+| | AITD1 | Jack | AITD2 | AITD3 | Time Gate |
+|---|---|---|---|---|---|
+| PAK method 1 | implode | implode | implode | - | - |
+| floors | ETAGE blob | ETAGE blob | ETAGE blob | SAL + CAM | ETAGE + CAMSAL |
+| camera view record | 12 | 16 | 16 | 16 | 22 |
+| background | 64000 | +6-bit pal | +6-bit pal | hdr 4, +8-bit pal | +8-bit pal |
+| palette | ITD_RESS 3 | camera | camera | camera | camera |
+| masks | cover polygons | MASK PAK | MASK PAK | MASK PAK | none (MK/NK?) |
+| object record | 52 | 54 | 54 | 54 | 54 |
+| DEFINES words | 45 | 70 | 70 | 70 | 70 |
+| font (ITD_RESS) | 5, 1-bit | 1, 1-bit | 1, 1-bit | 1 | 2 |
+| bodies | 16 byte groups | 24 byte groups (flag 8) | 16 | 16 | flags 0x40/0x80 |
+| life opcodes | own order | shared | shared | shared | shared + 102..118 |
+
+- **PAK entries** may open with a descriptor block (AITD2 masks); method 1
+  is PKZIP implode in the older titles (`explode.c`), with the flags byte
+  choosing the 8K window and the literal tree. All 1,002 containers of the
+  six data sets decode.
+- **DEFINES.ITD** is big-endian words (0x420728). The words differ per
+  title: AITD1 keeps the player object in 7 and the chosen hero in 8
+  (LISTBODY/LISTANIM or LISTBOD2/LISTANI2); AITD2/3 the player object in 13.
+- **Life scripts**: `lifemap.c` maps AITD1's opcode order and its evaluator
+  variables (34 ROOM_Y, 35 TEST_ZV_END_ANIM, then MUSIC, C_VAR, STAGE,
+  THROW) onto the shared numbering. Operand shapes differ per title (SAMPLE,
+  REP_SAMPLE, SAMPLE_THEN, IN_HAND, DELETE, READ, FIRE, PLAY_SEQUENCE); a
+  checker parses every LISTLIFE script of AITD1, Jack, AITD2 and AITD3 to
+  its exact length with them. AITD1 and Jack run every script whose life
+  mode is not -1.
+- **Optimised bodies** (flag 8, Jack): 24 byte groups with their own
+  rotation; WAITD3.EXE cannot draw them, the path follows FITD's renderer.
+- **Fonts**: AITD1/AITD2/Jack use a 1-bit font (character table of width
+  nibble + bit offset), AITD3 and Time Gate the newer one.
+
+State: AITD1 (Carnby walking in the attic), AITD2 (the opening gate scene)
+and Jack (the toy shop street and the credits book) start and render.
+Time Gate shows its first picture but its life scripts use operand shapes
+not covered yet (opcodes 102..118 and changes to older ones), and
+KNIGHTS needs a 640 x 480 screen throughout the engine.
 
 ## Main menu (0x408f34)
 
