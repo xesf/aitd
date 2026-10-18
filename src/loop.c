@@ -427,7 +427,7 @@ void game_run(s16 floor, s16 room, s16 flag)
     if (handle == 0) {
         fatal_error(0, "DEFINES.ITD");
     }
-    file_read(handle, g_defines_itd, 0x46);
+    file_read_be16(handle, g_defines_itd, 0x46);
     file_close(handle);
 
     draw_init();

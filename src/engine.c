@@ -224,7 +224,7 @@ static void load_defines(void)
         fatal_error(0, FILE_DEFINES);         /* 0x407462 */
     }
 
-    file_read(handle, g_defines_itd, 0x46);   /* 0x407475 */
+    file_read_be16(handle, g_defines_itd, 0x46);   /* 0x407475 */
     file_close(handle);                       /* 0x40747e */
 }
 

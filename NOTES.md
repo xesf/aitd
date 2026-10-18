@@ -647,8 +647,7 @@ the thumbnail — the original does the same. State blocks and vars are XOR
 index 7 is computed (object table, `count * 54`):
 
 difficulty[3], room, floor, camera, player object, player actor, object
-count, objects, DEFINES block (0x8c bytes, not 0x46: the file reads 0x46 but
-the save covers the whole 70-word block), in-hand[2], inventory counts[2],
+count, objects, DEFINES block (0x8c bytes: 0x46 big-endian words), in-hand[2], inventory counts[2],
 inventories (2 x 50), inventory enabled, inventory index, quit flag, black
 screen, saved speech flag, 0x44502a, game clock, clock frozen-at, music,
 the 0x1fb8-byte saved-ZV area, palette effect flag and its 0x316-byte state.

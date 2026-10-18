@@ -158,7 +158,7 @@ extern void *g_font_data;           /* 0x444b18 */
 extern void *g_anim_buffer;         /* 0x444aa4, 0xcd00 bytes */
 extern void *g_object_table;        /* 0x444974, 0x2ba6 bytes */
 extern void *g_priority_itd;        /* 0x444980 */
-extern u16 g_defines_itd[0x46];     /* 0x444b20..0x444bab; DEFINES.ITD fills the first 0x46 bytes */
+extern u16 g_defines_itd[0x46];     /* 0x444b20, DEFINES.ITD: 0x46 big-endian words */
 extern u16 g_game_vars[0xfdc];      /* 0x4423a4, 0x1fb8 bytes, cleared per new game */
 
 extern struct hqr_resource *g_cache_body;   /* 0x444a80 */
@@ -172,7 +172,7 @@ extern struct hqr_resource *g_cache_mat;    /* 0x444aa8 */
 
 extern s16 g_quit_requested;        /* 0x435058 */
 /* DEFINES.ITD is read straight over a block of globals (0x444b20, 0x46
- * bytes); several of them have meanings of their own. */
+ * big-endian words); several of them have meanings of their own. */
 #define g_tab_locked (*(s16 *)&g_defines_itd[4])        /* 0x444b28 */
 #define g_alt_bg_flag(i) (*(s16 *)&g_defines_itd[5 + (i)]) /* 0x444b2a.. */
 #define g_hit_player_object (*(s16 *)&g_defines_itd[13]) /* 0x444b3a */
@@ -206,7 +206,8 @@ const char *text_get_by_id(int id);     /* 0x414fcb */
 void *file_load_alloc(const char *name, int index); /* 0x42025a, one .PAK entry */
 void *file_load_text_alloc(const char *name);       /* 0x420a0e */
 int file_open(const char *name, int mode);          /* 0x4203d5 */
-int file_read(int handle, void *dst, u32 size);     /* 0x420728 */
+int file_read(int handle, void *dst, u32 size);     /* 0x420463 */
+int file_read_be16(int handle, u16 *dst, u32 words); /* 0x420728 */
 int file_close(int handle);                         /* 0x420421 */
 
 void *load_malloc_hqr(const char *pak_name, int index); /* 0x414760 */

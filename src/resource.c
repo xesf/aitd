@@ -8,7 +8,8 @@
  *   mem_free             0x420b58  nfree, returns 1
  *   mem_alloc_checked    0x402b6f  malloc + fatal_error(1, ...) on NULL
  *   file_open            0x4203d5
- *   file_read            0x420728
+ *   file_read            0x420463  raw bytes
+ *   file_read_be16       0x420728  big-endian words
  *   file_close           0x420421
  *   file_load_alloc      0x42025a  load one .PAK entry by index
  *   file_load_text_alloc 0x420a0e  same, used for voice.cfg
@@ -121,7 +122,7 @@ int file_open(const char *name, int mode)
     return handle_alloc(fp);
 }
 
-/* 0x420728 - eax = handle, edx = destination, ebx = byte count. */
+/* 0x420463 - eax = handle, edx = destination, ebx = byte count. */
 int file_read(int handle, void *dst, u32 size)
 {
     if (handle <= 0 || handle >= FILE_HANDLE_MAX || s_handles[handle] == NULL) {
@@ -129,6 +130,26 @@ int file_read(int handle, void *dst, u32 size)
     }
 
     return (int)fread(dst, 1, size, s_handles[handle]);
+}
+
+/* 0x420728 - `words` big-endian 16 bit values, stored native. Returns the
+ * number of bytes read. DEFINES.ITD is the only file read this way. */
+int file_read_be16(int handle, u16 *dst, u32 words)
+{
+    u32 i;
+    int got = 0;
+
+    for (i = 0; i < words; i++) {
+        u8 b[2];
+        int n = file_read(handle, b, 2);
+
+        got += n;
+        if (n != 2) {
+            break;
+        }
+        dst[i] = (u16)((b[0] << 8) | b[1]);
+    }
+    return got;
 }
 
 /* 0x420421 */
