@@ -95,6 +95,13 @@ struct game_profile {
 
     const char *sample_pak;         /* LISTSAMP or SAMPLES, without .PAK */
 
+    /* Messages at the foot of the screen: drawn in `colour`, which steps
+     * up by one every `fade_step` ticks after `fade_after`, and gone after
+     * `ticks` (AITD3 0x41b154, Time Gate TG320.EX_ 0x40a858). */
+    struct message_style {
+        int colour, fade_after, fade_step, ticks;
+    } message;
+
     /* game_run arguments for a new game and for the intro (-1: none). */
     int start_floor, start_room;
     int intro_floor, intro_room;

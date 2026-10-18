@@ -10,6 +10,7 @@
 
 #include "actor.h"
 #include "aitd.h"
+#include "game.h"
 #include "anim.h"
 #include "draw.h"
 #include "font.h"
@@ -101,6 +102,7 @@ void message_show(int text_id)
  * ticks; they are gone after 208. Returns whether anything was drawn. */
 int message_draw(void)
 {
+    const struct message_style *fade = &game_current()->message;
     s16 y = 199;
     int drawn = 0;
     int i;
@@ -118,7 +120,7 @@ int message_draw(void)
         x = (s16)(160 - m->text->width / 2);
         elapsed = timer_elapsed_u32(&m->timer);
 
-        if (elapsed >= 0xd0) {
+        if (elapsed >= (u32)fade->ticks) {
             m->text = NULL;
             continue;
         }
@@ -127,7 +129,8 @@ int message_draw(void)
             raster_rect(0, 319, (s16)(y - 14), (s16)(y + 14), 0);
         }
         text_draw_string(x, (s16)(y + 1), m->text->text,
-                         (u8)(elapsed >= 0x50 ? ((elapsed - 0x50) >> 3) + 14 : 14));
+                         (u8)(fade->colour + (elapsed >= (u32)fade->fade_after
+                                              ? (elapsed - fade->fade_after) / fade->fade_step : 0)));
         if (!g_black_screen) {
             drawn = 1;
         }
