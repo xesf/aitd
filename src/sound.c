@@ -9,9 +9,12 @@
  *   audio_frame     0x40b452
  *
  * Samples in LISTSAMP.PAK are Creative Voice Files; only 8 bit PCM data
- * blocks (type 1) occur. PRIORITY.ITD holds one priority byte per sample.
+ * blocks (type 1) occur. Time Gate's SAMPLES.PAK holds RIFF WAVE files,
+ * mono 11111 Hz, all 8 bit but one 16 bit. PRIORITY.ITD holds one priority
+ * byte per sample.
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -58,6 +61,52 @@ static void voc_play(const u8 *voc, u32 size, int loops)
     }
 }
 
+static u32 le32(const u8 *p)
+{
+    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+}
+
+/* Plays the PCM data chunk of a mono WAVE file; 16 bit data is narrowed
+ * to the 8 bit unsigned samples the mixer takes. */
+static void wav_play(const u8 *wav, u32 size, int loops)
+{
+    u32 offset = 12, rate = 0, bits = 0, channels = 0;
+
+    if (wav == NULL || size < 12 || memcmp(wav, "RIFF", 4) != 0 || memcmp(wav + 8, "WAVE", 4) != 0) {
+        return;
+    }
+    while (offset + 8 <= size) {
+        u32 len = le32(wav + offset + 4);
+        const u8 *body = wav + offset + 8;
+
+        if (len > size - offset - 8) {
+            len = size - offset - 8;
+        }
+        if (memcmp(wav + offset, "fmt ", 4) == 0 && len >= 16) {
+            channels = (u32)(body[2] | (body[3] << 8));
+            rate = le32(body + 4);
+            bits = (u32)(body[14] | (body[15] << 8));
+        } else if (memcmp(wav + offset, "data", 4) == 0 && rate != 0 && channels == 1) {
+            if (bits == 8) {
+                platform_sound_play(body, len, rate, loops);
+            } else if (bits == 16) {
+                u32 n = len / 2, i;
+                u8 *narrow = malloc(n);
+
+                if (narrow != NULL) {
+                    for (i = 0; i < n; i++) {
+                        narrow[i] = (u8)(body[i * 2 + 1] ^ 0x80);   /* high byte, signed to unsigned */
+                    }
+                    platform_sound_play(narrow, n, rate, loops);
+                    free(narrow);
+                }
+            }
+            return;
+        }
+        offset += 8 + len + (len & 1);
+    }
+}
+
 static s16 priority_of(s16 sample)
 {
     if (g_priority_itd == NULL || sample < 0) {
@@ -69,9 +118,13 @@ static s16 priority_of(s16 sample)
 static void start(s16 sample, int loops)
 {
     u32 size = 0;
-    const u8 *voc = hqr_get(g_cache_sample, sample, &size);
+    const u8 *data = hqr_get(g_cache_sample, sample, &size);
 
-    voc_play(voc, size, loops);
+    if (data != NULL && size >= 4 && memcmp(data, "RIFF", 4) == 0) {
+        wav_play(data, size, loops);
+    } else {
+        voc_play(data, size, loops);
+    }
 }
 
 /* 0x40b1d6 */
