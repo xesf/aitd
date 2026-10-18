@@ -457,6 +457,9 @@ void read_document(s16 text, s16 type)
     const struct document_layout *d = document_layout(type);
     s16 music;
 
+    if (getenv("AITD_SKIP_DOCUMENTS") != NULL) {
+        return;     /* harness only: unattended runs never wait on a page */
+    }
     ticks_freeze();
     g_voice_allowed = 1;
     if (d != NULL) {

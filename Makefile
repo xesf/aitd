@@ -44,10 +44,45 @@ $(BUILD)/%.o: $(SRCDIR)/%.m | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-# AITD_DATA_DIR points at the directory holding itd_ress.pak, DEFINES.ITD and
-# the rest of the original assets.
-run: $(TARGET)
-	AITD_DATA_DIR=$(PWD)/data ./$(TARGET)
+# One target per title; each sets AITD_DATA_DIR to its data/<GAME> folder.
+#   make run-aitd1 | run-jack | run-aitd2 | run-aitd3 | run-timegate | run-knights
+#   make run GAME=aitd2          (run alone is AITD3)
+#   make run-knights RES=320     (Windows Time Gate resolution, 320 or 640)
+#   make run-aitd1 ARGS=--stage=game
+# `make check` runs every title unattended for FRAMES frames (TIMEOUT
+# seconds at most, documents skipped) and reports each exit status.
+GAMES   := aitd1 jack aitd2 aitd3 timegate knights
+DIR_aitd1    := INDARK
+DIR_jack     := JACK
+DIR_aitd2    := INDARK2
+DIR_aitd3    := INDARK3
+DIR_timegate := TIMEGATE
+DIR_knights  := KNIGHTS
+GAME    ?= aitd3
+RES     ?= 640
+ARGS    ?=
+FRAMES  ?= 300
+TIMEOUT ?= 60
+
+.PHONY: $(addprefix run-,$(GAMES)) check
+
+run: run-$(GAME)
+
+$(addprefix run-,$(GAMES)): run-%: $(TARGET)
+	AITD_DATA_DIR=$(CURDIR)/data/$(DIR_$*) AITD_RES=$(RES) ./$(TARGET) $(ARGS)
+
+check: $(TARGET)
+	@for g in $(GAMES); do \
+	    case $$g in aitd1) d=INDARK;; jack) d=JACK;; aitd2) d=INDARK2;; \
+	        aitd3) d=INDARK3;; timegate) d=TIMEGATE;; knights) d=KNIGHTS;; esac; \
+	    AITD_DATA_DIR=$(CURDIR)/data/$$d AITD_RES=$(RES) AITD_NO_DIALOGS=1 AITD_SKIP_DOCUMENTS=1 \
+	        AITD_FRAMES=$(FRAMES) AITD_TIMEOUT=$(TIMEOUT) \
+	        ./$(TARGET) --stage=game > $(BUILD)/check-$$g.log 2>&1; \
+	    rc=$$?; \
+	    if grep -q "AITD_TIMEOUT reached" $(BUILD)/check-$$g.log; then s="timeout"; \
+	    elif [ $$rc -eq 0 ]; then s="ok"; else s="FAILED ($$rc)"; fi; \
+	    printf "%-9s %s  (build/check-%s.log)\n" $$g "$$s" $$g; \
+	done
 
 clean:
 	rm -rf $(BUILD) $(TARGET) pak_dump

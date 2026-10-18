@@ -192,7 +192,9 @@ behaviour otherwise.
 
 ### Harness
 
-`./aitd3 --stage=game` enters the world directly (`AITD_FLOOR`, `AITD_ROOM`,
+`make run-<game>` (aitd1, jack, aitd2, aitd3, timegate, knights; `ARGS=`,
+`RES=320|640`) runs one title from its `data/` folder and `make check` runs
+all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_FLOOR`, `AITD_ROOM`,
 `AITD_FRAMES` frame budget). Scripted input and capture:
 
 | Variable | Effect |
@@ -203,6 +205,9 @@ behaviour otherwise.
 | `AITD_LIFETRACE=1` | life opcodes as they run |
 | `AITD_NOLIFE`, `AITD_CAM=n` | freeze scripts / force a camera |
 | `AITD_OPEN_INVENTORY=n` | open the inventory at frame n |
+| `AITD_TIMEOUT=s` | leave after s seconds, even inside a modal loop |
+| `AITD_SKIP_DOCUMENTS=1` | documents and books return at once |
+| `AITD_READ_DOCUMENT=f,text,type` | open a document at frame f |
 
 Input is indexed by poll, not by frame, so scripts also drive blocking
 dialogs (inventory, escape menu, save screens). A key held across a
