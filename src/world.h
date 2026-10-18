@@ -309,6 +309,7 @@ void zv_rotated(const u8 *body, s16 *zv, s16 alpha, s16 beta, s16 gamma,
 void world_build_visible_rooms(void);          /* 0x409ac4 */
 int world_room_is_visible(s16 room);           /* 0x4098e9 */
 int world_camera_sees_room(s16 room);          /* 0x409943 */
+const u8 *world_mask(int view, int index);    /* mask of a viewed room, or NULL */
 int world_in_view_zone(s16 x, s16 z);          /* 0x4099d6 */
 void world_update_objects(void);               /* 0x409bdb */
 void world_build_actor_list(void);             /* 0x409fd2 */

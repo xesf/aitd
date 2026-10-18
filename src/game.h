@@ -40,7 +40,13 @@ enum floor_layout {
 enum mask_layout {
     MASK_COVER_ZONES,   /* none: the camera's cover polygons (AITD1) */
     MASK_PAK,           /* MASK##.PAK, one entry per camera (AITD2, Jack, AITD3) */
-    MASK_NONE           /* Time Gate */
+    MASK_SLOT_FILES,    /* MK<floor><camera>00.PAK, ten slots per viewed
+                           room (Time Gate DOS) */
+    MASK_CAMERA_INDEXED,/* CAMERA##.PAK entry 0 indexes, per camera, the
+                           picture, a light table and the mask slots that
+                           follow it (Time Gate for Windows, TG320.EX_
+                           0x4146d1) */
+    MASK_NONE
 };
 
 /* Where a camera background takes its palette from. */

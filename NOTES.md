@@ -303,7 +303,7 @@ for code; everything taken from it was checked against the data.
 | camera view record | 12 | 16 | 16 | 16 | 22 |
 | background | 64000 | +6-bit pal | +6-bit pal | hdr 4, +8-bit pal | +8-bit pal |
 | palette | ITD_RESS 3 | camera | camera | camera | camera |
-| masks | cover polygons | MASK PAK | MASK PAK | MASK PAK | none (MK/NK?) |
+| masks | cover polygons | MASK PAK | MASK PAK | MASK PAK | MK files / in CAMERA |
 | object record | 52 | 54 | 54 | 54 | 54 |
 | DEFINES words | 45 | 70 | 70 | 70 | 70 |
 | font (ITD_RESS) | 5, 1-bit | 1, 1-bit | 1, 1-bit | 1 | 2 |
@@ -342,13 +342,25 @@ for code; everything taken from it was checked against the data.
   triple; for 9 the high byte is the colour. Culling is the sign of the
   camera space determinant (0x4214aa). Levels: `(L.(n - P)) / 8 + 32`,
   0..63 (0x411e2f), with L and P the light of the actor's room in the
-  camera's 22 byte view record (+8 direction, +14 position), both put
+  camera's 22 byte view record (+10 direction, +16 position), both put
   through the camera transform. Pixels: 8 texel, 9 `shade[colour][level]`,
   10 `shade[texel][level]`, shade = ITD_RESS 54 transposed (0x417cfe).
   Only the high detail fillers are rebuilt (0x41bc2c, 0x412e4f, 0x4133bc;
   the detail option 0x41c9b3 also offers flat and medium sets), and the
   scan conversion steps in fixed point instead of the original Bresenham
   tables: not verified pixel for pixel.
+- **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
+  height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
+  viewed room, mask `view * 10 + zone`. The DOS build keeps them in
+  MK<floor><camera>00.PAK (NK is an alternate set, not used yet). The
+  Windows build (TG320.EX_ 0x4146d1) indexes CAMERA##.PAK through entry 0:
+  per camera three u32s (picture entry, mask count, second picture); the
+  picture is followed by a light table (24 bytes per viewed room, the
+  first 12 replace +10..+21 of the view record, 0x40c7c7) and the masks.
+  CYMERA##.PAK replaces CAMERA for some flag-chosen cameras (not yet), and
+  CAMERX##.PAK holds the 640 x 400 pictures. A zone draws its mask when the
+  actor's box overlaps one of its rectangles (0x42a422), where AITD3 wants
+  the box inside.
 
 State: AITD1 (Carnby walking in the attic), AITD2 (the opening gate scene),
 Jack (the toy shop street and the credits book) and Time Gate (the museum

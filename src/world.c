@@ -108,6 +108,83 @@ static void build_name(char *out, size_t size, const char *prefix, int index)
 
 int g_camera_view_size = 16;
 
+/* Time Gate masks: one blob per slot, ten slots per viewed room. */
+enum { MASK_SLOTS_PER_VIEW = 10 };
+static u8 **s_mask_slots;
+static int s_mask_slot_count;
+
+static void free_mask_slots(void)
+{
+    int i;
+
+    for (i = 0; i < s_mask_slot_count; i++) {
+        if (s_mask_slots[i] != NULL) {
+            mem_free(s_mask_slots[i]);
+        }
+    }
+    free(s_mask_slots);
+    s_mask_slots = NULL;
+    s_mask_slot_count = 0;
+}
+
+static void load_mask_slots(const char *pak, int first, int count)
+{
+    int i;
+
+    free_mask_slots();
+    s_mask_slots = calloc((size_t)count, sizeof(*s_mask_slots));
+    if (s_mask_slots == NULL) {
+        return;
+    }
+    s_mask_slot_count = count;
+    for (i = 0; i < count; i++) {
+        u32 size = 0;
+        s_mask_slots[i] = pak_load(pak, first + i, &size);
+    }
+}
+
+/* Mask `index` of viewed room `view`, or NULL. MASK##.PAK blobs keep two
+ * levels of 32 bit offsets (0x402bbc). */
+const u8 *world_mask(int view, int index)
+{
+    if (g_camera_masks != NULL) {
+        const u8 *table = g_camera_masks + blob_u32(g_camera_masks, view * 4);
+        return table + blob_u32(table, index * 4);
+    }
+    if (index < MASK_SLOTS_PER_VIEW && view * MASK_SLOTS_PER_VIEW + index < s_mask_slot_count) {
+        return s_mask_slots[view * MASK_SLOTS_PER_VIEW + index];
+    }
+    return NULL;
+}
+
+/* TG320.EX_ 0x4146d1: CAMERA##.PAK entry 0 of the Windows build holds, per
+ * camera, the picture entry, the number of mask slots (they follow the
+ * light table at picture + 1) and an optional second picture. */
+struct camera_index {
+    int picture, masks, extra;
+};
+
+static int camera_index(s16 camera, struct camera_index *out)
+{
+    char name[32];
+    u32 size = 0;
+    u8 *index;
+    int ok = 0;
+
+    build_name(name, sizeof(name), game_current()->background_prefix, g_cur_floor);
+    index = pak_load(name, 0, &size);
+    if (index != NULL && (u32)(camera + 1) * 12 <= size) {
+        out->picture = (int)blob_u32(index, camera * 12);
+        out->masks = (int)blob_u32(index, camera * 12 + 4);
+        out->extra = (int)blob_u32(index, camera * 12 + 8);
+        ok = 1;
+    }
+    if (index != NULL) {
+        mem_free(index);
+    }
+    return ok;
+}
+
 /* ETAGE##.PAK blobs of the earlier titles: entry 0 holds every room and
  * entry 1 every camera, each behind a u32 offset table. The tables built
  * from them point into the blobs. */
@@ -194,6 +271,7 @@ void world_set_floor(s16 floor)
     ticks_freeze();
 
     free_floor();
+    free_mask_slots();
     if (g_camera_masks != NULL) {
         mem_free(g_camera_masks);
         g_camera_masks = NULL;
@@ -351,8 +429,13 @@ void world_load_background(s16 camera)
     }
 
     if (entry < 0) {
+        struct camera_index index;
+
         build_name(name, sizeof(name), profile->background_prefix, g_cur_floor);
         entry = camera;
+        if (profile->mask_layout == MASK_CAMERA_INDEXED && camera_index(camera, &index)) {
+            entry = index.picture;
+        }
     }
 
     /* 0x414822: in AITD3 a 4 byte header, 64000 pixels and the palette;
@@ -420,17 +503,53 @@ void world_setup_camera(void)
     world_load_background(cam_file);
     g_cur_camera = g_new_camera;
 
-    /* 0x40a192: the alternate mask set NASK01 replaces MASK01. */
-    if (game_id() == GAME_AITD3 && g_alt_bg_flag(6) && g_cur_floor == 1) {
-        mask_prefix = "NASK";
+    g_camera_masks = NULL;
+    free_mask_slots();
+    cam = g_room_cameras[g_new_camera];
+
+    switch (game_current()->mask_layout) {
+    case MASK_PAK:
+        /* 0x40a192: the alternate mask set NASK01 replaces MASK01. */
+        if (game_id() == GAME_AITD3 && g_alt_bg_flag(6) && g_cur_floor == 1) {
+            mask_prefix = "NASK";
+        }
+        build_name(name, sizeof(name), mask_prefix, g_cur_floor);
+        g_camera_masks = file_load_alloc(name, cam_file);
+        break;
+    case MASK_SLOT_FILES:
+        snprintf(name, sizeof(name), "MK%02d%02d00.PAK", g_cur_floor, cam_file);
+        load_mask_slots(name, 0, CAMERA_VIEW_COUNT(cam) * MASK_SLOTS_PER_VIEW);
+        break;
+    case MASK_CAMERA_INDEXED: {
+        struct camera_index index;
+
+        if (camera_index(cam_file, &index)) {
+            u32 size = 0;
+            u8 *lights;
+            int v;
+
+            build_name(name, sizeof(name), game_current()->background_prefix, g_cur_floor);
+            load_mask_slots(name, index.picture + 2, index.masks);
+
+            /* TG 0x40c7c7: 24 bytes per viewed room; the first 12 replace
+             * the light in the view record (+10). */
+            lights = pak_load(name, index.picture + 1, &size);
+            for (v = 0; lights != NULL && v < CAMERA_VIEW_COUNT(cam) && (u32)(v + 1) * 24 <= size; v++) {
+                memcpy(CAMERA_VIEW(cam, v) + 10, lights + v * 24, 12);
+            }
+            if (lights != NULL) {
+                mem_free(lights);
+            }
+        }
+        break;
     }
-    build_name(name, sizeof(name), mask_prefix, g_cur_floor);
-    g_camera_masks = file_load_alloc(name, cam_file);
+    default:
+        break;
+    }
 
     build_name(name, sizeof(name), "ANIM", g_cur_floor);
     g_camera_bganims = file_load_alloc(name, cam_file);
 
-    cam = g_room_cameras[g_cur_camera];
     r3d_set_camera_angles(blob_s16(cam, 0), blob_s16(cam, 2), blob_s16(cam, 4));
     r3d_set_camera_position(
         (s16)((s16)(blob_s16(cam, 6) - ROOM_X(g_room_data)) * 10),

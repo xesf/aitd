@@ -10,6 +10,7 @@
 #include "aitd.h"
 #include "anim.h"
 #include "draw.h"
+#include "game.h"
 #include "hyb.h"
 #include "life.h"
 #include "palette.h"
@@ -145,10 +146,10 @@ void draw_sort_actors(void)
 /* ---- helpers ----------------------------------------------------------- */
 
 /* Time Gate (TG 0x40b95c, 0x40b767): an actor takes the light of the
- * current camera's view of its room, direction at +8 and position at +14
+ * current camera's view of its room, direction at +10 and position at +16
  * of the 22 byte view record, and keeps it while the camera does not see
  * that room. Other titles have no light in their view records. */
-enum { TG_VIEW_SIZE = 22, TG_VIEW_LIGHT = 8 };
+enum { TG_VIEW_SIZE = 22, TG_VIEW_LIGHT = 10 };
 
 static s16 s_actor_light[ACTOR_MAX][6];   /* TG actor +0xbc..+0xc6 */
 
@@ -285,15 +286,6 @@ static void draw_mask(const u8 *mask, const u8 *source)
     }
 }
 
-/* Mask j of viewed room i: two levels of 32 bit offsets (0x402bbc). */
-static const u8 *mask_get(int view, int index)
-{
-    const u8 *base = g_camera_masks;
-    const u8 *table = base + blob_u32(base, view * 4);
-
-    return table + blob_u32(table, index * 4);
-}
-
 static const u8 *s_mask_source;
 
 /* 0x41a215 */
@@ -303,6 +295,8 @@ void draw_masks(struct actor *a)
     int views = CAMERA_VIEW_COUNT(cam);
     const u8 *view = CAMERA_VIEW(cam, 0);
     const u8 *zones;
+    int overlap = game_current()->mask_layout == MASK_SLOT_FILES
+               || game_current()->mask_layout == MASK_CAMERA_INDEXED;
     int i, j, count;
 
     a->screen[0] = g_r3d_bbox.xmin;
@@ -316,7 +310,7 @@ void draw_masks(struct actor *a)
             break;
         }
     }
-    if (views == 0 || g_camera_masks == NULL) {
+    if (views == 0) {
         return;
     }
 
@@ -332,9 +326,19 @@ void draw_masks(struct actor *a)
         int k;
 
         for (k = 0; k < rects; k++, r += 8) {
-            if (blob_s16(r, 0) <= x1 && blob_s16(r, 2) <= z1
-                && blob_s16(r, 4) >= x2 && blob_s16(r, 6) >= z2) {
-                draw_mask(mask_get(i, j), s_mask_source);
+            /* AITD3 wants the box inside a rectangle; Time Gate any
+             * overlap (TG 0x42a422). */
+            int hit = overlap
+                ? x1 <= blob_s16(r, 4) && x2 > blob_s16(r, 0)
+                  && z1 <= blob_s16(r, 6) && z2 > blob_s16(r, 2)
+                : blob_s16(r, 0) <= x1 && blob_s16(r, 2) <= z1
+                  && blob_s16(r, 4) >= x2 && blob_s16(r, 6) >= z2;
+            const u8 *mask = hit ? world_mask(i, j) : NULL;
+
+            if (mask != NULL) {
+                draw_mask(mask, s_mask_source);
+            }
+            if (hit) {
                 break;
             }
         }

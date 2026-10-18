@@ -70,7 +70,7 @@ static const struct game_profile s_timegate = {
     GAME_TIMEGATE, "Time Gate: Knight's Chase", "PURSUIT.PAK",
     320, 200, NULL,
     FLOOR_ETAGE_CAMSAL, "ETAGE", "CAMSAL", "CAMERA", 22, 0, PALETTE_CAMERA_8BIT, NULL,
-    MASK_NONE,
+    MASK_SLOT_FILES,
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES",
@@ -127,10 +127,12 @@ static const struct game_profile *knights_profile(void)
     int low = res != NULL && strcmp(res, "320") == 0;
 
     s_knights_320 = s_timegate;
+    s_knights_320.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_320.name = "Time Gate: Knight's Chase (Windows, 320x200)";
     s_knights_320.resolution_dir = "320";
 
     s_knights_640 = s_timegate;
+    s_knights_640.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_640.name = "Time Gate: Knight's Chase (Windows, 640x480)";
     s_knights_640.resolution_dir = "640";
     s_knights_640.screen_width = 640;
