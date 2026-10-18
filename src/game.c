@@ -22,6 +22,17 @@ static const u8 s_overlay_aitd2[0x30] = {
 };
 extern u8 g_palette_overlay[0x30];
 
+/* AITD2 sequence files by number (the order of FITD's table; every number
+ * its scripts use, 0..32, is in range). Jack only plays 0. */
+static const char *const s_sequences_aitd2[] = {
+    "BATL", "GRAP", "CLE1", "CLE2", "COOK", "EXPL", "FALA", "FAL2", "GLIS",
+    "GREN", "JEND", "MANI", "MER", "TORD", "PANT", "VERE", "PL21", "PL22",
+    "ENDX", "SORT", "EFER", "STAR", "MEDU", "PROL", "GRAS", "STRI", "ITRO",
+    "BILL", "PIRA", "PIR2", "VENT", "FIN", "LAST"
+};
+static const char *const s_sequences_jack[] = { "PERE" };
+#define SEQUENCES(t) (t), (int)(sizeof(t) / sizeof((t)[0]))
+
 static const struct game_profile s_aitd1 = {
     GAME_AITD1, "Alone in the Dark", "LISTBOD2.PAK",
     320, 200, NULL,
@@ -30,6 +41,7 @@ static const struct game_profile s_aitd1 = {
     52, 45, LIFE_DIALECT_AITD1,
     5, 4, 0, 0,
     "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
+    NULL, 0, MENU_STYLE_FRAMED, -1,
     0, 0, 7, 1
 };
 
@@ -41,6 +53,7 @@ static const struct game_profile s_jack = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
+    SEQUENCES(s_sequences_jack), MENU_STYLE_FRAMED, 2,
     16, 1, -1, -1
 };
 
@@ -52,6 +65,7 @@ static const struct game_profile s_aitd2 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
+    SEQUENCES(s_sequences_aitd2), MENU_STYLE_FRAMED, 59,
     8, 7, 8, 0
 };
 
@@ -63,6 +77,7 @@ static const struct game_profile s_aitd3 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 1,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
+    NULL, 0, MENU_STYLE_PICTURE, -1,
     0, 12, 1, 0
 };
 
@@ -74,6 +89,7 @@ static const struct game_profile s_timegate = {
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
+    NULL, 0, MENU_STYLE_RING, -1,
     0, 5, -1, -1
 };
 

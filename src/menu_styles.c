@@ -1,0 +1,302 @@
+/*
+ * menu_styles.c - the main menus of the titles that do not use AITD3's
+ * picture menu (menu.c).
+ *
+ * Framed (AITD1, AITD2, Jack): a frame of old style sprites around the
+ * middle of a black screen and three rows, text 11..13 (new game, load,
+ * quit). The selected row sits on a colour 100 bar in colour 15 over a
+ * colour 4 shadow; the others are colour 4. Facts from FITD's DrawMenu,
+ * AffBigCadre and AffSpf; the original routines are not rebuilt.
+ *
+ * Ring (Time Gate, TG320.EX_ 0x405f6b / 0x405c64): ITD_RESS picture 1, a
+ * medallion, with seven HYB icons around it; left and right walk the ring
+ * and the selected icon is redrawn from its highlighted bank. Enter, space
+ * or keypad enter pick, Escape picks quit, 3000 idle ticks give -1.
+ */
+
+#include <stdio.h>
+#include <string.h>
+
+#include "aitd.h"
+#include "game.h"
+#include "hyb.h"
+#include "life.h"
+#include "menu.h"
+#include "pak.h"
+#include "palette.h"
+#include "picture.h"
+#include "raster.h"
+#include "subsystems.h"
+
+static u16 rd16(const u8 *p)
+{
+    return (u16)(p[0] | (p[1] << 8));
+}
+
+/* The menus draw on whatever the window shows; before any scene has run
+ * the raster is not set up yet. */
+static void target_begin(void)
+{
+    if (g_raster.width == 0) {
+        raster_init(g_back_buffer, g_screen_width, g_screen_height);
+    }
+    raster_push_target(presented_buffer());
+}
+
+static void wait_released(void)
+{
+    while (g_key_dir_flags != 0 || (g_last_scancode & 0xff) != 0 || g_key_confirm != 0) {
+        input_poll();
+    }
+}
+
+static int confirm_key(void)
+{
+    int sc = g_last_scancode & 0xff;
+
+    return sc == SC_ENTER || sc == SC_SPACE || sc == 0x9c || g_key_confirm != 0;
+}
+
+/* ---- framed --------------------------------------------------------------- */
+
+/* FITD AffSpf: sprite `index` of an old style bank (16 bit offsets; four
+ * bytes, width, height, then opaque pixels). */
+static void old_sprite(s16 x, s16 y, int index, const u8 *bank)
+{
+    const u8 *p = bank + rd16(bank + index * 2) + 4;
+    int width = rd16(p), height = rd16(p + 2);
+    int row, col;
+
+    p += 4;
+    for (row = 0; row < height; row++) {
+        for (col = 0; col < width; col++) {
+            int tx = x + col, ty = y + row;
+
+            if (tx >= 0 && tx < 320 && ty >= 0 && ty < 200) {
+                g_raster.target[ty * g_raster.pitch + tx] = p[col];
+            }
+        }
+        p += width;
+    }
+}
+
+/* FITD AffBigCadre: corners 0..3, top 4, bottom 5, left 6, right 7 in 20
+ * pixel steps, the title plate 8, and a black inside. */
+static void big_frame(s16 x, s16 y, s16 width, s16 height, const u8 *bank)
+{
+    s16 left = (s16)(x - width / 2), top = (s16)(y - height / 2);
+    s16 right = (s16)(x + width / 2), bottom = (s16)(y + height / 2);
+    s16 cx, cy;
+
+    old_sprite(left, top, 0, bank);
+    for (cx = (s16)(left + 20); right - 20 > cx; cx = (s16)(cx + 20)) {
+        old_sprite(cx, top, 4, bank);
+    }
+    old_sprite(cx, top, 1, bank);
+    for (cy = (s16)(top + 20); bottom - 20 > cy; cy = (s16)(cy + 20)) {
+        old_sprite(left, cy, 6, bank);
+    }
+    for (cy = (s16)(top + 20); bottom - 20 > cy; cy = (s16)(cy + 20)) {
+        old_sprite((s16)(right - 8), cy, 7, bank);
+    }
+    old_sprite(left, cy, 2, bank);
+    for (cx = (s16)(left + 20); right - 20 > cx; cx = (s16)(cx + 20)) {
+        old_sprite(cx, (s16)(cy + 12), 5, bank);
+    }
+    old_sprite(cx, cy, 3, bank);
+    old_sprite((s16)(x - 20), (s16)(cy + 12), 8, bank);
+
+    raster_rect((s16)(left + 8), (s16)(right - 9), (s16)(top + 8), (s16)(bottom - 9), 0);
+}
+
+static void framed_draw(int selected)
+{
+    const u8 *bank = engine_resource(ITD_RESS_UI_SPRITES);
+    s16 y = 76;
+    int i;
+
+    target_begin();
+    raster_set_clip(0, 0, 319, 199);
+    memset(g_raster.target, 0, 64000);
+    if (bank != NULL) {
+        big_frame(160, 100, 320, 80, bank);
+    }
+    for (i = 0; i < 3; i++, y = (s16)(y + 16)) {
+        if (i == selected) {
+            raster_rect(10, 309, y, (s16)(y + 16), 100);
+            text_draw_centered_shadowed(160, y, (s16)(11 + i), 15, 4);
+        } else {
+            text_draw_centered(160, y, (s16)(11 + i), 4);
+        }
+    }
+    raster_pop_target();
+    screen_present();
+}
+
+/* AITD2's ITD_RESS 59 is a bare 6 bit palette whose first 16 colours are
+ * placeholders for the interface overlay. Jack has none; its first
+ * picture's palette is taken (an assumption, not checked against the
+ * original). */
+static void framed_palette(void)
+{
+    const struct game_profile *profile = game_current();
+    u8 palette[AITD_PALETTE_BYTES];
+    int i;
+
+    if (profile->menu_palette < 0) {
+        return;
+    }
+    if (picture_load(profile->menu_palette, NULL, palette) != 1) {
+        u32 size = 0;
+        u8 *raw = pak_load("ITD_RESS.PAK", profile->menu_palette, &size);
+
+        if (raw == NULL || size < AITD_PALETTE_BYTES) {
+            if (raw != NULL) {
+                mem_free(raw);
+            }
+            return;
+        }
+        memcpy(palette, raw, AITD_PALETTE_BYTES);
+        mem_free(raw);
+        if (profile->palette_source == PALETTE_CAMERA_6BIT) {
+            for (i = 0; i < AITD_PALETTE_BYTES; i++) {
+                palette[i] = (u8)((palette[i] * 255u) / 63u);
+            }
+        }
+    }
+    if (profile->palette_overlay != NULL) {
+        for (i = 0; i < 0x30; i++) {
+            palette[i] = (u8)((profile->palette_overlay[i] * 255u) / 63u);
+        }
+    }
+    memcpy(g_palette_buffer, palette, sizeof(palette));
+}
+
+static int framed_menu(void)
+{
+    static const int results[3] = {
+        MENU_RESULT_NEW_GAME, MENU_RESULT_LOAD_GAME, MENU_RESULT_QUIT
+    };
+    struct game_timer timer;
+    int selected = 0;
+
+    framed_palette();
+    framed_draw(selected);
+    g_fade_state = 1;
+    palette_fade(0x10, 0);      /* FITD FadeInPhys(16, 0) */
+    timer_reset(&timer);
+    wait_released();
+    while (timer_elapsed(&timer) < 3000) {
+        input_poll();
+        if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            selected = (selected + ((g_key_dir_flags & DIR_UP) ? 2 : 1)) % 3;
+            framed_draw(selected);
+            timer_reset(&timer);
+            wait_released();
+        } else if (confirm_key()) {
+            wait_released();
+            return results[selected];
+        }
+    }
+    return MENU_RESULT_INTRO;
+}
+
+/* ---- ring ----------------------------------------------------------------- */
+
+static const struct {
+    s16 x, y;
+    u8 icon, selected;   /* ITD_RESS HYB banks, 0x451b.. at 0x416c63 */
+} s_ring[7] = {
+    { 0x27, 0x01, 0x67, 0x66 },
+    { 0x1c, 0x34, 0x6e, 0x6f },
+    { 0x2b, 0x6d, 0x5c, 0x5d },
+    { 0x84, 0x96, 0x72, 0x73 },
+    { 0xe3, 0x6d, 0x6c, 0x6d },
+    { 0xef, 0x34, 0x5e, 0x5f },
+    { 0xe6, 0x01, 0x6a, 0x6b }
+};
+
+static void ring_icon(int entry, s16 x, s16 y)
+{
+    u32 size = 0;
+    u8 *bank = pak_load("ITD_RESS.PAK", entry, &size);
+
+    if (bank != NULL) {
+        hyb_render(0, x, y, bank);
+        mem_free(bank);
+    }
+}
+
+static void ring_draw(int selected)
+{
+    u8 palette[AITD_PALETTE_BYTES];
+    int i;
+
+    target_begin();
+    raster_set_clip(0, 0, 319, 199);
+    if (picture_load(1, g_raster.target, palette) == 1) {
+        memcpy(g_palette_buffer, palette, sizeof(palette));
+        if (g_fade_state != 1) {
+            palette_set_range(g_palette_buffer, 0, 256);
+        }
+    }
+    for (i = 0; i < 7; i++) {
+        ring_icon(s_ring[i].icon, s_ring[i].x, s_ring[i].y);
+    }
+    ring_icon(s_ring[selected].selected, s_ring[selected].x, s_ring[selected].y);
+    raster_pop_target();
+    screen_present();
+}
+
+/* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
+ * 3 and 4 (credits and the intro films) are not rebuilt. */
+static int ring_menu(void)
+{
+    struct game_timer timer;
+    int selected = 0;
+
+    ring_draw(selected);
+    g_fade_state = 1;
+    palette_fade(0x10, 0);
+    timer_reset(&timer);
+    wait_released();
+    for (;;) {
+        if (timer_elapsed(&timer) >= 3000) {
+            return MENU_RESULT_INTRO;
+        }
+        input_poll();
+        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
+            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? 6 : 1)) % 7;
+            ring_draw(selected);
+            timer_reset(&timer);
+            wait_released();
+        } else if ((g_last_scancode & 0xff) == SC_ESC) {
+            wait_released();
+            return MENU_RESULT_QUIT;
+        } else if (confirm_key()) {
+            wait_released();
+            switch (selected) {
+            case 0: return MENU_RESULT_NEW_GAME;
+            case 2: return MENU_RESULT_LOAD_GAME;
+            case 6: return MENU_RESULT_QUIT;
+            default:
+                fprintf(stderr, "menu: ring entry %d not rebuilt\n", selected);
+                timer_reset(&timer);
+                break;
+            }
+        }
+    }
+}
+
+/* Runs the title's own menu; returns -2 for AITD3's, which menu.c draws. */
+int menu_style_run(void)
+{
+    switch (game_current()->menu_style) {
+    case MENU_STYLE_FRAMED:
+        return framed_menu();
+    case MENU_STYLE_RING:
+        return ring_menu();
+    default:
+        return -2;
+    }
+}

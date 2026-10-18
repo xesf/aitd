@@ -354,6 +354,17 @@ for code; everything taken from it was checked against the data.
   the actor's box (tenths) lies inside one, the background inside the
   polygons is drawn back over the actor. Messages count drawn frames:
   colour 16 for 26 frames, then 16 + (n - 26) / 2, gone after 56.
+- **Start-up**: the intro and new game floor/room come from the profile
+  (AITD3 1/0 and 0/12). Sequences: AITD3 AN<n>.PAK, AITD2 a table of named
+  PAKs (FITD's order, every number its scripts use is in range), Jack only
+  PERE; Time Gate's AN<n>.MUX movies and the Windows Smacker files are not
+  rebuilt and are skipped with a log line.
+- **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw FITD's framed
+  three-row menu (old 16 bit offset sprites: AffBigCadre/AffSpf; AITD2's
+  palette is ITD_RESS 59 with the interface overlay, Jack's is taken from
+  picture 2, an assumption). Time Gate (TG320.EX_ game_main 0x41778f, menu
+  0x405f6b) shows ITD_RESS picture 1 with seven HYB icons; 0 new game
+  (game_run 0/5), 2 load, 5 difficulty, 6 quit, 3000 idle ticks give -1.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in

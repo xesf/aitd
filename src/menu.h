@@ -58,6 +58,7 @@ u8 *presented_buffer(void);
 void menu_draw_background(void);               /* 0x408eb8 */
 void menu_draw_entry(s16 index);               /* 0x408bdd */
 void menu_entry_feedback(void);                /* 0x402b02 */
+int menu_style_run(void);                      /* menu_styles.c, -2 for AITD3 */
 
 extern s16 g_mouse_buttons;   /* 0x445c7a */
 extern s16 g_mouse_x;         /* 0x445c7c */

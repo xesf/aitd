@@ -16,6 +16,8 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "platform.h"
+#include "game.h"
 #include "anim.h"
 #include "life.h"
 #include "menu.h"
@@ -115,7 +117,25 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
     int done = 0;
     u32 clock;
 
-    snprintf(name, sizeof(name), "AN%d.pak", number);
+    {
+        const struct game_profile *profile = game_current();
+        char path[1024];
+
+        if (profile->sequence_names != NULL) {
+            if (number < 0 || number >= profile->sequence_count) {
+                fprintf(stderr, "sequence %d: no such sequence\n", number);
+                return;
+            }
+            snprintf(name, sizeof(name), "%s.PAK", profile->sequence_names[number]);
+        } else {
+            snprintf(name, sizeof(name), "AN%d.pak", number);
+        }
+        /* Time Gate's AN<n>.MUX movies are another format, not rebuilt. */
+        if (!platform_resolve_path(name, path, sizeof(path))) {
+            fprintf(stderr, "sequence %s: not a PAK sequence, skipped\n", name);
+            return;
+        }
+    }
     g_sample_current = -1;
     g_sample_priority = -1;
     clock = timer_get_ms();
@@ -132,6 +152,12 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
             }
             if (i == 0) {
                 memcpy(palette, entry, sizeof(palette));
+                if (game_current()->palette_source == PALETTE_CAMERA_6BIT) {
+                    size_t k;
+                    for (k = 0; k < sizeof(palette); k++) {
+                        palette[k] = (u8)((palette[k] * 255u) / 63u);
+                    }
+                }
                 blit_frame(entry + 0x300);
                 memcpy(&count, entry + FIRST_COUNT_OFFSET, 2);
                 if (starting) {

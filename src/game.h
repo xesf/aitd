@@ -56,6 +56,15 @@ enum palette_source {
     PALETTE_CAMERA_8BIT /* after the pixels, 0..255 (AITD3, Time Gate) */
 };
 
+/* Main menu presentation. */
+enum menu_style {
+    MENU_STYLE_PICTURE, /* ITD_RESS picture and four text rows (AITD3) */
+    MENU_STYLE_FRAMED,  /* a sprite frame and three text rows (AITD1, AITD2,
+                           Jack; FITD's DrawMenu) */
+    MENU_STYLE_RING     /* seven icons around a medallion (Time Gate,
+                           TG320.EX_ 0x405f6b) */
+};
+
 /* Raw life opcode and variable numbering. */
 enum life_dialect {
     LIFE_DIALECT_AITD1, /* its own order, see lifemap.c */
@@ -103,6 +112,15 @@ struct game_profile {
     struct message_style {
         int colour, fade_after, fade_step, life, per_frame, y;
     } message;
+
+    /* PLAY_SEQUENCE files: a name per number, or "AN<n>.PAK" when NULL. */
+    const char *const *sequence_names;
+    int sequence_count;
+
+    enum menu_style menu_style;
+    int menu_palette;               /* ITD_RESS palette (768 bytes) or
+                                       picture whose palette the framed menu
+                                       shows, -1 to keep the current one */
 
     /* game_run arguments for a new game and for the intro (-1: none). */
     int start_floor, start_room;

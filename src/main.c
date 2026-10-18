@@ -64,6 +64,16 @@ static void parse_command_line(int argc, char **argv)
     }
 }
 
+/* game_run(1, 0, 0) in AITD3; titles without an intro floor skip it. */
+static void play_intro(void)
+{
+    const struct game_profile *profile = game_current();
+
+    if (profile->intro_floor >= 0) {
+        game_run((s16)profile->intro_floor, (s16)profile->intro_room, 0);
+    }
+}
+
 /*
  * 0x407a16..0x407a62
  *
@@ -79,7 +89,8 @@ static void start_new_game(void)
     memset(g_game_vars, 0, sizeof(g_game_vars)); /* 0x407a20 */
     actor_table_reset(0);                      /* 0x40ad85 */
 
-    game_run(0, 0x0c, 1);                      /* 0x407a44 */
+    game_run((s16)game_current()->start_floor,
+             (s16)game_current()->start_room, 1); /* 0x407a44: 0, 0x0c */
 
     if (!g_quit_requested) {                   /* 0x407a49 */
         engine_shutdown();
@@ -149,7 +160,7 @@ void game_main(int argc, char **argv)
     engine_init();  /* 0x407998 */
 
     g_transition_flag = 1;   /* 0x40799d */
-    game_run(1, 0, 0);       /* 0x4079af - intro */
+    play_intro();            /* 0x4079af */
 
     for (;;) {
         s16 choice;
@@ -160,7 +171,7 @@ void game_main(int argc, char **argv)
         switch (choice) {
         case MENU_RESULT_INTRO:       /* 0x4079cc */
             g_transition_flag = 1;
-            game_run(1, 0, 0);
+            play_intro();
             break;
 
         case MENU_RESULT_DIFFICULTY:    /* 0x4079ea */

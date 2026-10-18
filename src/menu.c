@@ -72,6 +72,13 @@ int main_menu_run(void)
     s16 selection = 0;   /* var_4 */
     s16 result = -1;     /* var_8 */
 
+    {
+        int other = menu_style_run();   /* titles with their own menu */
+        if (other != -2) {
+            return other;
+        }
+    }
+
     screen_clear();              /* 0x408f5a */
     menu_draw_background();             /* 0x408f5f */
     menu_draw_entry(0);                 /* 0x408f66 */
