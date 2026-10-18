@@ -33,7 +33,7 @@ struct pak_entry_header {
     u32 packed_size;
     u32 unpacked_size;
     u8 method;
-    u8 unused_a;
+    u8 flags;
     u8 extra_skip;
     u8 unused_b;
 };
@@ -127,14 +127,19 @@ int pak_entry_count(const struct pak *pak)
 }
 
 /*
- * 0x425dca. Methods 0 and 1 share the memmove branch; 2 and 3 share the
- * legacy LZ branch; 4 is deflate.
+ * 0x425dca. In WAITD3.EXE methods 0 and 1 share the memmove branch; the
+ * earlier titles use 1 for implode, which no Alone in the Dark 3 container
+ * contains, so it is decoded as implode here. 2 and 3 are the legacy LZ,
+ * 4 is deflate.
  */
-int pak_unpack(int method, const u8 *src, u32 src_size, u8 *dst, u32 dst_size)
+int pak_unpack(int method, int flags, const u8 *src, u32 src_size, u8 *dst,
+               u32 dst_size)
 {
     switch (method) {
+    case PAK_METHOD_IMPLODE:
+        return pak_explode(src, src_size, dst, dst_size, flags);
+
     case PAK_METHOD_STORED_0:
-    case PAK_METHOD_STORED_1:
         if (src_size > dst_size) {
             return 0;
         }
@@ -209,7 +214,7 @@ void *pak_read_entry(struct pak *pak, int index, u32 *out_size)
     header.packed_size = read_u32_le(raw_header + 0);
     header.unpacked_size = read_u32_le(raw_header + 4);
     header.method = raw_header[8];
-    header.unused_a = raw_header[9];
+    header.flags = raw_header[9];
     header.extra_skip = raw_header[10];
     header.unused_b = raw_header[11];
 
@@ -240,7 +245,7 @@ void *pak_read_entry(struct pak *pak, int index, u32 *out_size)
         return NULL;
     }
 
-    if (!pak_unpack(header.method, payload, header.packed_size,
+    if (!pak_unpack(header.method, header.flags, payload, header.packed_size,
                     block, header.unpacked_size)) {
         free(payload);
         mem_free(block);

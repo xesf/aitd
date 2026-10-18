@@ -49,6 +49,11 @@ void *g_anim_buffer;
 void *g_object_table;
 void *g_priority_itd;
 u16 g_defines_itd[0x46];
+/* game_main clears 0x1fb8 bytes at 0x4423a4 (0x4078f0) before the first
+ * menu pass, and again whenever a new game starts (0x407a20). */
+u16 g_game_vars[0xfdc];
+s16 g_difficulty[3] = { 1, 1, 1 };  /* 0x444ee2, 0x444ee4, 0x444ee6 */
+
 
 struct hqr_resource *g_cache_body;
 struct hqr_resource *g_cache_trak;

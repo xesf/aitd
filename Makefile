@@ -9,7 +9,7 @@ SRCDIR  := src
 BUILD   := build
 
 CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
-            $(SRCDIR)/pak.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
+            $(SRCDIR)/pak.c $(SRCDIR)/explode.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
             $(SRCDIR)/palette.c $(SRCDIR)/game.c $(SRCDIR)/harness.c \
             $(SRCDIR)/menu.c $(SRCDIR)/menu_backend.c $(SRCDIR)/input.c \
             $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c \

@@ -15,8 +15,9 @@
  *     u32 reserved        always 0 in observed data; skipped at 0x4202c1
  *     u32 packed_size     bytes on disk after the header
  *     u32 unpacked_size   bytes after decompression
- *     u8  method          0 or 1 stored, 2 or 3 legacy LZ, 4 deflate
- *     u8  unused
+ *     u8  method          0 stored, 1 implode (AITD1/2, Jack; stored in
+ *                         WAITD3.EXE), 2 or 3 legacy LZ, 4 deflate
+ *     u8  flags           implode options, see explode.c
  *     u8  extra_skip      further bytes to skip before the payload (0x4202e6)
  *     u8  unused
  *
@@ -36,7 +37,7 @@
 /* Values of the method byte, dispatched by pak_unpack at 0x425dca. */
 enum pak_method {
     PAK_METHOD_STORED_0 = 0,  /* memmove, 0x425e0b */
-    PAK_METHOD_STORED_1 = 1,  /* same branch */
+    PAK_METHOD_IMPLODE = 1,   /* AITD1/2, Jack; a memmove in WAITD3.EXE */
     PAK_METHOD_LEGACY_LZ_2 = 2, /* 0x42a8f0 */
     PAK_METHOD_LEGACY_LZ_3 = 3, /* same branch */
     PAK_METHOD_DEFLATE = 4      /* 0x42bb75, raw RFC 1951 */
@@ -71,6 +72,10 @@ void *pak_load(const char *name, int index, u32 *out_size);
 
 /* Standalone decompressor, mirroring pak_unpack (0x425dca). Returns 0 when
  * the method is unsupported. */
-int pak_unpack(int method, const u8 *src, u32 src_size, u8 *dst, u32 dst_size);
+int pak_unpack(int method, int flags, const u8 *src, u32 src_size, u8 *dst,
+               u32 dst_size);
+
+/* PKZIP implode decompression (explode.c). */
+int pak_explode(const u8 *src, u32 src_size, u8 *dst, u32 dst_size, int flags);
 
 #endif /* AITD_PAK_H */

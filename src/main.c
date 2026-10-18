@@ -23,14 +23,10 @@
 #include "subsystems.h"
 #include "world.h"
 
-/* game_main clears 0x1fb8 bytes at 0x4423a4 (0x4078f0) before the first
- * menu pass, and again whenever a new game starts (0x407a20). */
-u16 g_game_vars[0xfdc];
 
 /* Difficulty settings, set to 1 (normal) at 0x407901..0x407913. The first
  * scales the player's life points, the other two the damage dealt and
  * taken (0x413296). */
-s16 g_difficulty[3] = { 1, 1, 1 };  /* 0x444ee2, 0x444ee4, 0x444ee6 */
 
 /* Saved and restored around the load paths (0x4079f1, 0x407a72, 0x407aa0). */
 
