@@ -349,16 +349,45 @@ void world_load_background(s16 camera)
         entry = camera;
     }
 
-    /* 0x414822: entries are a 4 byte header, 64000 pixels, 768 palette. */
-    picture = load_malloc_hqr(pak, entry);
-    if (picture == NULL) {
-        fatal_error(0, pak);
-    }
-    memmove(g_front_buffer, picture + 4, 64000 + AITD_PALETTE_BYTES);
-    mem_free(picture);
+    /* 0x414822: in AITD3 a 4 byte header, 64000 pixels and the palette;
+     * the earlier titles have no header, AITD1 no palette either. */
+    {
+        u32 size = 0;
+        int header = profile->background_header;
 
-    memcpy(g_palette_buffer, g_front_buffer + 64000, AITD_PALETTE_BYTES);
-    memmove(g_palette_buffer, g_palette_overlay, 48);
+        picture = (pak == name) ? pak_load(pak, entry, &size) : load_malloc_hqr(pak, entry);
+        if (picture == NULL) {
+            fatal_error(0, pak);
+        }
+        if (pak != name) {
+            header = 4;     /* ITD_RESS pictures always carry the header */
+            size = 64000 + AITD_PALETTE_BYTES + 4;
+        }
+        memmove(g_front_buffer, picture + header,
+                size >= (u32)header + 64000 + AITD_PALETTE_BYTES ? 64000 + AITD_PALETTE_BYTES : 64000);
+        mem_free(picture);
+    }
+
+    switch (profile->palette_source) {
+    case PALETTE_GLOBAL:
+        memcpy(g_front_buffer + 64000, g_palette_buffer, AITD_PALETTE_BYTES);
+        break;
+    case PALETTE_CAMERA_6BIT:
+        memcpy(g_palette_buffer, g_front_buffer + 64000, AITD_PALETTE_BYTES);
+        if (profile->palette_overlay != NULL) {
+            memcpy(g_palette_buffer, profile->palette_overlay, 48);
+        }
+        for (i = 0; i < AITD_PALETTE_BYTES; i++) {
+            g_palette_buffer[i] = (u8)((g_palette_buffer[i] * 255u) / 63u);
+        }
+        break;
+    case PALETTE_CAMERA_8BIT:
+        memcpy(g_palette_buffer, g_front_buffer + 64000, AITD_PALETTE_BYTES);
+        if (profile->palette_overlay != NULL) {
+            memcpy(g_palette_buffer, profile->palette_overlay, 48);
+        }
+        break;
+    }
 }
 
 /* 0x40a123 - bring up the current camera. */

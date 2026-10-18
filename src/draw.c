@@ -279,7 +279,7 @@ void draw_masks(struct actor *a)
     a->screen[3] = g_r3d_bbox.ymax;
     raster_set_clip(g_r3d_bbox.xmin, g_r3d_bbox.ymin, g_r3d_bbox.xmax, g_r3d_bbox.ymax);
 
-    for (i = 0; views > 0; i++, views--, view += 16) {
+    for (i = 0; views > 0; i++, views--, view += g_camera_view_size) {
         if (blob_s16(view, 0) == a->room) {
             break;
         }
@@ -653,7 +653,7 @@ void bganim_insert(void)
             view = CAMERA_VIEW(cam, 0);
             views = CAMERA_VIEW_COUNT(cam);
             while (views > 0 && blob_s16(view, 0) != a->room) {
-                view += 16;
+                view += g_camera_view_size;
                 views--;
             }
             if (views == 0) {

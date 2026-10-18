@@ -39,8 +39,15 @@ enum floor_layout {
 /* How the masks drawn over actors are stored. */
 enum mask_layout {
     MASK_COVER_ZONES,   /* none: the camera's cover polygons (AITD1) */
-    MASK_RAW,           /* MASK##.PAK is a plain offset table (AITD2, Jack) */
-    MASK_PAK            /* MASK##.PAK is a container (AITD3) */
+    MASK_PAK,           /* MASK##.PAK, one entry per camera (AITD2, Jack, AITD3) */
+    MASK_NONE           /* Time Gate */
+};
+
+/* Where a camera background takes its palette from. */
+enum palette_source {
+    PALETTE_GLOBAL,     /* ITD_RESS entry 3, one for the whole game (AITD1) */
+    PALETTE_CAMERA_6BIT,/* after the pixels, 0..63 VGA levels (AITD2, Jack) */
+    PALETTE_CAMERA_8BIT /* after the pixels, 0..255 (AITD3, Time Gate) */
 };
 
 /* Raw life opcode and variable numbering. */
@@ -63,6 +70,10 @@ struct game_profile {
     const char *camera_prefix;      /* CAM / CAMSAL, unused for ETAGE blobs */
     const char *background_prefix;  /* "CAMERA" */
     int camera_view_size;           /* bytes per viewed room in a camera */
+    int background_header;          /* bytes before the pixels: 4 in AITD3 */
+    enum palette_source palette_source;
+    const u8 *palette_overlay;      /* 16 interface colours put over the
+                                       camera palette, or NULL */
 
     enum mask_layout mask_layout;
 

@@ -117,6 +117,17 @@ static void load_font(void)
     font_set_data(g_font_data);       /* 0x407234 */
     font_set_spacing((u16)game_current()->font_spacing); /* 0x40723e */
     font_set_color_table(g_font_color_table); /* 0x407248, 0x44485c */
+
+    /* Alone in the Dark 1 has one palette for every camera (FITD reads it
+     * from ITD_RESS entry 3). */
+    if (game_current()->palette_source == PALETTE_GLOBAL) {
+        u8 *palette = load_malloc_hqr(PAK_RESOURCES, 3);
+
+        if (palette != NULL) {
+            memcpy(g_palette_buffer, palette, AITD_PALETTE_BYTES);
+            mem_free(palette);
+        }
+    }
 }
 
 /*

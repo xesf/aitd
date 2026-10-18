@@ -11,10 +11,21 @@
 #include "game.h"
 #include "platform.h"
 
+/* The 16 interface colours laid over every camera palette. AITD2.EXE keeps
+ * them as VGA levels at file offset 134112 (also used by Jack); WAITD3.EXE
+ * at 0x435068. */
+static const u8 s_overlay_aitd2[0x30] = {
+    0x00, 0x00, 0x00, 0x3f, 0x3f, 0x3f, 0x0c, 0x0c, 0x0e, 0x30, 0x2f, 0x3f,
+    0x23, 0x2c, 0x23, 0x2a, 0x1d, 0x2a, 0x2a, 0x21, 0x18, 0x3f, 0x05, 0x2a,
+    0x12, 0x14, 0x18, 0x31, 0x15, 0x17, 0x15, 0x25, 0x15, 0x15, 0x2f, 0x3f,
+    0x3f, 0x22, 0x15, 0x2b, 0x15, 0x3f, 0x3f, 0x3f, 0x21, 0x3f, 0x3f, 0x3f
+};
+extern u8 g_palette_overlay[0x30];
+
 static const struct game_profile s_aitd1 = {
     GAME_AITD1, "Alone in the Dark", "LISTBOD2.PAK",
     320, 200, NULL,
-    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 12,
+    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 12, 0, PALETTE_GLOBAL, NULL,
     MASK_COVER_ZONES,
     52, 45, LIFE_DIALECT_AITD1,
     5, 4, 0,
@@ -25,8 +36,8 @@ static const struct game_profile s_aitd1 = {
 static const struct game_profile s_jack = {
     GAME_JACK, "Jack in the Dark", "PERE.PAK",
     320, 200, NULL,
-    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16,
-    MASK_RAW,
+    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16, 0, PALETTE_CAMERA_6BIT, s_overlay_aitd2,
+    MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1,
     "LISTSAMP",
@@ -36,8 +47,8 @@ static const struct game_profile s_jack = {
 static const struct game_profile s_aitd2 = {
     GAME_AITD2, "Alone in the Dark 2", "MER.PAK",
     320, 200, NULL,
-    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16,
-    MASK_RAW,
+    FLOOR_ETAGE_BLOB, "ETAGE", NULL, "CAMERA", 16, 0, PALETTE_CAMERA_6BIT, s_overlay_aitd2,
+    MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1,
     "LISTSAMP",
@@ -47,7 +58,7 @@ static const struct game_profile s_aitd2 = {
 static const struct game_profile s_aitd3 = {
     GAME_AITD3, "Alone in the Dark 3", "AN1.PAK",
     320, 200, NULL,
-    FLOOR_SAL_CAM, "SAL", "CAM", "CAMERA", 16,
+    FLOOR_SAL_CAM, "SAL", "CAM", "CAMERA", 16, 4, PALETTE_CAMERA_8BIT, g_palette_overlay,
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1,
@@ -58,8 +69,8 @@ static const struct game_profile s_aitd3 = {
 static const struct game_profile s_timegate = {
     GAME_TIMEGATE, "Time Gate: Knight's Chase", "PURSUIT.PAK",
     320, 200, NULL,
-    FLOOR_ETAGE_CAMSAL, "ETAGE", "CAMSAL", "CAMERA", 22,
-    MASK_PAK,
+    FLOOR_ETAGE_CAMSAL, "ETAGE", "CAMSAL", "CAMERA", 22, 0, PALETTE_CAMERA_8BIT, NULL,
+    MASK_NONE,
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1,
     "SAMPLES",

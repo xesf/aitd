@@ -202,9 +202,19 @@ void *pak_read_entry(struct pak *pak, int index, u32 *out_size)
         return NULL;
     }
 
-    /* Slot 0 is the dummy, so entry N is at offsets[N + 1] (0x42029b). */
-    if (fseek(pak->fp, (long)pak->offsets[index + 1] + 4, SEEK_SET) != 0) {
+    /* Slot 0 is the dummy, so entry N is at offsets[N + 1] (0x42029b). The
+     * entry opens with the size of an optional descriptor block; it is 0
+     * in AITD3 and skipped whole when present (AITD2 masks). */
+    if (fseek(pak->fp, (long)pak->offsets[index + 1], SEEK_SET) != 0
+        || fread(raw_header, 1, 4, pak->fp) != 4) {
         return NULL;
+    }
+    {
+        u32 descriptor = read_u32_le(raw_header);
+
+        if (descriptor >= 4 && fseek(pak->fp, (long)descriptor - 4, SEEK_CUR) != 0) {
+            return NULL;
+        }
     }
 
     if (fread(raw_header, 1, sizeof(raw_header), pak->fp) != sizeof(raw_header)) {
