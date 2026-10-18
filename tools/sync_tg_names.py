@@ -35,6 +35,22 @@ FUNCS = {
     0x42ba34: 'gouraud_spans',
     0x40b767: 'world_camera_sees_room',
     0x40b95c: 'actor_update_lights',
+    0x41778f: 'game_main',
+    0x405f6b: 'main_menu_run',
+    0x405c64: 'ring_draw',
+    0x4062c3: 'difficulty_select',
+    0x409397: 'options_menu',
+    0x4146d1: 'world_load_background',
+    0x414c35: 'load_mask_slots',
+    0x414cd5: 'free_mask_slots',
+    0x40c981: 'draw_masks',
+    0x42a422: 'mask_zone_hit',
+    0x42a478: 'draw_mask',
+    0x40c7c7: 'camera_apply_lights',
+    0x40a858: 'message_draw',
+    0x405a14: 'font_set_colour',
+    0x422c14: 'hyb_render',
+    0x40c3b9: 'world_set_floor',
 }
 
 DATA = {
