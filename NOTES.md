@@ -349,6 +349,11 @@ for code; everything taken from it was checked against the data.
   the detail option 0x41c9b3 also offers flat and medium sets), and the
   scan conversion steps in fixed point instead of the original Bresenham
   tables: not verified pixel for pixel.
+- **AITD1 cover zones** (facts from FITD): view +2 lists entries of a
+  rectangle count, an offset to screen polygons and the rectangles; when
+  the actor's box (tenths) lies inside one, the background inside the
+  polygons is drawn back over the actor. Messages count drawn frames:
+  colour 16 for 26 frames, then 16 + (n - 26) / 2, gone after 56.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in

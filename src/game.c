@@ -29,7 +29,7 @@ static const struct game_profile s_aitd1 = {
     MASK_COVER_ZONES,
     52, 45, LIFE_DIALECT_AITD1,
     5, 4, 0, 0,
-    "LISTSAMP", { 14, 0x50, 8, 0xd0 },
+    "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
     0, 0, 7, 1
 };
 
@@ -40,7 +40,7 @@ static const struct game_profile s_jack = {
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
-    "LISTSAMP", { 14, 0x50, 8, 0xd0 },
+    "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     16, 1, -1, -1
 };
 
@@ -51,7 +51,7 @@ static const struct game_profile s_aitd2 = {
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
-    "LISTSAMP", { 14, 0x50, 8, 0xd0 },
+    "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     8, 7, 8, 0
 };
 
@@ -62,7 +62,7 @@ static const struct game_profile s_aitd3 = {
     MASK_PAK,
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 1,
-    "LISTSAMP", { 14, 0x50, 8, 0xd0 },
+    "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     0, 12, 1, 0
 };
 
@@ -73,7 +73,7 @@ static const struct game_profile s_timegate = {
     MASK_SLOT_FILES,
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
-    "SAMPLES", { 80, 100, 80, 0x104 },
+    "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
     0, 5, -1, -1
 };
 

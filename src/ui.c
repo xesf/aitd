@@ -29,6 +29,7 @@
 struct message_slot {
     const struct text_record *text;
     u32 timer;
+    u32 frames;     /* draws so far, for titles that count frames */
 };
 
 static struct message_slot s_messages[MESSAGE_SLOTS];
@@ -86,6 +87,7 @@ void message_show(int text_id)
     for (i = 0; i < MESSAGE_SLOTS; i++) {
         if (s_messages[i].text == r) {
             timer_reset_u32(&s_messages[i].timer);
+            s_messages[i].frames = 0;
             return;
         }
     }
@@ -93,6 +95,7 @@ void message_show(int text_id)
         if (s_messages[i].text == NULL) {
             s_messages[i].text = r;
             timer_reset_u32(&s_messages[i].timer);
+            s_messages[i].frames = 0;
             return;
         }
     }
@@ -103,7 +106,7 @@ void message_show(int text_id)
 int message_draw(void)
 {
     const struct message_style *fade = &game_current()->message;
-    s16 y = 199;
+    s16 y = (s16)(fade->y + 14);
     int drawn = 0;
     int i;
 
@@ -118,9 +121,9 @@ int message_draw(void)
 
         y = (s16)(y - 14);
         x = (s16)(160 - m->text->width / 2);
-        elapsed = timer_elapsed_u32(&m->timer);
+        elapsed = fade->per_frame ? ++m->frames : timer_elapsed_u32(&m->timer);
 
-        if (elapsed >= (u32)fade->ticks) {
+        if (elapsed >= (u32)fade->life) {
             m->text = NULL;
             continue;
         }

@@ -288,6 +288,64 @@ static void draw_mask(const u8 *mask, const u8 *source)
 
 static const u8 *s_mask_source;
 
+/* Alone in the Dark 1 keeps no mask blobs: view +2 lists cover entries
+ * (rectangle count, offset from the list to its polygons, rectangles of
+ * x1, z1, x2, z2), and when the actor's box lies inside a rectangle the
+ * background inside each polygon (point count, then x, y screen words) is
+ * put back over it. Facts from FITD's drawBgOverlay; the original routine
+ * is not rebuilt. */
+static u8 s_cover[64000];
+
+static void draw_cover(const u8 *list, const struct actor *a, const u8 *source)
+{
+    s16 x1 = (s16)(a->zv[0] / 10), x2 = (s16)(a->zv[1] / 10);
+    s16 z1 = (s16)(a->zv[4] / 10), z2 = (s16)(a->zv[5] / 10);
+    const u8 *entry = list + 2;
+    int count = blob_s16(list, 0);
+    int i;
+
+    for (i = 0; i < count; i++) {
+        int rects = blob_s16(entry, 0);
+        const u8 *r = entry + 4;
+        int k, hit = 0;
+
+        for (k = 0; k < rects && !hit; k++, r += 8) {
+            hit = x1 >= blob_s16(r, 0) && z1 >= blob_s16(r, 2)
+               && x2 <= blob_s16(r, 4) && z2 <= blob_s16(r, 6);
+        }
+        if (hit) {
+            const u8 *poly = list + (u16)blob_s16(entry, 2);
+            int polys = blob_s16(poly, 0);
+            u8 *target = g_raster.target;
+            s16 pts[2 * 64];
+            int x, y, n, j;
+
+            poly += 2;
+            g_raster.target = s_cover;
+            for (j = 0; j < polys; j++) {
+                n = blob_s16(poly, 0);
+                for (k = 0; k < n && k < 64; k++) {
+                    pts[k * 2] = blob_s16(poly, 2 + k * 4);
+                    pts[k * 2 + 1] = blob_s16(poly, 4 + k * 4);
+                }
+                raster_poly(pts, n < 64 ? n : 64, 0, 0xff);
+                poly += 2 + n * 4;
+            }
+            g_raster.target = target;
+
+            for (y = g_raster.clip_ymin; y <= g_raster.clip_ymax; y++) {
+                for (x = g_raster.clip_xmin; x <= g_raster.clip_xmax; x++) {
+                    if (s_cover[y * 320 + x]) {
+                        target[y * g_raster.pitch + x] = source[y * 320 + x];
+                        s_cover[y * 320 + x] = 0;
+                    }
+                }
+            }
+        }
+        entry += 4 + rects * 8;
+    }
+}
+
 /* 0x41a215 */
 void draw_masks(struct actor *a)
 {
@@ -311,6 +369,12 @@ void draw_masks(struct actor *a)
         }
     }
     if (views == 0) {
+        return;
+    }
+
+    if (game_current()->mask_layout == MASK_COVER_ZONES) {
+        draw_cover(cam + (blob_s16(view, 2) & ~1), a, s_mask_source);
+        reset_clip();
         return;
     }
 

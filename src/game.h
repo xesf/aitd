@@ -95,11 +95,13 @@ struct game_profile {
 
     const char *sample_pak;         /* LISTSAMP or SAMPLES, without .PAK */
 
-    /* Messages at the foot of the screen: drawn in `colour`, which steps
-     * up by one every `fade_step` ticks after `fade_after`, and gone after
-     * `ticks` (AITD3 0x41b154, Time Gate TG320.EX_ 0x40a858). */
+    /* Messages at the foot of the screen: the lowest line at `y`, drawn
+     * in `colour`, which steps up by one every `fade_step` after
+     * `fade_after`, gone after `life`. Counted in timer ticks, or in drawn
+     * frames when `per_frame` (AITD3 0x41b154, Time Gate TG320.EX_
+     * 0x40a858, AITD1 from FITD's drawTextOverlay). */
     struct message_style {
-        int colour, fade_after, fade_step, ticks;
+        int colour, fade_after, fade_step, life, per_frame, y;
     } message;
 
     /* game_run arguments for a new game and for the intro (-1: none). */
