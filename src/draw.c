@@ -144,6 +144,38 @@ void draw_sort_actors(void)
 
 /* ---- helpers ----------------------------------------------------------- */
 
+/* Time Gate (TG 0x40b95c, 0x40b767): an actor takes the light of the
+ * current camera's view of its room, direction at +8 and position at +14
+ * of the 22 byte view record, and keeps it while the camera does not see
+ * that room. Other titles have no light in their view records. */
+enum { TG_VIEW_SIZE = 22, TG_VIEW_LIGHT = 8 };
+
+static s16 s_actor_light[ACTOR_MAX][6];   /* TG actor +0xbc..+0xc6 */
+
+static void actor_light(const struct actor *a)
+{
+    s16 *light = s_actor_light[a - g_actors];
+    const u8 *cam;
+    int count, i, k;
+
+    if (g_camera_view_size < TG_VIEW_SIZE || g_cur_camera < 0) {
+        return;
+    }
+    cam = g_room_cameras[g_cur_camera];
+    count = CAMERA_VIEW_COUNT(cam);
+    for (i = 0; i < count; i++) {
+        const u8 *view = CAMERA_VIEW(cam, i);
+
+        if (blob_s16(view, 0) == a->room) {
+            for (k = 0; k < 6; k++) {
+                light[k] = blob_s16(view, TG_VIEW_LIGHT + k * 2);
+            }
+            break;
+        }
+    }
+    r3d_set_light(light, light + 3);
+}
+
 static void clamp_bbox(void)
 {
     if (g_r3d_bbox.xmin < 0) g_r3d_bbox.xmin = 0;
@@ -420,6 +452,7 @@ void draw_static_actors(void)
         }
 
         r3d_set_clip_y((a->flags & 0x400) ? 10000 : g_clip_y_default);
+        actor_light(a);
         r3d_draw_body((s16)(a->step_x + a->world_x), (s16)(a->step_y + a->world_y),
                       (s16)(a->step_z + a->world_z), a->alpha, a->beta, a->gamma,
                       body);
@@ -526,6 +559,7 @@ void draw_frame(s16 full)
                     continue;
                 }
                 r3d_set_clip_y((a->flags & 0x400) ? 10000 : g_clip_y_default);
+                actor_light(a);
                 r3d_draw_body((s16)(a->step_x + a->world_x),
                               (s16)(a->step_y + a->world_y),
                               (s16)(a->step_z + a->world_z),

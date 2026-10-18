@@ -12,7 +12,7 @@ CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
             $(SRCDIR)/pak.c $(SRCDIR)/explode.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
             $(SRCDIR)/palette.c $(SRCDIR)/game.c $(SRCDIR)/harness.c \
             $(SRCDIR)/menu.c $(SRCDIR)/menu_backend.c $(SRCDIR)/input.c \
-            $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c \
+            $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c $(SRCDIR)/texture.c \
             $(SRCDIR)/anim.c $(SRCDIR)/hyb.c $(SRCDIR)/world.c $(SRCDIR)/draw.c \
             $(SRCDIR)/actor.c $(SRCDIR)/life.c $(SRCDIR)/lifemap.c $(SRCDIR)/ui.c $(SRCDIR)/inventory.c \
             $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c \

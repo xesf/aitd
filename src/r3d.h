@@ -19,11 +19,17 @@ enum prim_type {
     PRIM_POLY_ALT = 4,          /* drawn as a polygon; no collector emits it */
     PRIM_BIG_POINT = 6,
     PRIM_ZIXEL = 7,
-    /* Time Gate: polygons with a texture (material byte), 9 and 10 with a
-     * u, v byte pair per vertex after the points. */
-    PRIM_POLY_TEXTURE = 8,
-    PRIM_POLY_TEXTURE_UV = 9,
-    PRIM_POLY_TEXTURE_UV2 = 10
+    /* Time Gate triangles, see collect_textured in r3d.c. */
+    PRIM_TEXTURED = 8,          /* texture page */
+    PRIM_GOURAUD = 9,           /* shaded colour, a normal per corner */
+    PRIM_TEXTURED_LIT = 10      /* shaded texture, a normal per corner */
+};
+
+/* Body flag bits beyond the shared ones (1 sorted, 2 animated, 8 Jack's
+ * optimised groups). */
+enum body_flag {
+    BODY_NORMALS = 0x40,        /* Time Gate: light normals after the points */
+    BODY_TEXTURED = 0x80        /* Time Gate: UV table and texture pages */
 };
 
 /* Type word (+8) of an animated bone record. */
@@ -66,6 +72,10 @@ void r3d_set_clip_y(s16 y);
 
 /* 0x424710 - returns 0 when drawn, 1 when nothing was visible, 2 when the
  * body was rejected. Leaves the screen box in g_r3d_bbox. */
+/* Time Gate: the light of the camera view in force for the next bodies,
+ * direction and position in world space. */
+void r3d_set_light(const s16 *dir, const s16 *pos);
+
 int r3d_draw_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
                   u8 *body);
 /* 0x42497a - measures an animated body without drawing it. */

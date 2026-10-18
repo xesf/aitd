@@ -14,6 +14,7 @@
 #include "exe_tables.h"
 #include "r3d.h"
 #include "raster.h"
+#include "texture.h"
 
 #define R3D_MAX_POINTS 400
 #define R3D_MAX_PRIMS 400            /* 0x42488e clamps the draw loop */
@@ -49,6 +50,17 @@ static struct r3d_axis s_bone_alpha, s_bone_beta, s_bone_gamma;
 static s16 s_model[R3D_MAX_POINTS * 3];      /* 0x436028 */
 static s16 s_projected[R3D_MAX_POINTS * 3];  /* 0x4356c8 */
 static int s_point_count;                    /* 0x439904 */
+
+/* Time Gate bodies (TG320.EX_ 0x4228a9). Flag 0x80: a table of (u, v)
+ * corner triples and two texture pages. Flag 0x40: the last points are
+ * light normals, one per vertex from s_normal_offset (bytes) on; they
+ * follow their vertex's bone rotations and pivots and are never clipped. */
+static s16 s_camera[R3D_MAX_POINTS * 3];     /* TG 0x43c4b0, camera space */
+static const u8 *s_uv_table;                 /* TG 0x4422a0 */
+static struct tex_page s_pages[2];           /* TG 0x45c4d0, 0x45c4cc */
+static int s_normal_count;                   /* TG 0x4422b2 */
+static int s_normal_offset;                  /* TG 0x4422ae */
+static s16 s_light_dir[3], s_light_pos[3];   /* TG 0x43c333.., 0x451d54.. */
 
 /* Object being drawn, 0x4398ec..0x439900. */
 static s16 s_obj_x, s_obj_y, s_obj_z, s_obj_alpha, s_obj_beta, s_obj_gamma;
@@ -286,6 +298,20 @@ static void bone_rotate_points(s16 *points, int count)
     }
 }
 
+/* The normals that mirror the group of n points at byte offset `offset`,
+ * clamped to the model. */
+static s16 *normal_group(u16 offset, int *n)
+{
+    int first = (offset + s_normal_offset) / 6;
+
+    if (first >= s_point_count) {
+        *n = 0;
+    } else if (first + *n > s_point_count) {
+        *n = s_point_count - first;
+    }
+    return &s_model[first * 3];
+}
+
 /* 0x423aee - rotates a bone's points, then every later bone whose parent is
  * this bone, recursively, all with the same matrix. */
 static void bone_rotate_tree(const u8 *bone, int bone_count)
@@ -295,6 +321,11 @@ static void bone_rotate_tree(const u8 *bone, int bone_count)
     const u8 *p = bone;
 
     bone_rotate_points(&s_model[rd16(bone) / 2], rds16(bone + 2));
+    if (s_normal_count > 0) {   /* TG 0x421cd8 */
+        int n = rds16(bone + 2);
+        s16 *normals = normal_group(rd16(bone), &n);
+        bone_rotate_points(normals, n);
+    }
 
     for (remaining = bone_count - index; remaining > 0; remaining--) {
         if (p[6] == index) {
@@ -334,6 +365,7 @@ static void project_point(s16 *out, s16 x, s16 y, s16 z, s16 min_z)
  * project (z <= 50 is dropped). */
 static void project_model(s16 rel_x, s16 rel_y, s16 rel_z)
 {
+    int regular = s_point_count - s_normal_count;
     int i;
 
     for (i = 0; i < s_point_count; i++) {
@@ -341,16 +373,17 @@ static void project_model(s16 rel_x, s16 rel_y, s16 rel_z)
         s16 y = (s16)(s_model[i * 3 + 1] + rel_y);
         s16 z;
 
-        if (y > s_clip_y) {
+        if (y > s_clip_y && i < regular) {
             s_projected[i * 3] = s_projected[i * 3 + 1] = s_projected[i * 3 + 2] = R3D_INVALID;
+            s_camera[i * 3] = s_camera[i * 3 + 1] = s_camera[i * 3 + 2] = R3D_INVALID;
             continue;
         }
         y = (s16)(y - s_cam_y);
         z = (s16)(s_model[i * 3 + 2] + rel_z);
         camera_rotate(&x, &y, &z);
-        s_projected[i * 3] = x;
-        s_projected[i * 3 + 1] = y;
-        s_projected[i * 3 + 2] = z;
+        s_projected[i * 3] = s_camera[i * 3] = x;
+        s_projected[i * 3 + 1] = s_camera[i * 3 + 1] = y;
+        s_projected[i * 3 + 2] = s_camera[i * 3 + 2] = z;
     }
 
     /* 0x423d6f: project, z <= 50 is dropped. */
@@ -458,6 +491,16 @@ static const u8 *transform_animated(u8 *body)
             pt[1] = (s16)(pt[1] + py);
             pt[2] = (s16)(pt[2] + pz);
             pt += 3;
+        }
+        if (s_normal_count > 0) {   /* TG 0x421f0d */
+            n = rds16(bone + 2);
+            pt = normal_group(rd16(bone), &n);
+            while (n-- > 0) {
+                pt[0] = (s16)(pt[0] + px);
+                pt[1] = (s16)(pt[1] + py);
+                pt[2] = (s16)(pt[2] + pz);
+                pt += 3;
+            }
         }
     }
 
@@ -590,13 +633,17 @@ static const u8 *transform_static(const u8 *body)
 
         x = (s16)(x + rel_x);
         y = (s16)(y + rel_y);
-        if (y > s_clip_y) {
+        if (y > s_clip_y && i < s_point_count - s_normal_count) {
             out[0] = out[1] = out[2] = R3D_INVALID;
+            s_camera[i * 3] = s_camera[i * 3 + 1] = s_camera[i * 3 + 2] = R3D_INVALID;
             continue;
         }
         y = (s16)(y - s_cam_y);
         z = (s16)(z + rel_z);
         camera_rotate(&x, &y, &z);
+        s_camera[i * 3] = x;
+        s_camera[i * 3 + 1] = y;
+        s_camera[i * 3 + 2] = z;
 
         if ((s16)(z + s_z_offset) <= 0) {
             s_rejected = 2;
@@ -650,6 +697,83 @@ static const s16 *proj_at(u16 byte_offset)
     return &s_projected[byte_offset / 2];
 }
 
+/* TG 0x4214aa: the sign of the determinant of the three camera space
+ * corners, each scaled down by 8, in 32 bit wrapping products. */
+static int tg_front_facing(const s16 *a, const s16 *b, const s16 *c)
+{
+    u32 x0 = (u32)(s32)(a[0] >> 3), y0 = (u32)(s32)(a[1] >> 3), z0 = (u32)(s32)(a[2] >> 3);
+    u32 x1 = (u32)(s32)(b[0] >> 3), y1 = (u32)(s32)(b[1] >> 3), z1 = (u32)(s32)(b[2] >> 3);
+    u32 x2 = (u32)(s32)(c[0] >> 3), y2 = (u32)(s32)(c[1] >> 3), z2 = (u32)(s32)(c[2] >> 3);
+    u32 d = (y1 * z2 - y2 * z1) * x0 - (y0 * z2 - y2 * z0) * x1 + (y0 * z1 - y1 * z0) * x2;
+
+    return (s32)d >= 0;
+}
+
+/*
+ * Time Gate primitives 8, 9 and 10 (TG 0x4213ec, 0x421620): a corner count
+ * (always 3; the original reads three), a material word, three vertex
+ * offsets and, for 9 and 10, three normal offsets. The material's low six
+ * bits pick the page (any nonzero value: the second) and its upper ten the
+ * UV triple; for 9 the high byte is the colour. Records keep the type, the
+ * material and per corner x, y, u, v, light level.
+ */
+static const u8 *collect_textured(int type, const u8 *p, u8 *rec, u8 **stash)
+{
+    int n = *p++;
+    u16 material = rd16(p);
+    const u8 *vertex = p + 2;
+    const u8 *normal = vertex + n * 2;
+    const u8 *next = normal + (type == PRIM_TEXTURED ? 0 : n * 2);
+    s16 select = (s16)(type == PRIM_GOURAUD ? material >> 8 : material & 0x3f);
+    const u8 *uv = (s_uv_table != NULL && type != PRIM_GOURAUD)
+                 ? s_uv_table + (material >> 6) * 12 : NULL;
+    const s16 *cam[3];
+    s16 zmax = (s16)0x8300;
+    int k;
+
+    if (n != 3) {
+        return next;
+    }
+    for (k = 0; k < 3; k++) {
+        const s16 *pt = proj_at(rd16(vertex + k * 2));
+        const s16 *c = &s_camera[rd16(vertex + k * 2) / 2];
+
+        if (pt[2] <= 0 || c[0] == R3D_INVALID) {   /* 0x4227cb */
+            return next;
+        }
+        cam[k] = c;
+        if (pt[2] > zmax) zmax = pt[2];
+    }
+    if (!tg_front_facing(cam[0], cam[1], cam[2])) {
+        return next;
+    }
+
+    rec[0] = (u8)type;
+    rec[1] = (u8)material;
+    rec[2] = (u8)(material >> 8);
+    rec[3] = 0;
+    for (k = 0; k < 3; k++) {
+        const s16 *pt = proj_at(rd16(vertex + k * 2));
+        u8 *out = rec + 4 + k * 10;
+        s16 level = 0;
+
+        wr16(out, pt[0]);
+        wr16(out + 2, pt[1]);
+        wr16(out + 4, uv != NULL ? rds16(uv + k * 4) : 0);
+        wr16(out + 6, uv != NULL ? rds16(uv + k * 4 + 2) : 0);
+        if (type != PRIM_TEXTURED) {
+            /* 0x412e4f: the level, with the selector's upper nibble. */
+            level = texture_light_level(&s_camera[rd16(normal + k * 2) / 2],
+                                        s_light_dir, s_light_pos);
+            level = (s16)(level | (select & 0xf0));
+        }
+        wr16(out + 8, level);
+    }
+    sort_push(zmax, PRIM_TEXTURED, rec);
+    *stash = rec + 4 + 3 * 10;
+    return next;
+}
+
 /*
  * 0x4247be..0x4247de - reads the primitive list and stashes everything that
  * survives depth and backface tests. Records hold the primitive's header
@@ -690,19 +814,19 @@ static void collect_primitives(const u8 *p)
             }
             break;
         }
-        case PRIM_POLY: /* 0x4231b8 */
-        case PRIM_POLY_TEXTURE:
-        case PRIM_POLY_TEXTURE_UV:
-        case PRIM_POLY_TEXTURE_UV2: {
+        case PRIM_TEXTURED:
+        case PRIM_GOURAUD:
+        case PRIM_TEXTURED_LIT:
+            p = collect_textured(type, p, rec, &stash);
+            break;
+        case PRIM_POLY: /* 0x4231b8 */ {
             int n = *p++;
             s16 zmin = 0x7d00, zmax = (s16)0x8300;
             u8 *pts;
             int k;
 
             rec[0] = (u8)n;
-            /* Time Gate's textured polygons are drawn flat in their colour
-             * until texture mapping is rebuilt. */
-            rec[1] = type == PRIM_POLY ? p[0] : 0;
+            rec[1] = p[0];
             rec[2] = p[1];
             rec[3] = 0;
             p += 2;
@@ -714,9 +838,6 @@ static void collect_primitives(const u8 *p)
                 wr16(pts + k * 4 + 2, pt[1]);
                 if (pt[2] < zmin) zmin = pt[2];
                 if (pt[2] > zmax) zmax = pt[2];
-            }
-            if (type == PRIM_POLY_TEXTURE_UV || type == PRIM_POLY_TEXTURE_UV2) {
-                p += n * 2;     /* u, v per vertex */
             }
             if (zmin > 0 && n >= 3) {
                 /* 0x423216: screen space winding of the first three points. */
@@ -892,6 +1013,24 @@ static void draw_primitives(void)
             raster_poly(pts, n, rec[1], rec[2]);
             break;
         }
+        case PRIM_TEXTURED: { /* TG 0x4218bc, 0x42197c, 0x4219c4 */
+            struct tex_vertex v[3];
+            int type = rec[0], k;
+            enum tex_fill fill = type == PRIM_TEXTURED ? TEX_FILL_TEXTURE
+                               : type == PRIM_GOURAUD ? TEX_FILL_GOURAUD
+                               : TEX_FILL_TEXTURE_LIT;
+
+            for (k = 0; k < 3; k++) {
+                const u8 *in = rec + 4 + k * 10;
+                v[k].x = rds16(in);
+                v[k].y = rds16(in + 2);
+                v[k].u = rds16(in + 4);
+                v[k].v = rds16(in + 6);
+                v[k].level = rds16(in + 8);
+            }
+            texture_triangle(v, fill, &s_pages[(rec[1] & 0x3f) != 0], rec[2]);
+            break;
+        }
         case PRIM_POINT: /* 0x423635 */
             raster_point(rds16(rec + 2), rds16(rec + 4), rec[1]);
             break;
@@ -926,6 +1065,47 @@ static void bbox_reset(s16 lo, s16 hi)
     g_r3d_bbox.ymax = hi;
 }
 
+/* TG 0x4228a9: the extra block of a Time Gate body. Animated bodies keep
+ * the UV table offset at +6, the normals at +8 (count) and +0x0a (byte
+ * offset) and the pages at +0x0c, +0x0e; static ones at +0, +2, +4 and
+ * +6, +8, and only when the block is there. */
+static void body_extras(const u8 *body, int load_pages)
+{
+    u16 flags = rd16(body);
+    const u8 *extra = body + 0x10;
+    int animated = (flags & 2) != 0;
+
+    s_uv_table = NULL;
+    s_normal_count = 0;
+    s_normal_offset = 0;
+    if (!(flags & (BODY_TEXTURED | BODY_NORMALS)) || (!animated && rds16(body + 0x0e) == 0)) {
+        return;
+    }
+    if ((flags & BODY_TEXTURED) && load_pages) {
+        s_uv_table = body + rd16(extra + (animated ? 6 : 0));
+        s_pages[0] = texture_page(rd16(extra + (animated ? 0x0c : 6)), NULL);
+        s_pages[1] = texture_page(rd16(extra + (animated ? 0x0e : 8)), s_pages[0].texels);
+    }
+    if (flags & BODY_NORMALS) {
+        s_normal_count = rd16(extra + (animated ? 8 : 2));
+        s_normal_offset = rd16(extra + (animated ? 0x0a : 4));
+    }
+}
+
+/* TG 0x40cebf: both vectors go through the camera transform (0x422256),
+ * the direction included. */
+void r3d_set_light(const s16 *dir, const s16 *pos)
+{
+    r3d_world_to_camera(dir[0], dir[1], dir[2]);
+    s_light_dir[0] = g_r3d_x;
+    s_light_dir[1] = g_r3d_y;
+    s_light_dir[2] = g_r3d_z;
+    r3d_world_to_camera(pos[0], pos[1], pos[2]);
+    s_light_pos[0] = g_r3d_x;
+    s_light_pos[1] = g_r3d_y;
+    s_light_pos[2] = g_r3d_z;
+}
+
 /* 0x424710 */
 int r3d_draw_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
                   u8 *body)
@@ -937,6 +1117,7 @@ int r3d_draw_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
     bbox_reset(0x7fff, (s16)-0x7fff);
     s_rejected = 0;
     s_sort_count = 0;
+    body_extras(body, 1);
 
     if ((flags & 2) && (flags & 8)) {
         prims = transform_optimised(body_points(body));
@@ -975,6 +1156,7 @@ void r3d_measure_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
     bbox_reset(0x7d00, (s16)0x8300);
     s_rejected = 0;
     s_sort_count = 0;
+    body_extras(body, 0);
 
     if ((rd16(body) & 0xa) == 0xa) {
         transform_optimised(body_points(body));

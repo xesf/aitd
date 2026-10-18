@@ -302,7 +302,7 @@ for code; everything taken from it was checked against the data.
 | object record | 52 | 54 | 54 | 54 | 54 |
 | DEFINES words | 45 | 70 | 70 | 70 | 70 |
 | font (ITD_RESS) | 5, 1-bit | 1, 1-bit | 1, 1-bit | 1 | 2 |
-| bodies | 16 byte groups | 24 byte groups (flag 8) | 16 | 16 | flags 0x40/0x80 |
+| bodies | 16 byte groups | 24 byte groups (flag 8) | 16 | 16 | normals 0x40, textures 0x80 |
 | life opcodes | own order | shared | shared | shared | shared + 102..118 |
 
 - **PAK entries** may open with a descriptor block (AITD2 masks); method 1
@@ -324,11 +324,31 @@ for code; everything taken from it was checked against the data.
 - **Fonts**: AITD1/AITD2/Jack use a 1-bit font (character table of width
   nibble + bit offset), AITD3 and Time Gate the newer one.
 
-State: AITD1 (Carnby walking in the attic), AITD2 (the opening gate scene)
-and Jack (the toy shop street and the credits book) start and render.
-Time Gate shows its first picture but its life scripts use operand shapes
-not covered yet (opcodes 102..118 and changes to older ones), and
-KNIGHTS needs a 640 x 480 screen throughout the engine.
+- **Time Gate bodies** (TG320.EX_ 0x4228a9, `r3d.c`, `texture.c`): flag
+  0x80 adds a UV table and two TEXTURES.PAK pages (256 texels a row, 0 is
+  transparent), flag 0x40 appends one light normal per vertex after the
+  points (they follow bone rotations and pivots, never translations or
+  zooms, and are never clipped). The extra block holds, for animated /
+  static bodies: UV table offset +6 / +0, normal count +8 / +2, normal byte
+  offset +0x0a / +4, pages +0x0c, +0x0e / +6, +8. Primitives 8 (textured),
+  9 (Gouraud) and 10 (textured and lit) are triangles: count, material
+  word, three vertex offsets and for 9/10 three normal offsets. The low six
+  bits of the material select the page, the upper ten the 12 byte UV
+  triple; for 9 the high byte is the colour. Culling is the sign of the
+  camera space determinant (0x4214aa). Levels: `(L.(n - P)) / 8 + 32`,
+  0..63 (0x411e2f), with L and P the light of the actor's room in the
+  camera's 22 byte view record (+8 direction, +14 position), both put
+  through the camera transform. Pixels: 8 texel, 9 `shade[colour][level]`,
+  10 `shade[texel][level]`, shade = ITD_RESS 54 transposed (0x417cfe).
+  Only the high detail fillers are rebuilt (0x41bc2c, 0x412e4f, 0x4133bc;
+  the detail option 0x41c9b3 also offers flat and medium sets), and the
+  scan conversion steps in fixed point instead of the original Bresenham
+  tables: not verified pixel for pixel.
+
+State: AITD1 (Carnby walking in the attic), AITD2 (the opening gate scene),
+Jack (the toy shop street and the credits book) and Time Gate (the museum
+street and courtyard, textured hero) start and render. KNIGHTS needs a
+640 x 480 screen throughout the engine.
 
 ## Main menu (0x408f34)
 
