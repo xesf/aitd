@@ -94,18 +94,11 @@ static int event_pop(struct platform_event *out)
 @interface aitd_view : NSView
 @end
 
-/* The frame keeps its own aspect inside the window, centred; the rest is
- * black. The 640 x 400 Time Gate build sits in a 640 x 480 window like
- * that (TG640.EX_ centres its WinG blit, 0x424c9e). */
+/* The frame fills the window: 320 x 200 (and the 640 x 400 build) were
+ * shown stretched to a 4:3 screen, and the art was drawn for that. */
 static NSRect picture_rect(NSRect bounds)
 {
-    CGFloat sx = bounds.size.width / (CGFloat)s_width;
-    CGFloat sy = bounds.size.height / (CGFloat)s_height;
-    CGFloat k = sx < sy ? sx : sy;
-    CGFloat w = (CGFloat)s_width * k, h = (CGFloat)s_height * k;
-
-    return NSMakeRect(bounds.origin.x + (bounds.size.width - w) / 2.0,
-                      bounds.origin.y + (bounds.size.height - h) / 2.0, w, h);
+    return bounds;
 }
 
 @implementation aitd_view
@@ -436,7 +429,7 @@ int platform_video_init(const char *title, int width, int height)
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
         /* Every title opens in a 640 x 480 window shown twice its size,
-         * 1280 x 960; the frame keeps its own aspect, centred. */
+         * 1280 x 960, the frame stretched to fill it as on a 4:3 screen. */
         int window_w = 640 * 2;
         int window_h = 480 * 2;
         NSRect frame = NSMakeRect(0, 0, window_w, window_h);
