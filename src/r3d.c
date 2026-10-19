@@ -12,6 +12,7 @@
 
 #include "aitd.h"
 #include "exe_tables.h"
+#include "game.h"
 #include "r3d.h"
 #include "raster.h"
 #include "texture.h"
@@ -348,6 +349,16 @@ static void project_point(s16 *out, s16 x, s16 y, s16 z, s16 min_z)
 
     sx = ((s32)(s16)(u16)(s_focal_x) * x) / d;
     sy = ((s32)(s16)(u16)(s_focal_y) * y) / d;
+    /* INDARK.EXE projects with a 16 bit idiv (0x157b3), which cannot
+     * return a quotient outside a word. WAITD3 divides in 32 bits and keeps
+     * the low word, so a point beside the camera at the near plane wrapped
+     * to the other side of the screen; the seated zombie of floor 1 then
+     * filled the corridor view. Such a point is dropped instead. */
+    if (game_current()->life_dialect == LIFE_DIALECT_AITD1
+        && (sx < -32768 || sx > 32767 || sy < -32768 || sy > 32767)) {
+        out[0] = out[1] = out[2] = R3D_INVALID;
+        return;
+    }
     sx = (s16)((s16)sx + s_centre_x);
     sy = (s16)((s16)sy + s_centre_y);
 
