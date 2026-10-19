@@ -360,6 +360,13 @@ and checked against it; no third party code is used.
   PAKs (every number its scripts use is in range), Jack only
   PERE; Time Gate's AN<n>.MUX movies and the Windows Smacker files are not
   rebuilt and are skipped with a log line.
+- **AITD1 start-up** (`boot.c`): the armadillo logo (ITD_RESS 2 picture,
+  1 palette, 0 a 3D body that turns away after a thunder flash), the title
+  (13) and the credits read automatically on the book (7), then the menu.
+  A new game first offers the character choice (10) and reads the chosen
+  character's story on 14, then plays the car scene (floor 7, room 1)
+  before floor 0. When the menu times out a random character, the car
+  scene and the logo play. Jack in the Dark has no menu.
 - **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw the framed
   three-row menu (old 16 bit offset sprites, `frame.c`; AITD2's
   palette is ITD_RESS 59 with the interface overlay, Jack's is taken from

@@ -70,6 +70,10 @@ static void play_intro(void)
 {
     const struct game_profile *profile = game_current();
 
+    if (profile->boot_intro != NULL) {
+        profile->boot_intro();
+        return;
+    }
     if (profile->intro_movies != NULL) {      /* TG 0x41778f: AN0, AN1 */
         const char *const *movie;
         for (movie = profile->intro_movies; *movie != NULL; movie++) {
@@ -178,7 +182,11 @@ void game_main(int argc, char **argv)
         switch (choice) {
         case MENU_RESULT_INTRO:       /* 0x4079cc */
             g_transition_flag = 1;
-            play_intro();
+            if (game_current()->boot_attract != NULL) {
+                game_current()->boot_attract();
+            } else {
+                play_intro();
+            }
             break;
 
         case MENU_RESULT_DIFFICULTY:    /* 0x4079ea */
@@ -187,7 +195,9 @@ void game_main(int argc, char **argv)
             break;
 
         case MENU_RESULT_NEW_GAME:    /* 0x407a0f */
-            start_new_game();
+            if (game_current()->boot_new_game == NULL || game_current()->boot_new_game()) {
+                start_new_game();
+            }
             break;
 
         case MENU_RESULT_LOAD_GAME:   /* 0x407a67 */

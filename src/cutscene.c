@@ -13,6 +13,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -145,6 +146,9 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
             return;
         }
     }
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u sequence %s flags %d repeat %d\n", timer_get_ms(), name, flags, repeat);
+    }
     g_sample_current = -1;
     g_sample_priority = -1;
     clock = timer_get_ms();
@@ -229,6 +233,9 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
         }
     }
     mem_free(first);
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u sequence %s done\n", timer_get_ms(), name);
+    }
 
     /* 0x40284d: memset(g_palette_buffer, 0x300, 0) in Watcom's (dst, c, n)
      * order clears nothing, so only the upload remains. */
@@ -250,6 +257,9 @@ void show_picture(s16 entry, s16 time, s16 sample)
     u8 palette[0x300];
     struct game_timer timer;
 
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u picture %d time %d\n", timer_get_ms(), entry, time);
+    }
     ticks_freeze();
     {
         int has_palette;

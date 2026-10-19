@@ -292,6 +292,8 @@ static int ring_menu(void)
 int menu_style_run(void)
 {
     switch (game_current()->menu_style) {
+    case MENU_STYLE_NONE:
+        return MENU_RESULT_NEW_GAME;
     case MENU_STYLE_FRAMED:
         return framed_menu();
     case MENU_STYLE_RING:

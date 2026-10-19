@@ -389,12 +389,12 @@ page_done:
 /* Background and palette for a reading: an ITD_RESS picture, with the
  * interface colours over its first 16 entries when the title has them.
  * Alone in the Dark 1 pictures carry no palette and keep the game's. */
-static void load_backdrop(s16 entry)
+void reader_set_backdrop(s16 entry)
 {
     const u8 *overlay = game_current()->palette_overlay;
 
-    if (picture_load(entry, g_back_buffer, g_back_buffer + 64000) == 1) {
-        memcpy(g_palette_buffer, g_back_buffer + 64000, 0x300);
+    if (picture_load(entry, g_back_buffer, g_back_buffer + SCREEN_PIXELS) == 1) {
+        memcpy(g_palette_buffer, g_back_buffer + SCREEN_PIXELS, 0x300);
         if (overlay != NULL) {
             memcpy(g_palette_buffer, overlay, 0x30);
             if (game_current()->palette_source == PALETTE_CAMERA_6BIT) {
@@ -405,7 +405,7 @@ static void load_backdrop(s16 entry)
             }
         }
     } else {
-        memcpy(g_back_buffer + 64000, g_palette_buffer, 0x300);
+        memcpy(g_back_buffer + SCREEN_PIXELS, g_palette_buffer, 0x300);
     }
 }
 
@@ -463,7 +463,7 @@ void read_document(s16 text, s16 type)
     ticks_freeze();
     g_voice_allowed = 1;
     if (d != NULL) {
-        load_backdrop(d->entry);
+        reader_set_backdrop(d->entry);
         g_page_turn_style = d->turn_style;
         text_reader(text, d->xmin, d->ymin, d->xmax, d->ymax, READER_ARROWS,
                     d->colour, d->shadow);
@@ -487,7 +487,7 @@ void read_book(const s16 *args)
     memcpy(g_back_buffer, g_screen, 64000);   /* 0x402c8b */
     screen_clear();
     screen_present();
-    load_backdrop(args[0]);
+    reader_set_backdrop(args[0]);
     palette_set_range(g_palette_buffer, 0, 256);
     g_page_turn_style = 0;
     raster_blit(0, 0, &back);

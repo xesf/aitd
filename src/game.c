@@ -8,6 +8,7 @@
 #include <strings.h>
 
 #include "aitd.h"
+#include "boot.h"
 #include "game.h"
 #include "platform.h"
 
@@ -41,7 +42,7 @@ static const struct game_profile s_aitd1 = {
     52, 45, LIFE_DIALECT_AITD1,
     5, 4, 0, 0,
     "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
-    NULL, 0, NULL, MENU_STYLE_FRAMED, INVENTORY_FRAMED, -1,
+    NULL, 0, NULL, boot_aitd1_intro, boot_aitd1_attract, boot_aitd1_new_game, MENU_STYLE_FRAMED, INVENTORY_FRAMED, -1,
     0, 0, 7, 1
 };
 
@@ -53,7 +54,7 @@ static const struct game_profile s_jack = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    SEQUENCES(s_sequences_jack), NULL, MENU_STYLE_FRAMED, INVENTORY_FRAMED, 2,
+    SEQUENCES(s_sequences_jack), NULL, NULL, NULL, NULL, MENU_STYLE_NONE, INVENTORY_FRAMED, 2,
     16, 1, -1, -1
 };
 
@@ -65,7 +66,7 @@ static const struct game_profile s_aitd2 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    SEQUENCES(s_sequences_aitd2), NULL, MENU_STYLE_FRAMED, INVENTORY_PICTURE, 59,
+    SEQUENCES(s_sequences_aitd2), NULL, NULL, NULL, NULL, MENU_STYLE_FRAMED, INVENTORY_PICTURE, 59,
     8, 7, 8, 0
 };
 
@@ -77,7 +78,7 @@ static const struct game_profile s_aitd3 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 1,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    NULL, 0, NULL, MENU_STYLE_PICTURE, INVENTORY_DIMMED, -1,
+    NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_PICTURE, INVENTORY_DIMMED, -1,
     0, 12, 1, 0
 };
 
@@ -89,7 +90,7 @@ static const struct game_profile s_timegate = {
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
-    NULL, 0, NULL, MENU_STYLE_RING, INVENTORY_NONE, -1,
+    NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_NONE, -1,
     0, 5, -1, -1
 };
 

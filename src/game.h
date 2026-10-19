@@ -61,6 +61,7 @@ enum menu_style {
     MENU_STYLE_PICTURE, /* ITD_RESS picture and four text rows (AITD3) */
     MENU_STYLE_FRAMED,  /* a sprite frame and three text rows (AITD1, AITD2,
                            Jack) */
+    MENU_STYLE_NONE,    /* straight into the game (Jack in the Dark) */
     MENU_STYLE_RING     /* seven icons around a medallion (Time Gate,
                            TG320.EX_ 0x405f6b) */
 };
@@ -127,6 +128,11 @@ struct game_profile {
     int sequence_count;
 
     const char *const *intro_movies;  /* Smacker films before the menu, or NULL */
+    /* Title specific start-up (boot.c), or NULL: instead of the intro
+     * floor, when the menu times out, before a new game (0 cancels). */
+    void (*boot_intro)(void);
+    void (*boot_attract)(void);
+    int (*boot_new_game)(void);
     enum menu_style menu_style;
     enum inventory_style inventory_style;
     int menu_palette;               /* ITD_RESS palette (768 bytes) or
