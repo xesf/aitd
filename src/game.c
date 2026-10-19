@@ -41,7 +41,7 @@ static const struct game_profile s_aitd1 = {
     52, 45, LIFE_DIALECT_AITD1,
     5, 4, 0, 0,
     "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
-    NULL, 0, MENU_STYLE_FRAMED, -1,
+    NULL, 0, NULL, MENU_STYLE_FRAMED, -1,
     0, 0, 7, 1
 };
 
@@ -53,7 +53,7 @@ static const struct game_profile s_jack = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    SEQUENCES(s_sequences_jack), MENU_STYLE_FRAMED, 2,
+    SEQUENCES(s_sequences_jack), NULL, MENU_STYLE_FRAMED, 2,
     16, 1, -1, -1
 };
 
@@ -65,7 +65,7 @@ static const struct game_profile s_aitd2 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    SEQUENCES(s_sequences_aitd2), MENU_STYLE_FRAMED, 59,
+    SEQUENCES(s_sequences_aitd2), NULL, MENU_STYLE_FRAMED, 59,
     8, 7, 8, 0
 };
 
@@ -77,7 +77,7 @@ static const struct game_profile s_aitd3 = {
     54, 70, LIFE_DIALECT_AITD2,
     1, 0, 1, 1,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
-    NULL, 0, MENU_STYLE_PICTURE, -1,
+    NULL, 0, NULL, MENU_STYLE_PICTURE, -1,
     0, 12, 1, 0
 };
 
@@ -89,7 +89,7 @@ static const struct game_profile s_timegate = {
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
-    NULL, 0, MENU_STYLE_RING, -1,
+    NULL, 0, NULL, MENU_STYLE_RING, -1,
     0, 5, -1, -1
 };
 
@@ -142,12 +142,16 @@ static const struct game_profile *knights_profile(void)
     const char *res = getenv("AITD_RES");
     int low = res != NULL && strcmp(res, "320") == 0;
 
+    static const char *const intro[] = { "ANIM2D/AN0.SMK", "ANIM2D/AN1.SMK", NULL };
+
     s_knights_320 = s_timegate;
+    s_knights_320.intro_movies = intro;
     s_knights_320.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_320.name = "Time Gate: Knight's Chase (Windows, 320x200)";
     s_knights_320.resolution_dir = "320";
 
     s_knights_640 = s_timegate;
+    s_knights_640.intro_movies = intro;
     s_knights_640.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_640.name = "Time Gate: Knight's Chase (Windows, 640x480)";
     s_knights_640.resolution_dir = "640";

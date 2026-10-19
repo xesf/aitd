@@ -18,6 +18,7 @@
 #include "aitd.h"
 #include "platform.h"
 #include "game.h"
+#include "smacker.h"
 #include "anim.h"
 #include "life.h"
 #include "menu.h"
@@ -130,8 +131,16 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
         } else {
             snprintf(name, sizeof(name), "AN%d.pak", number);
         }
-        /* Time Gate's AN<n>.MUX movies are another format, not rebuilt. */
+        /* Time Gate for Windows plays ANIM2D\AN<n>.smk (TG 0x409835); the
+         * DOS build's AN<n>.MUX films are another format, not rebuilt. */
         if (!platform_resolve_path(name, path, sizeof(path))) {
+            char movie[32];
+
+            snprintf(movie, sizeof(movie), "ANIM2D/AN%d.SMK", number);
+            if (smacker_play(movie)) {
+                g_init_view = 1;
+                return;
+            }
             fprintf(stderr, "sequence %s: not a PAK sequence, skipped\n", name);
             return;
         }

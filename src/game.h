@@ -117,6 +117,7 @@ struct game_profile {
     const char *const *sequence_names;
     int sequence_count;
 
+    const char *const *intro_movies;  /* Smacker films before the menu, or NULL */
     enum menu_style menu_style;
     int menu_palette;               /* ITD_RESS palette (768 bytes) or
                                        picture whose palette the framed menu

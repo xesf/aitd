@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "raster.h"
 #include "game.h"
 #include "font.h"
 #include "savegame.h"
@@ -261,6 +262,9 @@ static void alloc_frame_buffers(void)
     g_blit_width = (u16)g_screen_width;   /* 0x4074b9 */
     g_blit_height = (u16)g_screen_height; /* 0x4074c5 */
     g_blit_source = g_back_buffer;        /* 0x4074d1 */
+    /* Not in the original: the raster state is otherwise first set up by
+     * the first scene, and menus or films can draw before one. */
+    raster_init(g_back_buffer, g_screen_width, g_screen_height);
 
     video_buffers_ready();                /* 0x4074db */
 }

@@ -365,6 +365,15 @@ for code; everything taken from it was checked against the data.
   picture 2, an assumption). Time Gate (TG320.EX_ game_main 0x41778f, menu
   0x405f6b) shows ITD_RESS picture 1 with seven HYB icons; 0 new game
   (game_run 0/5), 2 load, 5 difficulty, 6 quit, 3000 idle ticks give -1.
+- **Smacker** (`smacker.c`): Time Gate for Windows plays ANIM2D\AN<n>.smk
+  (TG 0x409835), AN0 and AN1 before the menu. Smacker 2 video (four big
+  Huffman trees, mono/full/skip/fill blocks, palette deltas) and audio
+  track 0 (DPCM over byte trees, decoded whole and played as one sample),
+  written from the published format description. PLAY_SEQUENCE falls back
+  to it when there is no AN<n>.PAK. The DOS build's AN<n>.MUX is unknown.
+- **Time Gate difficulty** (TG 0x4062c3): ITD_RESS picture 0x74 (three
+  tarot cards), HYB icons 0x60..0x65; the choice sets all three words.
+  Ring entry 3 starts Windows' volume control and is left out.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in
