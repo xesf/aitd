@@ -278,6 +278,9 @@ int boot_aitd1_new_game(void)
     free(picture);
     g_present_buffer = saved;
 
+    /* The key that closed the story would end the intro on its first
+     * frame: any key leaves a scene run with flag 0. */
+    wait_release();
     game_run(7, 1, 0);   /* the car arriving at Derceto */
     return 1;
 }

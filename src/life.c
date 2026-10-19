@@ -248,6 +248,17 @@ static s16 eval(void)
                 s16 other = fetch();
                 return matrix_lookup(table, -1, object_get(other)->actor);
             }
+            case LIFE_VAR_COL:
+            case LIFE_VAR_HARD_DEC:
+            case LIFE_VAR_HARD_COL:
+            case LIFE_VAR_HIT:
+            case LIFE_VAR_HIT_BY:
+            case LIFE_VAR_COL_BY:
+                /* Alone in the Dark 1: an absent object touches nothing.
+                 * With WAITD3's 0 the hall's scripts took the missing
+                 * player for one standing at zone 0 during the intro and
+                 * handed out the lighter and the soup pot. */
+                return game_current()->life_dialect == LIFE_DIALECT_AITD1 ? -1 : 0;
             default:
                 return 0;
             }
