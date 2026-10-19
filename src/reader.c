@@ -267,7 +267,7 @@ page_done:
         } else if (page + 1 < PAGE_MAX) {
             pages[page + 1] = p;
         }
-        raster_set_clip(0, 0, 319, 199);
+        raster_reset_clip();
 
         if (mode == READER_ARROWS && game_current()->hyb_frame) {
             if (page > 0) {
@@ -440,9 +440,17 @@ static const struct document_layout *document_layout(s16 type)
         { ITD_RESS_BOOK, 48, 2, 260, 197, 1, 124, 124 },
         { ITD_RESS_LETTER, 50, 20, 250, 199, 3, 124, 124 },
     };
+    /* TG320.EX_ 0x40b278: the hands holding a note, then two full screen
+     * pages (a book, a newspaper). */
+    static const struct document_layout timegate[3] = {
+        { 6, 60, 10, 245, 190, 3, 124, 124 },
+        { 7, 0, 0, 319, 199, 1, 124, 124 },
+        { 8, 0, 0, 319, 199, 3, 124, 124 },
+    };
     const struct document_layout *table;
 
     switch (game_id()) {
+    case GAME_TIMEGATE: table = timegate; break;
     case GAME_AITD1: table = aitd1; break;
     case GAME_AITD2: table = aitd2; break;
     case GAME_JACK: table = jack; break;
@@ -465,7 +473,8 @@ void read_document(s16 text, s16 type)
     if (d != NULL) {
         reader_set_backdrop(d->entry);
         g_page_turn_style = d->turn_style;
-        text_reader(text, d->xmin, d->ymin, d->xmax, d->ymax, READER_ARROWS,
+        text_reader(text, SCALED(d->xmin), SCALED(d->ymin),
+                    (s16)(SCALED(d->xmax + 1) - 1), (s16)(SCALED(d->ymax + 1) - 1), READER_ARROWS,
                     d->colour, d->shadow);
     }
     g_voice_allowed = 1;
@@ -484,7 +493,7 @@ void read_book(const s16 *args)
     struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
 
     ticks_freeze();
-    memcpy(g_back_buffer, g_screen, 64000);   /* 0x402c8b */
+    memcpy(g_back_buffer, g_screen, SCREEN_PIXELS);   /* 0x402c8b */
     screen_clear();
     screen_present();
     reader_set_backdrop(args[0]);
