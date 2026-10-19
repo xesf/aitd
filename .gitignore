@@ -10,3 +10,7 @@ ida/*.id1
 ida/*.id2
 ida/*.nam
 ida/*.til
+__pycache__/
+*.pyc
+ida/*.i64
+music_render
