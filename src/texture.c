@@ -127,12 +127,18 @@ const u8 *texture_shade_table(void)
 }
 
 /* The light's direction and position are in camera space; the y term adds
- * the position where the others subtract it, as the original does. */
-s16 texture_light_level(const s16 *point, const s16 *dir, const s16 *pos)
+ * the position where the others subtract it, as the original does. The
+ * six values are 32 bit and the products wrap as imul does. */
+static s32 light_term(s32 factor, s32 delta)
 {
-    s32 v = (((s32)dir[1] * (s32)(pos[1] + point[1])) >> 16)
-          + (((s32)dir[0] * (s32)(point[0] - pos[0])) >> 16)
-          + (((s32)dir[2] * (s32)(point[2] - pos[2])) >> 16);
+    return (s32)((u32)factor * (u32)delta) >> 16;
+}
+
+s16 texture_light_level(const s16 *point, const s32 *dir, const s32 *pos)
+{
+    s32 v = light_term(dir[0], (s32)point[0] - pos[0])
+          + light_term(dir[1], (s32)point[1] + pos[1])
+          + light_term(dir[2], (s32)point[2] - pos[2]);
 
     v = v / 8 + 32;     /* signed divide: truncates toward zero */
     if (v < 0) {

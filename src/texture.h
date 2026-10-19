@@ -34,7 +34,7 @@ struct tex_page texture_page(int index, const u8 *keep);
 const u8 *texture_shade_table(void);
 
 /* 0x411e2f - light level 0..63 of a camera space point. */
-s16 texture_light_level(const s16 *point, const s16 *dir, const s16 *pos);
+s16 texture_light_level(const s16 *point, const s32 *dir, const s32 *pos);
 
 /* 0x41bc2c / 0x412e4f / 0x4133bc - the high detail fillers. */
 void texture_triangle(const struct tex_vertex *v, enum tex_fill fill,

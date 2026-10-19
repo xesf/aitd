@@ -60,7 +60,7 @@ static const u8 *s_uv_table;                 /* TG 0x4422a0 */
 static struct tex_page s_pages[2];           /* TG 0x45c4d0, 0x45c4cc */
 static int s_normal_count;                   /* TG 0x4422b2 */
 static int s_normal_offset;                  /* TG 0x4422ae */
-static s16 s_light_dir[3], s_light_pos[3];   /* TG 0x43c333.., 0x451d54.. */
+static s32 s_light_dir[3], s_light_pos[3];   /* TG 0x43c333.., 0x451d54.. */
 
 /* Object being drawn, 0x4398ec..0x439900. */
 static s16 s_obj_x, s_obj_y, s_obj_z, s_obj_alpha, s_obj_beta, s_obj_gamma;
@@ -1092,18 +1092,26 @@ static void body_extras(const u8 *body, int load_pages)
     }
 }
 
+/* A light value as the original leaves it: the 32 bit global holds the
+ * sign extended world value, and the camera transform (TG 0x40c787) then
+ * stores only its low word. */
+static s32 light_value(s16 world, s16 camera)
+{
+    return (s32)(((world < 0 ? 0xffff0000u : 0u)) | (u16)camera);
+}
+
 /* TG 0x40cebf: both vectors go through the camera transform (0x422256),
  * the direction included. */
 void r3d_set_light(const s16 *dir, const s16 *pos)
 {
     r3d_world_to_camera(dir[0], dir[1], dir[2]);
-    s_light_dir[0] = g_r3d_x;
-    s_light_dir[1] = g_r3d_y;
-    s_light_dir[2] = g_r3d_z;
+    s_light_dir[0] = light_value(dir[0], g_r3d_x);
+    s_light_dir[1] = light_value(dir[1], g_r3d_y);
+    s_light_dir[2] = light_value(dir[2], g_r3d_z);
     r3d_world_to_camera(pos[0], pos[1], pos[2]);
-    s_light_pos[0] = g_r3d_x;
-    s_light_pos[1] = g_r3d_y;
-    s_light_pos[2] = g_r3d_z;
+    s_light_pos[0] = light_value(pos[0], g_r3d_x);
+    s_light_pos[1] = light_value(pos[1], g_r3d_y);
+    s_light_pos[2] = light_value(pos[2], g_r3d_z);
 }
 
 /* 0x424710 */
