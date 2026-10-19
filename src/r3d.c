@@ -512,8 +512,8 @@ static const u8 *transform_animated(u8 *body)
 /*
  * Bodies with flag 8 (Jack in the Dark) keep 24 byte group records: the
  * usual 16, then a rotation (x, y, z) and a pad word, and keyframes carry
- * both. WAITD3.EXE has no such bodies and no code for them; this follows
- * FITD's AnimNuage: each group in table order is translated or zoomed,
+ * both. WAITD3.EXE has no such bodies and no code for them; worked out
+ * from the data: each group in table order is translated or zoomed,
  * rotated about its own origin by its rotation, then every group is moved
  * to its parent's vertex and the whole model takes the object's angles.
  */

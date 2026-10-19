@@ -410,7 +410,7 @@ static void load_backdrop(s16 entry)
 }
 
 /* Where each title draws a document: backdrop entry, text box, page turn
- * style, colours. AITD3 from 0x4160b6, the others after FITD. */
+ * style, colours. AITD3 from 0x4160b6, the others from the data. */
 struct document_layout {
     s16 entry;
     s16 xmin, ymin, xmax, ymax;

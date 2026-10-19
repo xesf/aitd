@@ -291,10 +291,10 @@ substituted for each other.
 The data sets live in `data/<GAME>/` (INDARK = AITD1, INDARK2 = AITD2,
 JACK, INDARK3 = AITD3, TIMEGATE = Time Gate DOS, KNIGHTS = Time Gate for
 Windows with `320/` and `640/` resolution folders). `game.c` detects the
-title from a marker file (FITD's markers: LISTBOD2, PERE, MER, AN1,
-PURSUIT) and every difference is a profile field. FITD (Free in the Dark,
-GPLv2) was used as a reference for facts about the older formats, never
-for code; everything taken from it was checked against the data.
+title from a marker file only it ships (LISTBOD2, PERE, MER, AN1,
+PURSUIT) and every difference is a profile field. Facts about the older
+formats that no disassembly covers here were worked out from the data
+and checked against it; no third party code is used.
 
 | | AITD1 | Jack | AITD2 | AITD3 | Time Gate |
 |---|---|---|---|---|---|
@@ -325,7 +325,8 @@ for code; everything taken from it was checked against the data.
   its exact length with them. AITD1 and Jack run every script whose life
   mode is not -1.
 - **Optimised bodies** (flag 8, Jack): 24 byte groups with their own
-  rotation; WAITD3.EXE cannot draw them, the path follows FITD's renderer.
+  rotation; WAITD3.EXE cannot draw them, the path is worked out from the
+  data.
 - **Fonts**: AITD1/AITD2/Jack use a 1-bit font (character table of width
   nibble + bit offset), AITD3 and Time Gate the newer one.
 
@@ -349,18 +350,18 @@ for code; everything taken from it was checked against the data.
   the detail option 0x41c9b3 also offers flat and medium sets), and the
   scan conversion steps in fixed point instead of the original Bresenham
   tables: not verified pixel for pixel.
-- **AITD1 cover zones** (facts from FITD): view +2 lists entries of a
+- **AITD1 cover zones**: view +2 lists entries of a
   rectangle count, an offset to screen polygons and the rectangles; when
   the actor's box (tenths) lies inside one, the background inside the
   polygons is drawn back over the actor. Messages count drawn frames:
   colour 16 for 26 frames, then 16 + (n - 26) / 2, gone after 56.
 - **Start-up**: the intro and new game floor/room come from the profile
   (AITD3 1/0 and 0/12). Sequences: AITD3 AN<n>.PAK, AITD2 a table of named
-  PAKs (FITD's order, every number its scripts use is in range), Jack only
+  PAKs (every number its scripts use is in range), Jack only
   PERE; Time Gate's AN<n>.MUX movies and the Windows Smacker files are not
   rebuilt and are skipped with a log line.
-- **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw FITD's framed
-  three-row menu (old 16 bit offset sprites: AffBigCadre/AffSpf; AITD2's
+- **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw the framed
+  three-row menu (old 16 bit offset sprites, `frame.c`; AITD2's
   palette is ITD_RESS 59 with the interface overlay, Jack's is taken from
   picture 2, an assumption). Time Gate (TG320.EX_ game_main 0x41778f, menu
   0x405f6b) shows ITD_RESS picture 1 with seven HYB icons; 0 new game

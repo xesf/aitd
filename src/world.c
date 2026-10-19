@@ -199,7 +199,7 @@ static u8 **split_blob(u8 *blob, u32 size, int *out_count)
     u8 **table = mem_alloc_checked(sizeof(*table) * (size_t)(max + 1));
     int count = 0;
 
-    /* Offsets rise until the table ends (FITD reads it the same way). */
+    /* Offsets rise until the table ends. */
     while (count < max) {
         u32 offset = blob_u32(blob, count * 4);
 

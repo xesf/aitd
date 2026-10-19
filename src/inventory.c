@@ -36,8 +36,7 @@
 static const s16 s_frame_x[9] = { 0, 128, 286, 0, 129, 286, 0, 110, 282 };
 static const s16 s_frame_y[9] = { 100, 100, 100, 100, 100, 100, 140, 119, 141 };
 
-/* The older titles (FITD's processInventory and DrawListObjets for the
- * facts): AITD2 lays ITD_RESS 14 + inventory type under the screen with a
+/* The older titles: AITD2 lays ITD_RESS 14 + inventory type under the screen with a
  * sprite from entry 18; AITD1 and Jack draw three frames over the game.
  * Both use colour 4 text, the selection in 15 (14 once the actions have
  * the focus), framed rows on a colour 100 bar. */

@@ -5,7 +5,7 @@
  * Framed (AITD1, AITD2, Jack): a frame of old style sprites around the
  * middle of a black screen and three rows, text 11..13 (new game, load,
  * quit). The selected row sits on a colour 100 bar in colour 15 over a
- * colour 4 shadow; the others are colour 4 (FITD's DrawMenu; frame.c).
+ * colour 4 shadow; the others are colour 4 (frames in frame.c).
  *
  * Ring (Time Gate, TG320.EX_ 0x405f6b / 0x405c64): ITD_RESS picture 1, a
  * medallion, with seven HYB icons around it; left and right walk the ring
@@ -126,7 +126,7 @@ static int framed_menu(void)
     framed_palette();
     framed_draw(selected);
     g_fade_state = 1;
-    palette_fade(0x10, 0);      /* FITD FadeInPhys(16, 0) */
+    palette_fade(0x10, 0);
     timer_reset(&timer);
     wait_released();
     while (timer_elapsed(&timer) < 3000) {

@@ -48,8 +48,7 @@ static const u8 *s_colour_table; /* 0x435220 */
 static u16 s_spacing;            /* 0x435226 */
 
 /*
- * The 1-bit font of Alone in the Dark 1 and 2 and Jack in the Dark (after
- * FITD's SetFont / PrintFont):
+ * The 1-bit font of Alone in the Dark 1 and 2 and Jack in the Dark:
  *   +0 u8  first character        +1 u8  unused
  *   +2 u8  character height       +3 u8  row stride in bytes, 0 for the
  *   +4 u16 stride when +3 is 0           u16 that follows

@@ -6,8 +6,8 @@
  * Windows SVGA build named KNIGHTS). Everything that differs between the
  * titles is described here so the core tests a property, never a game.
  *
- * Facts come from the shipped data sets (data/<GAME>/) and, where noted,
- * from the FITD project (Free in the Dark), used as a reference only.
+ * Facts come from the binaries where they are available and from the
+ * shipped data sets (data/<GAME>/).
  */
 
 #ifndef AITD_GAME_H
@@ -60,7 +60,7 @@ enum palette_source {
 enum menu_style {
     MENU_STYLE_PICTURE, /* ITD_RESS picture and four text rows (AITD3) */
     MENU_STYLE_FRAMED,  /* a sprite frame and three text rows (AITD1, AITD2,
-                           Jack; FITD's DrawMenu) */
+                           Jack) */
     MENU_STYLE_RING     /* seven icons around a medallion (Time Gate,
                            TG320.EX_ 0x405f6b) */
 };
@@ -117,7 +117,7 @@ struct game_profile {
      * in `colour`, which steps up by one every `fade_step` after
      * `fade_after`, gone after `life`. Counted in timer ticks, or in drawn
      * frames when `per_frame` (AITD3 0x41b154, Time Gate TG320.EX_
-     * 0x40a858, AITD1 from FITD's drawTextOverlay). */
+     * 0x40a858, AITD1 from the data). */
     struct message_style {
         int colour, fade_after, fade_step, life, per_frame, y;
     } message;

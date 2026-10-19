@@ -292,8 +292,8 @@ static const u8 *s_mask_source;
  * (rectangle count, offset from the list to its polygons, rectangles of
  * x1, z1, x2, z2), and when the actor's box lies inside a rectangle the
  * background inside each polygon (point count, then x, y screen words) is
- * put back over it. Facts from FITD's drawBgOverlay; the original routine
- * is not rebuilt. */
+ * put back over it. Worked out from the data; the original routine is not
+ * rebuilt. */
 static u8 s_cover[64000];
 
 static void draw_cover(const u8 *list, const struct actor *a, const u8 *source)

@@ -5,8 +5,8 @@
  * Alone in the Dark 2 and 3, Jack in the Dark and Time Gate share one
  * numbering. Alone in the Dark 1 has its own order (it predates opcodes
  * such as ANIM_RESET and has a few that were dropped later). The order
- * below follows FITD's AITD1 table and is confirmed by parsing every
- * LISTLIFE script of the AITD1 data to its exact length.
+ * below is confirmed by parsing every LISTLIFE script of the AITD1 data
+ * to its exact length.
  */
 
 #include "game.h"

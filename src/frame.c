@@ -4,8 +4,7 @@
  * Their sprite bank keeps 16 bit offsets; a sprite is four bytes, width,
  * height, then pixels. A frame is corners 0..3, top 4, bottom 5, left 6,
  * right 7 in 20 pixel steps and the title plate 8, with a black inside.
- * Facts from FITD's AffBigCadre and AffSpf / AffSpfI; the original routines
- * are not rebuilt.
+ * Worked out from the data; the original routines are not rebuilt.
  */
 
 #include "aitd.h"

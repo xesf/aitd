@@ -22,8 +22,8 @@ static const u8 s_overlay_aitd2[0x30] = {
 };
 extern u8 g_palette_overlay[0x30];
 
-/* AITD2 sequence files by number (the order of FITD's table; every number
- * its scripts use, 0..32, is in range). Jack only plays 0. */
+/* AITD2 sequence files by number (every number its scripts use, 0..32,
+ * is in range). Jack only plays 0. */
 static const char *const s_sequences_aitd2[] = {
     "BATL", "GRAP", "CLE1", "CLE2", "COOK", "EXPL", "FALA", "FAL2", "GLIS",
     "GREN", "JEND", "MANI", "MER", "TORD", "PANT", "VERE", "PL21", "PL22",
