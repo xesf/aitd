@@ -73,6 +73,11 @@ int platform_cdaudio_init(void);
 void platform_cdaudio_shutdown(void);
 void platform_cdaudio_play_track(int track);
 void platform_cdaudio_stop(void);
+int platform_cdaudio_playing(void);
+
+/* A standard MIDI file, played through the host's General MIDI synth. */
+int platform_midi_play(const void *data, u32 size, int loop);
+void platform_midi_stop(void);
 
 /* Single instance guard. Replaces sys_is_already_running (0x41a152), which
  * used FindWindowA on the registered class name. */

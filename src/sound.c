@@ -19,6 +19,9 @@
 
 #include "aitd.h"
 #include "draw.h"
+#include "game.h"
+#include "music.h"
+#include "pak.h"
 #include "life.h"
 #include "menu.h"
 #include "palette.h"
@@ -175,9 +178,57 @@ void sound_stop_all(void)
 }
 
 /* 0x40b31e */
+/* The titles that ship their music as data. Returns 1 when handled. */
+static int music_play_data(s16 music)
+{
+    const struct game_profile *profile = game_current();
+    static s16 playing = -1;
+    u32 size = 0;
+    u8 *data;
+
+    if (profile->music_source == MUSIC_CD) {
+        return 0;
+    }
+    if (music < 0) {
+        platform_midi_stop();
+        music_adlib_stop();
+        playing = -1;
+        return 1;
+    }
+    if (music == playing) {
+        return 1;
+    }
+    data = pak_load(profile->music_pak, music, &size);
+    if (data == NULL) {
+        return 1;
+    }
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "music %d (%u bytes)\n", music, size);
+    }
+    switch (profile->music_source) {
+    case MUSIC_MIDI:
+        if (!platform_midi_play(data, size, 1)) {
+            fprintf(stderr, "music %d: not a MIDI file the host plays\n", music);
+        }
+        break;
+    case MUSIC_ADLIB:
+        music_adlib_play(data, size);
+        break;
+    default:
+        break;
+    }
+    mem_free(data);
+    playing = music;
+    return 1;
+}
+
 void music_play(s16 music)
 {
     s16 track = music;
+
+    if (music_play_data(music)) {
+        return;
+    }
 
     if (!g_cdaudio_ready) {
         g_music_pending = music;

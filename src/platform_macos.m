@@ -753,22 +753,102 @@ void platform_cdaudio_shutdown(void)
     platform_cdaudio_stop();
 }
 
+/* CD tracks are not shipped with the data; a ripped track in the data
+ * folder (track02.m4a, .mp3, .wav or .aiff) is played when present. */
+static NSSound *s_cd_sound;
+
 void platform_cdaudio_play_track(int track)
 {
+    static const char *const ext[] = { "m4a", "mp3", "wav", "aiff", "aif" };
     char path[1024];
     char name[64];
+    size_t i;
 
-    snprintf(name, sizeof(name), "track%02d.m4a", track);
-
-    if (!platform_resolve_path(name, path, sizeof(path))) {
-        return;
+    platform_cdaudio_stop();
+    for (i = 0; i < sizeof(ext) / sizeof(ext[0]); i++) {
+        snprintf(name, sizeof(name), "track%02d.%s", track, ext[i]);
+        if (platform_resolve_path(name, path, sizeof(path))) {
+            NSString *file = [NSString stringWithUTF8String:path];
+            s_cd_sound = [[NSSound alloc] initWithContentsOfFile:file byReference:YES];
+            [s_cd_sound play];
+            return;
+        }
     }
-
-    /* Playback is owned by the music module; the lookup is the platform part. */
 }
 
 void platform_cdaudio_stop(void)
 {
+    if (s_cd_sound != nil) {
+        [s_cd_sound stop];
+        s_cd_sound = nil;
+    }
+}
+
+int platform_cdaudio_playing(void)
+{
+    return s_cd_sound != nil && [s_cd_sound isPlaying];
+}
+
+/* ---- MIDI ------------------------------------------------------------------ */
+
+/* Standard MIDI files through the system's General MIDI synthesiser. */
+static MusicPlayer s_midi_player;
+static MusicSequence s_midi_sequence;
+
+void platform_midi_stop(void)
+{
+    if (s_midi_player != NULL) {
+        MusicPlayerStop(s_midi_player);
+        DisposeMusicPlayer(s_midi_player);
+        s_midi_player = NULL;
+    }
+    if (s_midi_sequence != NULL) {
+        DisposeMusicSequence(s_midi_sequence);
+        s_midi_sequence = NULL;
+    }
+}
+
+int platform_midi_play(const void *data, u32 size, int loop)
+{
+    CFDataRef cf;
+    UInt32 tracks = 0, i;
+
+    platform_midi_stop();
+    if (data == NULL || size == 0 || NewMusicSequence(&s_midi_sequence) != noErr) {
+        return 0;
+    }
+    cf = CFDataCreate(NULL, data, (CFIndex)size);
+    if (MusicSequenceFileLoadData(s_midi_sequence, cf, kMusicSequenceFile_MIDIType, 0) != noErr) {
+        CFRelease(cf);
+        platform_midi_stop();
+        return 0;
+    }
+    CFRelease(cf);
+    if (loop) {
+        MusicSequenceGetTrackCount(s_midi_sequence, &tracks);
+        for (i = 0; i < tracks; i++) {
+            MusicTrack track;
+            MusicTimeStamp length = 0;
+            UInt32 len_size = sizeof(length);
+            MusicTrackLoopInfo info;
+
+            if (MusicSequenceGetIndTrack(s_midi_sequence, i, &track) != noErr) {
+                continue;
+            }
+            MusicTrackGetProperty(track, kSequenceTrackProperty_TrackLength, &length, &len_size);
+            info.loopDuration = length;
+            info.numberOfLoops = 0;   /* forever */
+            MusicTrackSetProperty(track, kSequenceTrackProperty_LoopInfo, &info, sizeof(info));
+        }
+    }
+    if (NewMusicPlayer(&s_midi_player) != noErr
+        || MusicPlayerSetSequence(s_midi_player, s_midi_sequence) != noErr
+        || MusicPlayerPreroll(s_midi_player) != noErr
+        || MusicPlayerStart(s_midi_player) != noErr) {
+        platform_midi_stop();
+        return 0;
+    }
+    return 1;
 }
 
 /* ---- misc -------------------------------------------------------------- */

@@ -43,6 +43,7 @@ static const struct game_profile s_aitd1 = {
     5, 4, 0, 0,
     "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
     NULL, 0, NULL, boot_aitd1_intro, boot_aitd1_attract, boot_aitd1_new_game, MENU_STYLE_FRAMED, INVENTORY_FRAMED, -1,
+    MUSIC_ADLIB, "LISTMUS.PAK", -1,
     0, 0, 7, 1
 };
 
@@ -55,6 +56,7 @@ static const struct game_profile s_jack = {
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     SEQUENCES(s_sequences_jack), NULL, NULL, NULL, NULL, MENU_STYLE_NONE, INVENTORY_FRAMED, 2,
+    MUSIC_ADLIB, "LISTMUS.PAK", -1,
     16, 1, -1, -1
 };
 
@@ -67,6 +69,7 @@ static const struct game_profile s_aitd2 = {
     1, 0, 1, 0,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     SEQUENCES(s_sequences_aitd2), NULL, NULL, NULL, NULL, MENU_STYLE_FRAMED, INVENTORY_PICTURE, 59,
+    MUSIC_ADLIB, "LISTMUS.PAK", -1,
     8, 7, 8, 0
 };
 
@@ -79,6 +82,7 @@ static const struct game_profile s_aitd3 = {
     1, 0, 1, 1,
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_PICTURE, INVENTORY_DIMMED, -1,
+    MUSIC_CD, NULL, -1,
     0, 12, 1, 0
 };
 
@@ -91,6 +95,7 @@ static const struct game_profile s_timegate = {
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
     NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_NONE, -1,
+    MUSIC_TG_DOS, "MUSIC.PAK", 0,
     0, 5, -1, -1
 };
 
@@ -147,12 +152,16 @@ static const struct game_profile *knights_profile(void)
 
     s_knights_320 = s_timegate;
     s_knights_320.intro_movies = intro;
+    s_knights_320.music_source = MUSIC_MIDI;
+    s_knights_320.music_pak = "WINMUS.PAK";
     s_knights_320.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_320.name = "Time Gate: Knight's Chase (Windows, 320x200)";
     s_knights_320.resolution_dir = "320";
 
     s_knights_640 = s_timegate;
     s_knights_640.intro_movies = intro;
+    s_knights_640.music_source = MUSIC_MIDI;
+    s_knights_640.music_pak = "WINMUS.PAK";
     s_knights_640.mask_layout = MASK_CAMERA_INDEXED;
     s_knights_640.name = "Time Gate: Knight's Chase (Windows, 640x480)";
     s_knights_640.resolution_dir = "640";

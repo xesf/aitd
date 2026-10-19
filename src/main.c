@@ -177,6 +177,9 @@ void game_main(int argc, char **argv)
         s16 choice;
 
         g_menu_state = 0;             /* 0x4079b4 */
+        if (game_current()->menu_music >= 0) {   /* TG 0x417a14 */
+            music_play((s16)game_current()->menu_music);
+        }
         choice = (s16)main_menu_run(); /* 0x4079bd */
 
         switch (choice) {

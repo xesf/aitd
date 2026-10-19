@@ -75,6 +75,16 @@ enum inventory_style {
     INVENTORY_NONE      /* not rebuilt (Time Gate) */
 };
 
+/* Where MUSIC takes its tunes from. */
+enum music_source {
+    MUSIC_CD,           /* CD audio tracks (AITD3) */
+    MUSIC_ADLIB,        /* LISTMUS.PAK, Infogrames' AdLib format (AITD1, AITD2,
+                           Jack) */
+    MUSIC_MIDI,         /* WINMUS.PAK, standard MIDI files (Time Gate for
+                           Windows, TG320.EX_ 0x42085a) */
+    MUSIC_TG_DOS        /* MUSIC.PAK of the DOS Time Gate */
+};
+
 /* Raw life opcode and variable numbering. */
 enum life_dialect {
     LIFE_DIALECT_AITD1, /* its own order, see lifemap.c */
@@ -138,6 +148,9 @@ struct game_profile {
     int menu_palette;               /* ITD_RESS palette (768 bytes) or
                                        picture whose palette the framed menu
                                        shows, -1 to keep the current one */
+    enum music_source music_source;
+    const char *music_pak;
+    int menu_music;                 /* tune under the main menu, -1: none */
 
     /* game_run arguments for a new game and for the intro (-1: none). */
     int start_floor, start_room;
