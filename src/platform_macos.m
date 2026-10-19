@@ -94,6 +94,20 @@ static int event_pop(struct platform_event *out)
 @interface aitd_view : NSView
 @end
 
+/* The frame keeps its own aspect inside the window, centred; the rest is
+ * black. The 640 x 400 Time Gate build sits in a 640 x 480 window like
+ * that (TG640.EX_ centres its WinG blit, 0x424c9e). */
+static NSRect picture_rect(NSRect bounds)
+{
+    CGFloat sx = bounds.size.width / (CGFloat)s_width;
+    CGFloat sy = bounds.size.height / (CGFloat)s_height;
+    CGFloat k = sx < sy ? sx : sy;
+    CGFloat w = (CGFloat)s_width * k, h = (CGFloat)s_height * k;
+
+    return NSMakeRect(bounds.origin.x + (bounds.size.width - w) / 2.0,
+                      bounds.origin.y + (bounds.size.height - h) / 2.0, w, h);
+}
+
 @implementation aitd_view
 
 - (BOOL)isFlipped
@@ -142,9 +156,16 @@ static int event_pop(struct platform_event *out)
      * image only.
      */
     CGContextSaveGState(ctx);
+    CGContextSetFillColorWithColor(ctx, CGColorGetConstantColor(kCGColorBlack));
+    CGContextFillRect(ctx, self.bounds);
     CGContextTranslateCTM(ctx, 0.0, self.bounds.size.height);
     CGContextScaleCTM(ctx, 1.0, -1.0);
-    CGContextDrawImage(ctx, self.bounds, image);
+    {
+        NSRect fit = picture_rect(self.bounds);
+        /* The CTM is flipped: mirror the rectangle's y. */
+        fit.origin.y = self.bounds.size.height - fit.origin.y - fit.size.height;
+        CGContextDrawImage(ctx, fit, image);
+    }
     CGContextRestoreGState(ctx);
 
     CGImageRelease(image);
@@ -186,13 +207,13 @@ static int event_pop(struct platform_event *out)
 - (void)report_mouse:(NSEvent *)event kind:(enum platform_event_kind)kind code:(int)code
 {
     NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
-    NSRect bounds = self.bounds;
+    NSRect bounds = picture_rect(self.bounds);
     int x = 0;
     int y = 0;
 
     if (bounds.size.width > 0.0 && bounds.size.height > 0.0) {
-        x = (int)(point.x * (CGFloat)s_width / bounds.size.width);
-        y = (int)(point.y * (CGFloat)s_height / bounds.size.height);
+        x = (int)((point.x - bounds.origin.x) * (CGFloat)s_width / bounds.size.width);
+        y = (int)((point.y - bounds.origin.y) * (CGFloat)s_height / bounds.size.height);
     }
 
     if (x < 0) x = 0;
@@ -414,7 +435,12 @@ int platform_video_init(const char *title, int width, int height)
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        NSRect frame = NSMakeRect(0, 0, width * 3, height * 3);
+        /* 320 x 200 frames get a window three times their size; larger
+         * ones (the 640 x 400 Time Gate build) open at their own width in
+         * a 4:3 window, 640 x 480, as the original did. */
+        int window_w = width >= 640 ? width : width * 3;
+        int window_h = width >= 640 ? width * 3 / 4 : height * 3;
+        NSRect frame = NSMakeRect(0, 0, window_w, window_h);
         NSUInteger style = NSWindowStyleMaskTitled
                          | NSWindowStyleMaskClosable
                          | NSWindowStyleMaskMiniaturizable
@@ -438,13 +464,18 @@ int platform_video_init(const char *title, int width, int height)
         s_window.title = [NSString stringWithUTF8String:title];
         [s_window setAcceptsMouseMovedEvents:YES];
 
-        /* Preserve the 8:5 aspect of the original mode when resizing. */
-        s_window.contentAspectRatio = NSMakeSize(width, height);
+        /* Keep the window's shape when resizing. */
+        s_window.contentAspectRatio = NSMakeSize(window_w, window_h);
 
         s_view = [[aitd_view alloc] initWithFrame:frame];
         s_window.contentView = s_view;
         [s_window makeFirstResponder:s_view];
         [s_window center];
+        if (getenv("AITD_TRACE") != NULL) {
+            NSRect content = [s_window contentRectForFrameRect:s_window.frame];
+            fprintf(stderr, "window %.0fx%.0f for a %dx%d frame\n",
+                    content.size.width, content.size.height, width, height);
+        }
         [s_window makeKeyAndOrderFront:nil];
         [NSApp activateIgnoringOtherApps:YES];
 
