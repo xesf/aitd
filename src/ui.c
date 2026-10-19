@@ -6,6 +6,7 @@
  *   object_found                 0x40dc7d              "take this object?"
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "actor.h"
@@ -159,25 +160,72 @@ static void dim_picture(u8 *dst, const u8 *src, u8 band)
     }
 }
 
+/* Time Gate's version (TG320.EX_ 0x4150d7 / 0x414f7e) has the same
+ * layout with its own colours, a fixed camera the object tilts and turns
+ * in front of, the scene dimmed into palette band 16..31 by brightness and
+ * a 360 tick cool-down after a refusal. */
+static int found_tg(void)
+{
+    return game_current()->inventory_style == INVENTORY_ICONS;
+}
+
+/* TG 0x42920d: each colour to the closest band entry in brightness. */
+static void dim_by_brightness(u8 *pixels, u8 first, u8 last)
+{
+    u8 map[256];
+    int c, k;
+
+    for (c = 0; c < 256; c++) {
+        const u8 *rgb = g_palette_buffer + c * 3;
+        int lum = rgb[0] * 30 + rgb[1] * 59 + rgb[2] * 11, best = first, best_d = 1 << 30;
+
+        for (k = first; k <= last; k++) {
+            const u8 *b = g_palette_buffer + k * 3;
+            int d = abs(b[0] * 30 + b[1] * 59 + b[2] * 11 - lum);
+            if (d < best_d) {
+                best_d = d;
+                best = k;
+            }
+        }
+        map[c] = (u8)best;
+    }
+    for (c = 0; c < (int)SCREEN_PIXELS; c++) {
+        pixels[c] = map[pixels[c]];
+    }
+}
+
 /* 0x40dae9 */
 static void object_found_draw(s16 choice, s16 name, s16 distance)
 {
-    raster_copy_rect(50, 0, 270, 190, g_back_buffer);
-    r3d_set_camera_target(0, 0, 0, 60, g_preview_angle, 0, distance);
-    r3d_set_clip_y(10000);
-    r3d_draw_body(0, 0, 0, 0, 0, 0, hqr_get(g_cache_body, g_preview_body, NULL));
+    int tg = found_tg();
+    u8 normal = tg ? 0xff : 64, hi = tg ? 0xf3 : 1, shadow = tg ? 0xff : 4;
 
-    text_draw_centered(160, 20, 20, 1);
-    text_draw_centered(160, 34, name, 1);
+    if (tg) {
+        struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+
+        raster_blit(0, 0, &back);
+        r3d_set_camera_position(0, 0, (s16)-distance);
+        r3d_set_camera_angles(0, 0, 0);
+        r3d_set_clip_y(10000);
+        r3d_draw_body(0, 0, 0, 0x80, g_preview_angle, 0, hqr_get(g_cache_body, g_preview_body, NULL));
+    } else {
+        raster_copy_rect(50, 0, 270, 190, g_back_buffer);
+        r3d_set_camera_target(0, 0, 0, 60, g_preview_angle, 0, distance);
+        r3d_set_clip_y(10000);
+        r3d_draw_body(0, 0, 0, 0, 0, 0, hqr_get(g_cache_body, g_preview_body, NULL));
+    }
+
+    text_draw_centered(SCALED(160), SCALED(20), 20, tg ? normal : 1);
+    text_draw_centered(SCALED(160), SCALED(34), name, tg ? normal : 1);
 
     if (choice == 0) {
-        text_draw_centered_shadowed(100, 132, 21, 1, 4);
-        text_draw_centered(220, 132, 22, 64);
+        text_draw_centered_shadowed(SCALED(100), SCALED(132), 21, hi, shadow);
+        text_draw_centered(SCALED(220), SCALED(132), 22, normal);
     } else if (choice == 1) {
-        text_draw_centered(100, 132, 21, 64);
-        text_draw_centered_shadowed(220, 132, 22, 1, 4);
+        text_draw_centered(SCALED(100), SCALED(132), 21, normal);
+        text_draw_centered_shadowed(SCALED(220), SCALED(132), 22, hi, shadow);
     } else if (choice == 2) {
-        text_draw_centered_shadowed(160, 132, 10, 1, 4);
+        text_draw_centered_shadowed(SCALED(160), SCALED(132), 10, hi, shadow);
     }
 }
 
@@ -202,7 +250,8 @@ void object_found(s16 object, int mode)
         /* The object record's track number doubles as the time of the last
          * refusal; the dialog stays away for 180 ticks after one. */
         ticks_update();
-        if (o->track_number != 0 && (u16)((u16)g_ticks - (u16)o->track_number) < 180) {
+        if (o->track_number != 0
+            && (u16)((u16)g_ticks - (u16)o->track_number) < (found_tg() ? 360 : 180)) {
             return;
         }
     }
@@ -215,18 +264,22 @@ void object_found(s16 object, int mode)
     }
 
     g_preview_body = o->found_body;
-    r3d_set_projection(160, 100, 128, 300, 298);
+    r3d_set_projection(SCALED(160), SCALED(100), 128, SCALED(300), SCALED(298));
     g_preview_angle = 0;
-    raster_set_clip(0, 0, 319, 199);
+    raster_reset_clip();
 
     if (!g_frame_flag) {
-        memcpy(g_back_buffer, g_screen, 64000);
-        dim_picture(g_back_buffer, g_back_buffer, 48);
+        memcpy(g_back_buffer, g_screen, SCREEN_PIXELS);
+        if (found_tg()) {
+            dim_by_brightness(g_back_buffer, 16, 31);
+        } else {
+            dim_picture(g_back_buffer, g_back_buffer, 48);
+        }
         g_frame_flag = 1;
     }
 
     {
-        struct raster_image back = { 320, 200, g_back_buffer };
+        struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
         raster_blit(0, 0, &back);
     }
     object_found_draw(choice, o->found_name, distance);

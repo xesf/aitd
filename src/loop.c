@@ -413,6 +413,19 @@ void game_scene_loop(s16 flag)
             fprintf(stderr, "harness: inventory with %d objects\n", g_inventory_count[g_inventory_index]);
             inventory_open();
         }
+        if (getenv("AITD_FOUND_OBJECT") != NULL
+            && s_frame_number == atoi(getenv("AITD_FOUND_OBJECT"))) {
+            /* harness only: the found dialog for the first object not
+             * carried that has a name and a body. */
+            s16 obj;
+            for (obj = 0; obj < g_object_count; obj++) {
+                const struct world_object *o = object_get(obj);
+                if (o->found_name > 0 && o->found_body >= 0 && !(o->flags2 & 0x8000)) {
+                    object_found(obj, 2);
+                    break;
+                }
+            }
+        }
         if (getenv("AITD_READ_DOCUMENT") != NULL) {
             int frame = 0, text = 0, type = 0;   /* harness only: frame,text,type */
             if (sscanf(getenv("AITD_READ_DOCUMENT"), "%d,%d,%d", &frame, &text, &type) == 3

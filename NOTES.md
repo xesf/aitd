@@ -412,6 +412,11 @@ and checked against it; no third party code is used.
   icons (absent / available / selected banks): bits 0-3, 9, 10 on the
   left for objects, 4, 6, 8 on the right for the hero, who stays first in
   the list (take inserts behind entry 0, 0x414dc2).
+- **Time Gate documents and found dialog**: READ (type, text) shows
+  ITD_RESS 6 with a 60..245 x 10..190 box, or 7 / 8 full screen
+  (TG 0x40b278). The found dialog (0x4150d7) is AITD3's with colours
+  0xff / 0xf3, the object tilted 0x80 in front of a fixed camera, the
+  scene dimmed into band 16..31 by brightness and a 360 tick cool-down.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in
