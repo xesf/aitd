@@ -435,11 +435,10 @@ int platform_video_init(const char *title, int width, int height)
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        /* 320 x 200 frames get a window three times their size; larger
-         * ones (the 640 x 400 Time Gate build) open at their own width in
-         * a 4:3 window, 640 x 480, as the original did. */
-        int window_w = width >= 640 ? width : width * 3;
-        int window_h = width >= 640 ? width * 3 / 4 : height * 3;
+        /* Every title opens in a 640 x 480 window shown twice its size,
+         * 1280 x 960; the frame keeps its own aspect, centred. */
+        int window_w = 640 * 2;
+        int window_h = 480 * 2;
         NSRect frame = NSMakeRect(0, 0, window_w, window_h);
         NSUInteger style = NSWindowStyleMaskTitled
                          | NSWindowStyleMaskClosable
