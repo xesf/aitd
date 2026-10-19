@@ -19,7 +19,8 @@ address in a comment. The other titles add their own differences on top:
 Time Gate, and the data files for the parts that no executable here
 covers. No code from other projects is used.
 
-The repository has no game data. You need your own copy of each game.
+The repository has no game data and no part of the original programs.
+You need your own copy of each game.
 
 ## Requirements
 
@@ -51,6 +52,10 @@ data/KNIGHTS/   the Windows install, with its 320/ and 640/ folders
 The engine detects the game from a file that only that game has:
 `LISTBOD2.PAK`, `PERE.PAK`, `MER.PAK`, `AN1.PAK` or `PURSUIT.PAK`. A
 `640/` folder marks the Windows build of Time Gate.
+
+If you have the Windows Alone in the Dark 3, also copy `WAITD3.EXE` into
+`data/INDARK3`. The patterned polygon fill reads its noise from that
+file. Without it, the engine uses its own noise and the pattern differs.
 
 For the Alone in the Dark 3 music, put the CD audio tracks next to the
 data as `track02.m4a`, `track03.m4a` and so on. The engine also accepts
@@ -106,6 +111,15 @@ frames, move the player and trace state. `NOTES.md` lists them under
   per-game profiles.
 - [NOTES.md](NOTES.md) is the reverse engineering reference: addresses,
   file formats and the differences between the games.
+
+## License
+
+The engine source is licensed under the GNU General Public License,
+version 3 or any later version. See [LICENSE](LICENSE).
+
+The license covers this code only. The games, their data files and their
+executables stay the property of their owners, and the repository
+contains none of them.
 
 ## Layout
 
