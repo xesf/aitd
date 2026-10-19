@@ -164,7 +164,7 @@ accessors over `0x435220` and `0x435226`.
 | `src/stubs.c` | engine bring-up helpers with no behaviour on a host |
 | `src/platform_macos.m` | AppKit + CoreGraphics + AudioToolbox backend |
 | `tools/pak_dump.c` | offline container inspector, `--verify` decodes everything |
-| `tools/extract_tables.py` | pulls the sine, noise and ramp tables out of the EXE |
+| `src/exe_tables.c` | rebuilds the sine and ramp tables; reads the noise bytes from a local WAITD3.EXE |
 | `tools/sync_ida_names.py` | renames the IDA database after the C sources |
 
 The core is C99 with no host dependencies. The macOS backend hands the 8bpp

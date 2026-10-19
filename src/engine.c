@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "exe_tables.h"
 #include "raster.h"
 #include "game.h"
 #include "font.h"
@@ -333,6 +334,7 @@ static void alloc_object_tables(void)
  */
 void engine_init(void)
 {
+    exe_tables_init();
     load_font();
     text_table_init();      /* 0x40724d */
     create_window();
