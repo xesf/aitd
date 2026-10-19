@@ -276,6 +276,9 @@ void input_poll(void)
             int i;
 
             snprintf(name, sizeof(name), "%s_%05d.ppm", prefix, s_poll_number);
+            if (getenv("AITD_TRACE") != NULL) {
+                fprintf(stderr, "dump %05d\n", s_poll_number);
+            }
             fp = fopen(name, "wb");
             if (fp != NULL) {
                 fprintf(fp, "P6\n%d %d\n255\n", (int)g_screen_width, (int)g_screen_height);

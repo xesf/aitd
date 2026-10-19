@@ -1156,6 +1156,22 @@ s16 actor_create(s16 body_index, s16 zv_type, s16 flags, s16 zone, s16 x,
     return i;
 }
 
+/*
+ * Alone in the Dark 1 numbers life modes one lower than WAITD3: -1 none,
+ * 0 the whole floor, 1 the current room, 2 rooms the camera sees. The
+ * player and chasing monsters use 0, room triggers 1, doors 2. Read with
+ * the WAITD3 numbering, room triggers ran on the whole floor: the
+ * corridor zombie of floor 1 was released and the attic window zombie
+ * took the camera during the intro. Returns the WAITD3 class.
+ */
+static int life_mode_class(s16 mode)
+{
+    if (game_current()->life_dialect == LIFE_DIALECT_AITD1) {
+        return mode == -1 ? LIFE_MODE_OFF : (mode & 3) + 1;
+    }
+    return mode & 3;
+}
+
 /* 0x409654 - give an actor slot back to its world object. */
 void world_remove_actor(s16 index)
 {
@@ -1170,6 +1186,16 @@ void world_remove_actor(s16 index)
     }
     if (a->object < 0) {
         return;
+    }
+
+    /* Alone in the Dark 1: refresh the saved box on the way out. WAITD3
+     * keeps the box saved when the actor was made and restores it as is,
+     * so an actor that walked away and is made again kept a box where it
+     * started; the corridor zombie blocked the intro's walk that way. */
+    if (game_current()->life_dialect == LIFE_DIALECT_AITD1
+        && a->object > 0 && a->object < OBJECT_SAVED_ZV_MAX
+        && OBJECT_SAVED_ZV(a->object)[0]) {
+        object_save_zv((s16 *)a);
     }
 
     o = object_get(a->object);
@@ -1188,7 +1214,8 @@ void world_remove_actor(s16 index)
     o->flags |= (u16)(a->dyn_flags << 5);
 
     o->life = a->life;
-    o->life_mode = (s16)(a->life_mode & 3);
+    o->life_mode = (s16)(a->life_mode == -1 && game_current()->life_dialect == LIFE_DIALECT_AITD1
+                         ? -1 : (a->life_mode & 3));
     o->track_mode = a->track_mode;
     if (o->track_mode != TRACK_NONE) {
         o->track_number = a->track_number;
@@ -1224,10 +1251,12 @@ void world_update_objects(void)
             continue;
         }
 
-        a->life_mode &= ~4;
+        if (a->life_mode != -1 || game_current()->life_dialect != LIFE_DIALECT_AITD1) {
+            a->life_mode &= ~4;
+        }
 
         if (a->stage == g_cur_floor) {
-            switch (a->life_mode) {
+            switch (life_mode_class(a->life_mode)) {
             case LIFE_MODE_ALWAYS:
                 keep = 1;
                 break;
@@ -1268,7 +1297,7 @@ void world_update_objects(void)
             continue;
         }
 
-        switch (o->life_mode & 3) {
+        switch (life_mode_class(o->life_mode)) {
         case LIFE_MODE_OFF: keep = 0; break;
         case LIFE_MODE_ALWAYS: keep = 1; break;
         case LIFE_MODE_ROOM: keep = (o->room == g_cur_room); break;
@@ -1280,7 +1309,9 @@ void world_update_objects(void)
                 || !world_in_view_zone(o->x, o->z)) {
                 continue;
             }
-            o->life_mode |= 4;
+            if (o->life_mode != -1 || game_current()->life_dialect != LIFE_DIALECT_AITD1) {
+                o->life_mode |= 4;
+            }
         }
 
         slot = actor_create(o->body, o->zv_type, (s16)(o->flags & ~0x20),

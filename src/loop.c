@@ -278,12 +278,16 @@ static void step_actors(void)
     }
 }
 
-/* Whether an actor's script runs this frame. AITD1 and Jack run every
- * script whose mode is not -1; from AITD2 on the mode must ask for it and
- * bit 4 (kept only because a camera shows it) holds it back. */
+/* Whether an actor's script runs this frame. Jack runs every script
+ * whose mode is not -1. AITD1 does too, except while bit 4 says the actor
+ * is only kept because a camera shows it (its modes 0..2 all ask to run).
+ * From AITD2 on the mode must ask for it and bit 4 holds it back. */
 static int life_mode_runs(s16 mode)
 {
-    if (game_id() == GAME_AITD1 || game_id() == GAME_JACK) {
+    if (game_id() == GAME_AITD1) {
+        return mode != -1 && !(mode & 4);
+    }
+    if (game_id() == GAME_JACK) {
         return mode != -1;
     }
     return (mode & 3) && !(mode & 4);
@@ -474,15 +478,15 @@ void game_scene_loop(s16 flag)
                 g_vars[index] = (s16)value;
             }
         }
-        if (getenv("AITD_ACTORS") != NULL && s_frame_number == atoi(getenv("AITD_ACTORS"))) {
+        if (getenv("AITD_ACTORS") != NULL && (s_frame_number == atoi(getenv("AITD_ACTORS")) || (atoi(getenv("AITD_ACTORS")) < 0 && s_frame_number % -atoi(getenv("AITD_ACTORS")) == 0))) {
             int i;      /* harness only: every live actor at that frame */
             for (i = 0; i < ACTOR_MAX; i++) {
                 const struct actor *a = &g_actors[i];
                 if (a->object == -1) {
                     continue;
                 }
-                fprintf(stderr, "actor %d obj=%d body=%d flags=%x room=%d pos=%d,%d,%d beta=%d zv=%d,%d,%d,%d,%d,%d life=%d anim=%d screen=%d,%d,%d,%d\n",
-                        i, a->object, a->body, a->flags, a->room, a->room_x, a->room_y, a->room_z, a->beta,
+                fprintf(stderr, "f%d actor %d obj=%d lm=%d tm=%d tn=%d body=%d flags=%x room=%d pos=%d,%d,%d beta=%d zv=%d,%d,%d,%d,%d,%d life=%d anim=%d screen=%d,%d,%d,%d\n",
+                        s_frame_number, i, a->object, a->life_mode, a->track_mode, a->track_number, a->body, a->flags, a->room, a->room_x, a->room_y, a->room_z, a->beta,
                         a->zv[0], a->zv[1], a->zv[2], a->zv[3], a->zv[4], a->zv[5], a->life, a->anim,
                         a->screen[0], a->screen[1], a->screen[2], a->screen[3]);
             }
