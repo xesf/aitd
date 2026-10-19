@@ -4,7 +4,7 @@
  * The 1996 build talks to Win32 directly (USER32/GDI32/KERNEL32 plus
  * mciSendStringA for CD audio). Every one of those touch points is isolated
  * here so the engine core stays platform agnostic. The macOS backend lives
- * in platform_sdl.c.
+ * in platform_macos.m.
  *
  * IDA addresses name the original routine that each entry point replaces.
  */
