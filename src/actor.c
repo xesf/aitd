@@ -1133,6 +1133,30 @@ static void track_point(struct actor *a, s16 room, s16 *x, s16 *y, s16 *z)
     }
 }
 
+/*
+ * Alone in the Dark 1 numbers its track opcodes differently. Worked out
+ * from the operand shapes across every LISTTRAK entry: 9 rotates (one
+ * angle), 10 / 11 bracket collision, 13 / 14 bracket stair climbs,
+ * 15 walks to a point and height (five words), 16 stores the position,
+ * 17 / 18 climb stairs along x / z (three words), 19 sets the angles
+ * (three words). 5, 6, 7 take no operand; 8 and 12 are never used.
+ */
+static s16 track_op_map(s16 raw)
+{
+    static const s16 aitd1[] = {
+        TRACK_OP_WARP, TRACK_OP_GOTO_POS, TRACK_OP_END, TRACK_OP_REWIND,
+        TRACK_OP_MARK, TRACK_OP_SKIP, TRACK_OP_SKIP, TRACK_OP_SKIP,
+        TRACK_OP_SKIP, TRACK_OP_ROTATE, TRACK_OP_COL_OFF, TRACK_OP_COL_ON,
+        TRACK_OP_SKIP, TRACK_OP_FALL_OFF, TRACK_OP_FALL_ON, TRACK_OP_GOTO_POS_Y,
+        TRACK_OP_STORE_POS, TRACK_OP_STAIRS_X, TRACK_OP_STAIRS_Z, TRACK_OP_ANGLES
+    };
+
+    if (game_current()->life_dialect != LIFE_DIALECT_AITD1) {
+        return raw;
+    }
+    return (raw >= 0 && raw < (s16)(sizeof(aitd1) / sizeof(aitd1[0]))) ? aitd1[raw] : raw;
+}
+
 void actor_do_move(void)
 {
     struct actor *a = g_cur_actor;
@@ -1193,7 +1217,7 @@ void actor_do_move(void)
     case TRACK_SCRIPT: {
         const u8 *track = hqr_get(g_cache_trak, a->track_number, NULL);
         const u8 *p = track + a->position_in_track * 2;
-        s16 op = blob_s16(p, 0);
+        s16 op = track_op_map(blob_s16(p, 0));
 
         switch (op) {
         case TRACK_OP_WARP: {
@@ -1353,6 +1377,9 @@ void actor_do_move(void)
             }
             break;
         }
+        case TRACK_OP_SKIP:
+            a->position_in_track++;
+            break;
         case TRACK_OP_ANGLES:
             a->alpha = blob_s16(p, 2);
             a->beta = blob_s16(p, 4);

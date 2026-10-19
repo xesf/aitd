@@ -204,6 +204,7 @@ all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_
 | `AITD_TRACE=1` | per-frame player state on stderr |
 | `AITD_TELEPORT=f,room,x,y,z[,beta]` | put the player there at frame f |
 | `AITD_SET_VAR=i=v` | set game variable i (DEFINES word) at the start |
+| `AITD_SET_GVAR=f,i,v` | set VARS.ITD entry i to v at frame f |
 | `AITD_ACTORS=f` | list every live actor at frame f |
 | `AITD_WINDOW_SCALE=2` | window at 1280 x 960 instead of 640 x 480 (1..4) |
 | `AITD_LIFETRACE=1` | life opcodes as they run |

@@ -320,8 +320,22 @@ void game_scene_loop(s16 flag)
     u32 hold_start = 0;
     int hold_done = 0;
 
+    u32 last_tick = platform_get_ticks() / 17u;
+
     for (;;) {
-        int leave = handle_input(flag, &hold_count, &hold_start, &hold_done);
+        int leave;
+
+        /* One game tick (1/60 s) at least between frames. The scripts see
+         * a collision only on a frame where the actor moved; with no tick
+         * between two frames the animation gives no step, so an object
+         * made pushable on one frame was dropped again on the next. The
+         * machines of the time never ran a frame inside one tick. */
+        while (platform_get_ticks() / 17u == last_tick) {
+            platform_delay(1);
+        }
+        last_tick = platform_get_ticks() / 17u;
+
+        leave = handle_input(flag, &hold_count, &hold_start, &hold_done);
 
         if (leave == 1) {
             break;
@@ -451,6 +465,13 @@ void game_scene_loop(s16 flag)
                 }
                 g_cur_actor = saved;
                 g_cur_actor_index = saved_index;
+            }
+        }
+        if (getenv("AITD_SET_GVAR") != NULL && g_vars != NULL) {
+            int frame, index, value;    /* harness only: frame,index,value */
+            if (sscanf(getenv("AITD_SET_GVAR"), "%d,%d,%d", &frame, &index, &value) == 3
+                && s_frame_number == frame && index >= 0 && (u32)index * 2 < g_vars_size) {
+                g_vars[index] = (s16)value;
             }
         }
         if (getenv("AITD_ACTORS") != NULL && s_frame_number == atoi(getenv("AITD_ACTORS"))) {

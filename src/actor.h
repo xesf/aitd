@@ -27,7 +27,8 @@ enum track_op {
     TRACK_OP_STORE_POS = 13,
     TRACK_OP_STAIRS_X = 14,
     TRACK_OP_STAIRS_Z = 15,
-    TRACK_OP_ANGLES = 16
+    TRACK_OP_ANGLES = 16,
+    TRACK_OP_SKIP = 100                /* AITD1 5, 6, 7, 8, 12: no operand, no effect here */
 };
 
 /* Time based interpolator, 8 bytes: from, to, duration, start tick. */
