@@ -138,16 +138,17 @@ static void load_font(void)
 /*
  * 0x40725b..0x4072cc
  *
- * The window title is copied out of text record 0x138d before the window is
- * created. A failure is reported using text 0x1388, which is available by
- * this point.
+ * WAITD3 copies the window title out of text record 0x138d before the
+ * window is created; that record is AITD3's own, so the title here is the
+ * name of the title detected. A failure is reported using text 0x1388,
+ * which is available by this point.
  */
 static void create_window(void)
 {
     platform_set_icon("AppIcon");   /* 0x407260 */
     platform_set_cursor(0);         /* 0x407267 */
 
-    strcpy(g_window_title, text_get_by_id(TEXT_ID_WINDOW_TITLE)); /* 0x40727e */
+    snprintf(g_window_title, sizeof(g_window_title), "%s", game_current()->name); /* 0x40727e */
 
     if (!platform_video_init(g_window_title,
                              video_mode_width(),    /* edx = 0x140 */
