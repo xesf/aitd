@@ -156,7 +156,8 @@ static const struct game_profile *knights_profile(void)
     s_knights_640.name = "Time Gate: Knight's Chase (Windows, 640x480)";
     s_knights_640.resolution_dir = "640";
     s_knights_640.screen_width = 640;
-    s_knights_640.screen_height = 480;
+    s_knights_640.screen_height = 400;
+    s_knights_640.background_prefix = "CAMERX";
 
     return low ? &s_knights_320 : &s_knights_640;
 }

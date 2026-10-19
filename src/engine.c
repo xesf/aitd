@@ -32,6 +32,7 @@
 
 s32 g_screen_width;
 s32 g_screen_height;
+int g_scale = 1;
 u8 *g_front_buffer;
 u8 *g_back_buffer;
 u16 g_blit_width;
@@ -149,8 +150,8 @@ static void create_window(void)
     strcpy(g_window_title, text_get_by_id(TEXT_ID_WINDOW_TITLE)); /* 0x40727e */
 
     if (!platform_video_init(g_window_title,
-                             AITD_SCREEN_WIDTH,     /* edx = 0x140 */
-                             AITD_SCREEN_HEIGHT)) { /* ebx = 0xc8 */
+                             video_mode_width(),    /* edx = 0x140 */
+                             video_mode_height())) { /* ebx = 0xc8 */
         sys_error_box("?", text_get_by_id(TEXT_ID_VIDEO_FAILED)); /* 0x4072b8 */
         exit(1);
     }
@@ -172,6 +173,7 @@ static void init_host_services(void)
     /* Both dimensions come out of the mode record at 0x435160. */
     g_screen_width = video_mode_width();    /* 0x4072e5 */
     g_screen_height = video_mode_height();  /* 0x4072f2 */
+    g_scale = g_screen_width / AITD_SCREEN_WIDTH;
 
     heap_init();          /* 0x407300 */
     rand_init();          /* 0x407305 */

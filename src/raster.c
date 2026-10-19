@@ -691,7 +691,7 @@ void raster_copy_rect(s16 x1, s16 y1, s16 x2, s16 y2, const u8 *picture)
 
     for (y = y1; y <= y2; y++) {
         memcpy(g_raster.target + (size_t)y * g_raster.pitch + x1,
-               picture + (size_t)y * 320 + x1, (size_t)(x2 - x1 + 1));
+               picture + (size_t)y * (size_t)g_raster.width + x1, (size_t)(x2 - x1 + 1));
     }
 }
 

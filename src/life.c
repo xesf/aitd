@@ -482,9 +482,9 @@ static void zv_from_pose(struct actor *a)
     a->zv[4] = (s16)(a->zv[4] + a->room_z);
     a->zv[5] = (s16)(a->zv[5] + a->room_z);
     if (g_r3d_bbox.xmin < 0) g_r3d_bbox.xmin = 0;
-    if (g_r3d_bbox.xmax > 319) g_r3d_bbox.xmax = 319;
+    if (g_r3d_bbox.xmax > g_screen_width - 1) g_r3d_bbox.xmax = (s16)(g_screen_width - 1);
     if (g_r3d_bbox.ymin < 0) g_r3d_bbox.ymin = 0;
-    if (g_r3d_bbox.ymax > 199) g_r3d_bbox.ymax = 199;
+    if (g_r3d_bbox.ymax > g_screen_height - 1) g_r3d_bbox.ymax = (s16)(g_screen_height - 1);
     a->screen[0] = g_r3d_bbox.xmin;
     a->screen[1] = g_r3d_bbox.ymin;
     a->screen[2] = g_r3d_bbox.xmax;

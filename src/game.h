@@ -140,7 +140,8 @@ struct game_profile {
 
 /* Chooses a profile by probing the data directory. AITD_GAME overrides the
  * probe with one of: aitd1, jack, aitd2, aitd3, timegate. AITD_RES selects
- * the Windows Time Gate resolution, 320 or 640 (default 640). */
+ * the Windows Time Gate resolution, 320 or 640 (default 640, a
+ * 640 x 400 game screen). */
 const struct game_profile *game_detect(void);
 
 /* The profile in force. NULL before game_detect has run. */

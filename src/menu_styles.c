@@ -8,7 +8,8 @@
  * colour 4 shadow; the others are colour 4 (frames in frame.c).
  *
  * Ring (Time Gate, TG320.EX_ 0x405f6b / 0x405c64): ITD_RESS picture 1, a
- * medallion, with seven HYB icons around it; left and right walk the ring
+ * medallion, with seven HYB icons around it (positions doubled in the
+ * 640 x 400 build, TG640.EX_ 0x405e2a); left and right walk the ring
  * and the selected icon is redrawn from its highlighted bank. Enter, space
  * or keypad enter pick, Escape picks quit, 3000 idle ticks give -1.
  */
@@ -60,10 +61,10 @@ static void framed_draw(int selected)
     int i;
 
     target_begin();
-    raster_set_clip(0, 0, 319, 199);
-    memset(g_raster.target, 0, 64000);
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
+    memset(g_raster.target, 0, SCREEN_PIXELS);
     frame_draw(160, 100, 320, 80);
-    raster_set_clip(0, 0, 319, 199);
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
     for (i = 0; i < 3; i++, y = (s16)(y + 16)) {
         if (i == selected) {
             raster_rect(10, 309, y, (s16)(y + 16), 100);
@@ -176,7 +177,7 @@ static void ring_draw(int selected)
     int i;
 
     target_begin();
-    raster_set_clip(0, 0, 319, 199);
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
     if (picture_load(1, g_raster.target, palette) == 1) {
         memcpy(g_palette_buffer, palette, sizeof(palette));
         if (g_fade_state != 1) {
@@ -184,9 +185,9 @@ static void ring_draw(int selected)
         }
     }
     for (i = 0; i < 7; i++) {
-        ring_icon(s_ring[i].icon, s_ring[i].x, s_ring[i].y);
+        ring_icon(s_ring[i].icon, SCALED(s_ring[i].x), SCALED(s_ring[i].y));
     }
-    ring_icon(s_ring[selected].selected, s_ring[selected].x, s_ring[selected].y);
+    ring_icon(s_ring[selected].selected, SCALED(s_ring[selected].x), SCALED(s_ring[selected].y));
     raster_pop_target();
     screen_present();
 }
@@ -205,15 +206,15 @@ static void cards_draw(int selected)
     int i;
 
     target_begin();
-    raster_set_clip(0, 0, 319, 199);
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
     if (picture_load(0x74, g_raster.target, palette) == 1) {
         memcpy(g_palette_buffer, palette, sizeof(palette));
         palette_set_range(g_palette_buffer, 0, 256);
     }
     for (i = 0; i < 3; i++) {
-        ring_icon(s_cards[i].icon, s_cards[i].x, 0x25);
+        ring_icon(s_cards[i].icon, SCALED(s_cards[i].x), SCALED(0x25));
     }
-    ring_icon(s_cards[selected].selected, s_cards[selected].x, 0x25);
+    ring_icon(s_cards[selected].selected, SCALED(s_cards[selected].x), SCALED(0x25));
     raster_pop_target();
     screen_present();
 }

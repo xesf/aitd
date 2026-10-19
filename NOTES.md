@@ -375,6 +375,15 @@ and checked against it; no third party code is used.
 - **Time Gate difficulty** (TG 0x4062c3): ITD_RESS picture 0x74 (three
   tarot cards), HYB icons 0x60..0x65; the choice sets all three words.
   Ring entry 3 starts Windows' volume control and is left out.
+- **Time Gate 640** (TG640.EX_, paired with TG320.EX_ function by function):
+  the same program with every screen constant doubled. The game screen is
+  640 x 400 (`g_scale` = 2, `SCALED()`), backgrounds and masks come from
+  CAMERX##.PAK (640 x 400 + palette), the projection centre is (320, 200)
+  and both camera focal lengths are doubled (0x40c135), menu and message
+  positions and text pitch double (0x405e2a, 0x40aa24), masks keep the
+  header but use 16 bit skip / copy pairs on a 640 pitch (0x42a68c), and
+  the 320 x 200 Smacker films are shown doubled. ITD_RESS and LISTHYB come
+  from the 640/ folder with larger pictures, fonts and sprites.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in
@@ -390,8 +399,8 @@ and checked against it; no third party code is used.
 
 State: AITD1 (Carnby walking in the attic), AITD2 (the opening gate scene),
 Jack (the toy shop street and the credits book) and Time Gate (the museum
-street and courtyard, textured hero) start and render. KNIGHTS needs a
-640 x 480 screen throughout the engine.
+street and courtyard, textured hero) start and render. KNIGHTS runs at 640 x 400
+(AITD_RES=640, the default) or 320 x 200.
 
 ## Main menu (0x408f34)
 

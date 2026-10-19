@@ -517,6 +517,7 @@ int smacker_play(const char *name)
     const u8 *p;
     u32 clock;
     int skipped = 0;
+    u8 *scaled = NULL;
 
     if (!smk_open(&s, name)) {
         fprintf(stderr, "smacker: cannot open %s\n", name);
@@ -550,6 +551,9 @@ int smacker_play(const char *name)
         }
     }
 
+    if (g_scale > 1) {
+        scaled = malloc(SCREEN_PIXELS);
+    }
     raster_push_target(g_back_buffer);
     clock = timer_get_ms() * 10;
     for (frame = 0, p = s.frame_data; frame < s.frames && !skipped; p += s.frame_size[frame], frame++) {
@@ -567,6 +571,21 @@ int smacker_play(const char *name)
             palette_set_range(g_palette_buffer, 0, 256);
         }
         smk_video(&s, video, video_size);
+        if (g_scale > 1 && scaled != NULL) {
+            /* The films are 320 x 200 in both Windows builds; the 640
+             * build shows them doubled. */
+            int x, y;
+            for (y = 0; y < g_screen_height; y++) {
+                const u8 *row = s.pixels + (y / g_scale) * 320;
+                u8 *out = scaled + (size_t)y * (size_t)g_screen_width;
+                for (x = 0; x < g_screen_width; x++) {
+                    out[x] = row[x / g_scale];
+                }
+            }
+            image.width = (u16)g_screen_width;
+            image.height = (u16)g_screen_height;
+            image.pixels = scaled;
+        }
         raster_blit(0, 0, &image);
         screen_present();
 
@@ -584,6 +603,7 @@ int smacker_play(const char *name)
     while ((g_last_scancode & 0xff) != 0) {
         input_poll();
     }
+    free(scaled);
     free(audio);
     smk_free(&s);
     return 1;

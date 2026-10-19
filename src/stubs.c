@@ -25,14 +25,16 @@ s16 g_init_view;             /* 0x4350b9 */
 /* Word pair at 0x435160 that engine_init reads the screen size from. */
 static u16 s_video_mode_info[2] = { AITD_SCREEN_WIDTH, AITD_SCREEN_HEIGHT };
 
+/* The Windows Time Gate 640 build runs at 640 x 400 (TG640.EX_ uses
+ * 0x280 x 0x190 throughout); the profile carries the size. */
 s32 video_mode_width(void)
 {
-    return s_video_mode_info[0];  /* 0x4072e5 */
+    return game_current() != NULL ? game_current()->screen_width : s_video_mode_info[0];  /* 0x4072e5 */
 }
 
 s32 video_mode_height(void)
 {
-    return s_video_mode_info[1];  /* 0x4072f2 */
+    return game_current() != NULL ? game_current()->screen_height : s_video_mode_info[1]; /* 0x4072f2 */
 }
 
 /* 0x41a152 - FindWindowA guard, checked first thing in game_main (0x4078dd). */

@@ -278,8 +278,8 @@ void input_poll(void)
             snprintf(name, sizeof(name), "%s_%05d.ppm", prefix, s_poll_number);
             fp = fopen(name, "wb");
             if (fp != NULL) {
-                fprintf(fp, "P6\n320 200\n255\n");
-                for (i = 0; i < 64000; i++) {
+                fprintf(fp, "P6\n%d %d\n255\n", (int)g_screen_width, (int)g_screen_height);
+                for (i = 0; i < (int)SCREEN_PIXELS; i++) {
                     fwrite(g_palette_buffer + shown[i] * 3, 1, 3, fp);
                 }
                 fclose(fp);

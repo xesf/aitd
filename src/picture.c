@@ -16,8 +16,9 @@
 #include "pak.h"
 #include "picture.h"
 
+/* A screen's worth: 64000, or 256000 in the 640 x 400 Time Gate build. */
+#define PIXELS ((u32)SCREEN_PIXELS)
 enum {
-    PIXELS = 64000,
     PALETTE = AITD_PALETTE_BYTES
 };
 
@@ -31,26 +32,19 @@ int picture_load(int entry, u8 *pixels, u8 *palette)
     if (data == NULL) {
         return -1;
     }
-    switch (size) {
-    case PIXELS:
+    if (size == PIXELS) {
         src_pixels = data;
-        break;
-    case PIXELS + PALETTE:
+    } else if (size == PIXELS + PALETTE) {
         src_pixels = data;
         src_palette = data + PIXELS;
-        break;
-    case PIXELS + PALETTE + 2:
+    } else if (size == PIXELS + PALETTE + 2) {
         src_palette = data + 2;
         src_pixels = data + 2 + PALETTE;
-        break;
-    default:
-        if (size >= PIXELS + PALETTE + 4) {
-            src_pixels = data + 4;
-            src_palette = data + 4 + PIXELS;
-        } else if (size >= PIXELS) {
-            src_pixels = data;
-        }
-        break;
+    } else if (size >= PIXELS + PALETTE + 4) {
+        src_pixels = data + 4;
+        src_palette = data + 4 + PIXELS;
+    } else if (size >= PIXELS) {
+        src_pixels = data;
     }
     if (src_pixels != NULL && pixels != NULL) {
         memcpy(pixels, src_pixels, PIXELS);

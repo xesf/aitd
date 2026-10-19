@@ -262,7 +262,7 @@ void audio_frame(void)
         if (g_black_screen) {
             palette_set_range(g_palette_buffer, 0, 256);
             palette_fade_out(0, 0);
-            memset(g_screen, 0, 64000);
+            memset(g_screen, 0, SCREEN_PIXELS);
             draw_present();
         } else {
             palette_blackout();

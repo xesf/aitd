@@ -5,7 +5,7 @@ The C code annotates them as "TG 0x...". TG320.EX_ is a different build
 from WAITD3.EXE, so the names live in this table instead of being scraped
 from the sources like tools/sync_ida_names.py does.
 
-    python3 tools/sync_tg_names.py [--dry-run]
+    python3 tools/sync_tg_names.py [--dry-run] [--640]
 
 Needs the ida-mcp server with TG320.EX_ loaded.
 """
@@ -53,6 +53,48 @@ FUNCS = {
     0x40c3b9: 'world_set_floor',
 }
 
+# The same routines in TG640.EX_ (the 640 x 400 build), paired with the
+# TG320.EX_ ones by instruction sequence.
+FUNCS_640 = {
+    0x405a17: 'font_set_colour',
+    0x405e2a: 'ring_draw',
+    0x406131: 'main_menu_run',
+    0x40648f: 'difficulty_select',
+    0x409563: 'options_menu',
+    0x40aa24: 'message_draw',
+    0x40b959: 'world_camera_sees_room',
+    0x40bb4e: 'actor_update_lights',
+    0x40c5b0: 'world_set_floor',
+    0x40c97e: 'r3d_world_to_camera_vec',
+    0x40c9be: 'camera_apply_lights',
+    0x40cb78: 'draw_masks',
+    0x41202a: 'texture_light_level',
+    0x412cf3: 'texture_spans_lit',
+    0x41304a: 'texture_fill_gouraud',
+    0x4135b7: 'texture_fill_textured_lit',
+    0x4148ce: 'world_load_background',
+    0x414e32: 'load_mask_slots',
+    0x414ed2: 'free_mask_slots',
+    0x41798f: 'game_main',
+    0x417efe: 'texture_load_shade_table',
+    0x41b2df: 'texture_span',
+    0x41b434: 'body_load_pages',
+    0x41be2c: 'texture_fill_textured',
+    0x41cbb3: 'texture_set_detail',
+    0x42002f: 'texture_page',
+    0x421d58: 'bone_rotate_points',
+    0x421ec7: 'bone_rotate_tree',
+    0x421fb5: 'transform_animated',
+    0x422234: 'transform_static',
+    0x42245e: 'r3d_world_to_camera',
+    0x422ab1: 'r3d_draw_body',
+    0x422c92: 'draw_primitives',
+    0x422e1c: 'hyb_render',
+    0x42a636: 'mask_zone_hit',
+    0x42a68c: 'draw_mask',
+    0x42bcdc: 'gouraud_spans',
+}
+
 DATA = {
     0x4422a0: 'g_uv_table',
     0x45c4d0: 'g_texture_page_0',
@@ -76,6 +118,12 @@ DATA = {
 
 def main():
     dry = '--dry-run' in sys.argv
+    if '--640' in sys.argv:
+        for addr, name in sorted(FUNCS_640.items()):
+            print('func %#x -> %s' % (addr, name))
+            if not dry:
+                call('rename', {'batch': {'func': [{'addr': hex(addr), 'name': name}]}})
+        return
     for addr, name in sorted(FUNCS.items()):
         print('func %#x -> %s' % (addr, name))
         if not dry:

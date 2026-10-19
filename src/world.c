@@ -450,19 +450,21 @@ void world_load_background(s16 camera)
         }
         if (pak != name) {
             header = 4;     /* ITD_RESS pictures always carry the header */
-            size = 64000 + AITD_PALETTE_BYTES + 4;
+            size = (u32)SCREEN_PIXELS + AITD_PALETTE_BYTES + 4;
         }
         memmove(g_front_buffer, picture + header,
-                size >= (u32)header + 64000 + AITD_PALETTE_BYTES ? 64000 + AITD_PALETTE_BYTES : 64000);
+                size >= (u32)header + SCREEN_PIXELS + AITD_PALETTE_BYTES
+                    ? SCREEN_PIXELS + AITD_PALETTE_BYTES
+                    : (size > (u32)header ? size - (u32)header : 0));
         mem_free(picture);
     }
 
     switch (profile->palette_source) {
     case PALETTE_GLOBAL:
-        memcpy(g_front_buffer + 64000, g_palette_buffer, AITD_PALETTE_BYTES);
+        memcpy(g_front_buffer + SCREEN_PIXELS, g_palette_buffer, AITD_PALETTE_BYTES);
         break;
     case PALETTE_CAMERA_6BIT:
-        memcpy(g_palette_buffer, g_front_buffer + 64000, AITD_PALETTE_BYTES);
+        memcpy(g_palette_buffer, g_front_buffer + SCREEN_PIXELS, AITD_PALETTE_BYTES);
         if (profile->palette_overlay != NULL) {
             memcpy(g_palette_buffer, profile->palette_overlay, 48);
         }
@@ -471,7 +473,7 @@ void world_load_background(s16 camera)
         }
         break;
     case PALETTE_CAMERA_8BIT:
-        memcpy(g_palette_buffer, g_front_buffer + 64000, AITD_PALETTE_BYTES);
+        memcpy(g_palette_buffer, g_front_buffer + SCREEN_PIXELS, AITD_PALETTE_BYTES);
         if (profile->palette_overlay != NULL) {
             memcpy(g_palette_buffer, profile->palette_overlay, 48);
         }
@@ -555,8 +557,9 @@ void world_setup_camera(void)
         (s16)((s16)(blob_s16(cam, 6) - ROOM_X(g_room_data)) * 10),
         (s16)((s16)(ROOM_Y(g_room_data) - blob_s16(cam, 8)) * 10),
         (s16)((s16)(ROOM_Z(g_room_data) - blob_s16(cam, 10)) * 10));
-    r3d_set_projection(160, 100, blob_s16(cam, 12), blob_s16(cam, 14),
-                       blob_s16(cam, 16));
+    /* TG640.EX_ 0x40c135: the centre and both focal lengths double. */
+    r3d_set_projection(SCALED(160), SCALED(100), blob_s16(cam, 12),
+                       SCALED(blob_s16(cam, 14)), SCALED(blob_s16(cam, 16)));
 
     world_build_visible_rooms();
     world_update_objects();
@@ -887,9 +890,9 @@ void actor_set_move_mode(s16 mode, s16 param)
 static void clamp_screen_box(struct actor *a)
 {
     if (g_r3d_bbox.xmin < 0) g_r3d_bbox.xmin = 0;
-    if (g_r3d_bbox.xmax > 319) g_r3d_bbox.xmax = 319;
+    if (g_r3d_bbox.xmax > g_screen_width - 1) g_r3d_bbox.xmax = (s16)(g_screen_width - 1);
     if (g_r3d_bbox.ymin < 0) g_r3d_bbox.ymin = 0;
-    if (g_r3d_bbox.ymax > 199) g_r3d_bbox.ymax = 199;
+    if (g_r3d_bbox.ymax > g_screen_height - 1) g_r3d_bbox.ymax = (s16)(g_screen_height - 1);
     a->screen[0] = g_r3d_bbox.xmin;
     a->screen[1] = g_r3d_bbox.ymin;
     a->screen[2] = g_r3d_bbox.xmax;

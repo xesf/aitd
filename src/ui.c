@@ -106,7 +106,9 @@ void message_show(int text_id)
 int message_draw(void)
 {
     const struct message_style *fade = &game_current()->message;
-    s16 y = (s16)(fade->y + 14);
+    /* TG640.EX_ 0x40aa24 doubles the base line, the pitch and the centre. */
+    s16 pitch = SCALED(14);
+    s16 y = (s16)(SCALED(fade->y) + pitch);
     int drawn = 0;
     int i;
 
@@ -119,8 +121,8 @@ int message_draw(void)
             continue;
         }
 
-        y = (s16)(y - 14);
-        x = (s16)(160 - m->text->width / 2);
+        y = (s16)(y - pitch);
+        x = (s16)(SCALED(160) - m->text->width / 2);
         elapsed = fade->per_frame ? ++m->frames : timer_elapsed_u32(&m->timer);
 
         if (elapsed >= (u32)fade->life) {
@@ -129,7 +131,7 @@ int message_draw(void)
         }
 
         if (g_black_screen) {
-            raster_rect(0, 319, (s16)(y - 14), (s16)(y + 14), 0);
+            raster_rect(0, (s16)(g_screen_width - 1), (s16)(y - pitch), (s16)(y + pitch), 0);
         }
         text_draw_string(x, (s16)(y + 1), m->text->text,
                          (u8)(fade->colour + (elapsed >= (u32)fade->fade_after

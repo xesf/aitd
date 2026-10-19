@@ -226,7 +226,8 @@ static u16 rd16(const u8 *p)
 }
 
 /* 0x419360 - restore the background pixels a mask covers, from g_back_buffer
- * into the current target. Rows are clipped, columns are not. */
+ * into the current target. Rows are clipped, columns are not. The 640 x 400
+ * Time Gate build (TG640.EX_ 0x42a68c) stores skip / copy as 16 bit pairs. */
 static void draw_mask(const u8 *mask, const u8 *source)
 {
     const u8 *src;
@@ -238,6 +239,9 @@ static void draw_mask(const u8 *mask, const u8 *source)
     const u8 *p = mask + 0x0c;
     u16 clip_ymin = (u16)g_raster.clip_ymin;
     u16 clip_ymax = (u16)g_raster.clip_ymax;
+    int wide = g_scale > 1, pair = wide ? 4 : 2;
+    int restart = game_current()->mask_layout != MASK_PAK;
+    s32 pitch = g_screen_width;
     u16 skip;
     int r;
 
@@ -258,30 +262,40 @@ static void draw_mask(const u8 *mask, const u8 *source)
         skip = (u16)(clip_ymin - ymin);
         rows = (u16)(rows - skip);
         while (skip-- > 0) {
-            p += 2 + rd16(p) * 2;
+            p += 2 + rd16(p) * pair;
             dst += g_raster.pitch;
-            src += 320;
+            src += pitch;
         }
     }
 
     dst += (s32)ymin * g_raster.pitch;
-    src += (s32)ymin * 320;
+    src += (s32)ymin * pitch;
 
     for (r = 0; r < rows; r++) {
         u16 spans = rd16(p);
+        const u8 *src_row = src;
+        u8 *dst_row = dst;
 
         p += 2;
         while (spans-- > 0) {
-            src += p[0];
-            dst += p[0];
-            memcpy(dst, src, p[1]);
-            src += p[1];
-            dst += p[1];
-            p += 2;
+            u16 gap = wide ? rd16(p) : p[0];
+            u16 len = wide ? rd16(p + 2) : p[1];
+
+            src += gap;
+            dst += gap;
+            memcpy(dst, src, len);
+            src += len;
+            dst += len;
+            p += pair;
         }
-        dst -= rewind;
-        src -= rewind;
-        src += 320;
+        if (restart) {      /* TG 0x42a478: each row starts again */
+            src = src_row;
+            dst = dst_row;
+        } else {
+            dst -= rewind;
+            src -= rewind;
+        }
+        src += pitch;
         dst += g_raster.pitch;
     }
 }

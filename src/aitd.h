@@ -141,6 +141,11 @@ struct font {
 
 extern s32 g_screen_width;          /* 0x444bc0 */
 extern s32 g_screen_height;         /* 0x444bb0 */
+/* 2 in the 640 x 400 Time Gate build, which doubles every screen position
+ * of the 320 x 200 one; 1 everywhere else. */
+extern int g_scale;
+#define SCALED(v) ((s16)((v) * g_scale))
+#define SCREEN_PIXELS ((size_t)g_screen_width * (size_t)g_screen_height)
 extern u8 *g_front_buffer;          /* 0x435064 */
 extern u8 *g_back_buffer;           /* 0x444bac */
 extern u16 g_blit_width;            /* 0x444854 */
