@@ -424,6 +424,12 @@ and checked against it; no third party code is used.
   (TG 0x40b278). The found dialog (0x4150d7) is AITD3's with colours
   0xff / 0xf3, the object tilted 0x80 in front of a fixed camera, the
   scene dimmed into band 16..31 by brightness and a 360 tick cool-down.
+- **In-game menus**: AITD1, AITD2 and Jack show a framed list (return,
+  save, load, music, sound, detail, quit in their text ids); Time Gate the
+  medallion ring over the scene shrunk to half size (TG 0x409397: return,
+  save, load, -, film, difficulty, quit). Their save and load screens are
+  one column of slots (framed, or on black for Time Gate); AITD3 keeps its
+  own screens.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in

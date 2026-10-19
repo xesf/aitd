@@ -38,6 +38,8 @@
 #include <time.h>
 
 #include "aitd.h"
+#include "game.h"
+#include "frame.h"
 #include "anim.h"
 #include "draw.h"
 #include "life.h"
@@ -393,9 +395,45 @@ static void scan_dir(struct save_screen *s)
     }
 }
 
+/* Titles without AITD3's save picture: one column of slots, framed (AITD1,
+ * AITD2, Jack) or on black (Time Gate), in the title's text colours. */
+static int save_screen_plain(void)
+{
+    return game_current()->menu_style != MENU_STYLE_PICTURE;
+}
+
+static void save_screen_draw_plain(struct save_screen *s)
+{
+    int framed = game_current()->menu_style == MENU_STYLE_FRAMED;
+    u8 normal = framed ? 4 : 0xff, hi = framed ? 15 : 0xf3, shadow = framed ? 4 : 0xff;
+    int i;
+
+    raster_reset_clip();
+    memset(g_raster.target, 0, SCREEN_PIXELS);
+    if (framed) {
+        frame_draw(160, 100, 320, 200);
+        raster_reset_clip();
+    }
+    text_draw_centered_shadowed(SCALED(160), SCALED(12), s->saving ? TEXT_ID_SAVE_GAME : TEXT_ID_LOAD_GAME,
+                                hi, shadow);
+    for (i = 0; i < SAVE_SLOTS; i++) {
+        s16 y = SCALED((s16)(40 + 14 * i));
+        char label[SAVE_NAME_BYTES + 8];
+
+        snprintf(label, sizeof(label), "%d. %s", i + 1, s->exists[i] ? s->names[i] : "-");
+        text_draw_string((s16)(SCALED(160) - SCALED(80)), y, label, (u8)(i == s->slot ? hi : normal));
+    }
+    draw_present();
+}
+
 /* 0x417e22 */
 static void save_screen_draw(struct save_screen *s)
 {
+    if (save_screen_plain()) {
+        save_screen_draw_plain(s);
+        return;
+    }
+    {
     struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_save_picture };
     int i;
 
@@ -453,6 +491,7 @@ static void save_screen_draw(struct save_screen *s)
         }
     }
     draw_present();
+    }
 }
 
 static void wait_release(void)
@@ -472,6 +511,7 @@ static int save_screen_run(int saving)
 
     memset(&s, 0, sizeof(s));
     s.saving = saving;
+    s.on_slots = save_screen_plain();
     scan_dir(&s);
     wait_release();
     save_screen_draw(&s);
@@ -499,7 +539,7 @@ static int save_screen_run(int saving)
             }
         } else if (g_key_dir_flags & DIR_RIGHT) {
             s.on_slots = 1;
-        } else if (g_key_dir_flags & DIR_LEFT) {
+        } else if ((g_key_dir_flags & DIR_LEFT) && !save_screen_plain()) {
             s.on_slots = 0;
         } else if ((g_last_scancode & 0xff) == SC_ENTER || g_key_confirm) {
             if (!s.on_slots) {

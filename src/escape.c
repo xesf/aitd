@@ -160,6 +160,9 @@ int scene_escape_menu(void)
     s16 fade_in = 1;
     s16 selected = 0;
 
+    if (game_current()->menu_style == MENU_STYLE_RING) {
+        return menu_ring_options();
+    }
     ticks_freeze();
     shaking_save();
     if (escape_framed()) {

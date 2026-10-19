@@ -15,6 +15,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -27,6 +28,9 @@
 #include "palette.h"
 #include "picture.h"
 #include "raster.h"
+#include "anim.h"
+#include "draw.h"
+#include "savegame.h"
 #include "subsystems.h"
 
 /* The menus draw on whatever the window shows; before any scene has run
@@ -294,6 +298,104 @@ static int ring_menu(void)
             }
         }
     }
+}
+
+/* TG 0x409397: the same ring in game, over the scene shrunk to half size
+ * (0x4090cd) and remapped into the picture's palette. Returns 1 when a
+ * saved game was loaded. */
+static void ring_scene_draw(int selected, const u8 *scene, const u8 *scene_palette)
+{
+    u8 palette[AITD_PALETTE_BYTES], map[256];
+    int i, x, y, w = g_screen_width / 2, h = g_screen_height / 2;
+
+    target_begin();
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
+    if (picture_load(1, g_raster.target, palette) == 1) {
+        memcpy(g_palette_buffer, palette, sizeof(palette));
+    }
+    for (i = 0; i < 256; i++) {
+        const u8 *c = scene_palette + i * 3;
+        int k, best = 16, best_d = 1 << 30;
+
+        for (k = 16; k < 144; k++) {
+            const u8 *t = g_palette_buffer + k * 3;
+            int d = (c[0] - t[0]) * (c[0] - t[0]) + (c[1] - t[1]) * (c[1] - t[1])
+                  + (c[2] - t[2]) * (c[2] - t[2]);
+            if (d < best_d) {
+                best_d = d;
+                best = k;
+            }
+        }
+        map[i] = (u8)best;
+    }
+    for (y = 0; y < h; y++) {
+        for (x = 0; x < w; x++) {
+            g_raster.target[(y + h / 2) * g_screen_width + x + w / 2]
+                = map[scene[(y * 2) * g_screen_width + x * 2]];
+        }
+    }
+    for (i = 0; i < 7; i++) {
+        ring_icon(s_ring[i].icon, SCALED(s_ring[i].x), SCALED(s_ring[i].y));
+    }
+    ring_icon(s_ring[selected].selected, SCALED(s_ring[selected].x), SCALED(s_ring[selected].y));
+    raster_pop_target();
+    palette_set_range(g_palette_buffer, 0, 256);
+    screen_present();
+}
+
+int menu_ring_options(void)
+{
+    u8 *scene = malloc(SCREEN_PIXELS);
+    u8 scene_palette[AITD_PALETTE_BYTES];
+    int selected = 0, loaded = 0;
+
+    if (scene == NULL) {
+        return 0;
+    }
+    memcpy(scene, g_screen, SCREEN_PIXELS);
+    memcpy(scene_palette, g_palette_buffer, sizeof(scene_palette));
+    ticks_freeze();
+    ring_scene_draw(selected, scene, scene_palette);
+    wait_released();
+    for (;;) {
+        input_poll();
+        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
+            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? 6 : 1)) % 7;
+            ring_scene_draw(selected, scene, scene_palette);
+            wait_released();
+        } else if ((g_last_scancode & 0xff) == SC_ESC) {
+            wait_released();
+            break;
+        } else if (confirm_key()) {
+            wait_released();
+            if (selected == 0) {
+                break;
+            } else if (selected == 1) {
+                savegame_save();
+            } else if (selected == 2) {
+                if (savegame_restore(NULL, 1)) {
+                    loaded = 1;
+                    break;
+                }
+            } else if (selected == 4) {
+                const char *const *films = game_current()->intro_movies;
+                if (films != NULL && films[0] != NULL && films[1] != NULL) {
+                    movie_play(films[1]);
+                }
+            } else if (selected == 5) {
+                cards_select();
+            } else if (selected == 6) {
+                g_quit_requested = 1;
+                break;
+            }
+            ring_scene_draw(selected, scene, scene_palette);
+        }
+    }
+    memcpy(g_palette_buffer, scene_palette, sizeof(scene_palette));
+    free(scene);
+    ticks_unfreeze();
+    g_init_view = 2;
+    return loaded;
 }
 
 /* Runs the title's own menu; returns -2 for AITD3's, which menu.c draws. */
