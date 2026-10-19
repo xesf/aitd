@@ -77,7 +77,7 @@ static void play_intro(void)
     if (profile->intro_movies != NULL) {      /* TG 0x41778f: AN0, AN1 */
         const char *const *movie;
         for (movie = profile->intro_movies; *movie != NULL; movie++) {
-            smacker_play(*movie);
+            movie_play(*movie);
         }
     }
     if (profile->intro_floor >= 0) {

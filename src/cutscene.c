@@ -19,6 +19,7 @@
 #include "aitd.h"
 #include "platform.h"
 #include "game.h"
+#include "mux.h"
 #include "smacker.h"
 #include "anim.h"
 #include "life.h"
@@ -132,13 +133,18 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
         } else {
             snprintf(name, sizeof(name), "AN%d.pak", number);
         }
-        /* Time Gate for Windows plays ANIM2D\AN<n>.smk (TG 0x409835); the
-         * DOS build's AN<n>.MUX films are another format, not rebuilt. */
+        /* Time Gate for Windows plays ANIM2D\AN<n>.smk (TG 0x409835), the
+         * DOS build AN<n>.MUX. */
         if (!platform_resolve_path(name, path, sizeof(path))) {
             char movie[32];
 
             snprintf(movie, sizeof(movie), "ANIM2D/AN%d.SMK", number);
             if (smacker_play(movie)) {
+                g_init_view = 1;
+                return;
+            }
+            snprintf(movie, sizeof(movie), "AN%d.MUX", number);
+            if (mux_play(movie)) {
                 g_init_view = 1;
                 return;
             }
@@ -295,4 +301,15 @@ void show_picture(s16 entry, s16 time, s16 sample)
     g_init_view = 1;
     screen_clear();
     screen_present();
+}
+
+/* A film by its extension: Smacker (.SMK) or the DOS Time Gate's .MUX. */
+int movie_play(const char *name)
+{
+    size_t n = strlen(name);
+
+    if (n > 4 && (strcmp(name + n - 4, ".MUX") == 0 || strcmp(name + n - 4, ".mux") == 0)) {
+        return mux_play(name);
+    }
+    return smacker_play(name);
 }

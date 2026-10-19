@@ -32,6 +32,9 @@ static const char *const s_sequences_aitd2[] = {
     "BILL", "PIRA", "PIR2", "VENT", "FIN", "LAST"
 };
 static const char *const s_sequences_jack[] = { "PERE" };
+/* The DOS Time Gate's films before its menu (the Windows build plays the
+ * same two as Smacker files, TG320.EX_ 0x41778f). */
+static const char *const s_intro_timegate[] = { "AN0.MUX", "AN1.MUX", NULL };
 #define SEQUENCES(t) (t), (int)(sizeof(t) / sizeof((t)[0]))
 
 static const struct game_profile s_aitd1 = {
@@ -94,7 +97,7 @@ static const struct game_profile s_timegate = {
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
-    NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_ICONS, -1,
+    NULL, 0, s_intro_timegate, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_ICONS, -1,
     MUSIC_TG_DOS, "MUSIC.PAK", 0,
     0, 5, -1, -1
 };

@@ -16,7 +16,7 @@ CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
             $(SRCDIR)/anim.c $(SRCDIR)/hyb.c $(SRCDIR)/world.c $(SRCDIR)/draw.c \
             $(SRCDIR)/actor.c $(SRCDIR)/life.c $(SRCDIR)/lifemap.c $(SRCDIR)/ui.c $(SRCDIR)/inventory.c \
             $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c $(SRCDIR)/music.c $(SRCDIR)/opl.c $(SRCDIR)/hmp.c \
-            $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/stubs.c
+            $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/mux.c $(SRCDIR)/stubs.c
 MAC_SRC  := $(SRCDIR)/platform_macos.m
 
 CORE_OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILD)/%.o,$(CORE_SRC))

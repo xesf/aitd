@@ -251,6 +251,7 @@ void sample_repeat(s16 sample, u16 count);
 void music_play(s16 music);
 
 /* Full screen sequences. */
+int movie_play(const char *name);          /* cutscene.c: .SMK or .MUX */
 void read_document(s16 text, s16 type);     /* 0x4160b6, opcode 33 */
 /* An ITD_RESS picture (and its palette) as the reader's backdrop. */
 void reader_set_backdrop(s16 entry);

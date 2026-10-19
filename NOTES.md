@@ -393,6 +393,13 @@ and checked against it; no third party code is used.
   track 0 (DPCM over byte trees, decoded whole and played as one sample),
   written from the published format description. PLAY_SEQUENCE falls back
   to it when there is no AN<n>.PAK. The DOS build's AN<n>.MUX is unknown.
+- **MUX** (`mux.c`): the DOS Time Gate's films, read from TIMEGATE.EXE
+  (an LE image bound to DOS/4GW: the inner MZ at 0x25d24, pages from
+  0x44524; the player near 0x1a7f0, chunks 0x1a6c0, decoder 0x3bd79).
+  Per frame: palette (0x70), picture (0x6f: flags, start, control and
+  literal sizes; an optional bit LZ or byte LZ pass, then literal / run /
+  repeat / skip codes from 32 bit control words) and 8 bit sound (0x06).
+  AN0 and AN1 play before the menu, as in the Windows build.
 - **Time Gate difficulty** (TG 0x4062c3): ITD_RESS picture 0x74 (three
   tarot cards), HYB icons 0x60..0x65; the choice sets all three words.
   Ring entry 3 starts Windows' volume control and is left out.

@@ -555,6 +555,7 @@ int smacker_play(const char *name)
         scaled = malloc(SCREEN_PIXELS);
     }
     raster_push_target(g_back_buffer);
+    raster_reset_clip();
     clock = timer_get_ms() * 10;
     for (frame = 0, p = s.frame_data; frame < s.frames && !skipped; p += s.frame_size[frame], frame++) {
         const u8 *video, *pal;
