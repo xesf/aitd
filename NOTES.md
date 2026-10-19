@@ -438,12 +438,12 @@ and checked against it; no third party code is used.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in
-  MK<floor><camera>00.PAK (NK is an alternate set, not used yet). The
+  MK<floor><camera>00.PAK (NK is the alternate set for altered cameras). The
   Windows build (TG320.EX_ 0x4146d1) indexes CAMERA##.PAK through entry 0:
   per camera three u32s (picture entry, mask count, second picture); the
   picture is followed by a light table (24 bytes per viewed room, the
   first 12 replace +10..+21 of the view record, 0x40c7c7) and the masks.
-  CYMERA##.PAK replaces CAMERA for some flag-chosen cameras (not yet), and
+  CYMERA##.PAK replaces CAMERA for the cameras that variables 75..82 alter, and
   CAMERX##.PAK holds the 640 x 400 pictures. A zone draws its mask when the
   actor's box overlaps one of its rectangles (0x42a422), where AITD3 wants
   the box inside.
@@ -853,6 +853,9 @@ in `bounds`, i.e. box corners, which is what first identified the array.
 
 `./pak_dump --bodies` runs the reconstructed C parser over the container:
 788 parsed, 0 failed, 450 with groups.
+
+**Since resolved** (see docs/formats.md): bone records are 16 bytes.
+The paragraph below is the original note.
 
 **Not determined:** the group record stride. Strides of 14, 16, 18 and 20 all
 fit inside every block, so block length alone cannot decide it — the layout has

@@ -109,6 +109,11 @@ frames, move the player and trace state. `NOTES.md` lists them under
 - [docs/engine.md](docs/engine.md) explains how the engine is put
   together: the frame loop, the world, rendering, scripts, sound and the
   per-game profiles.
+- [docs/formats.md](docs/formats.md) describes the data files: PAK
+  containers, floors, cameras, masks, bodies, animations, objects,
+  sprites, text, saves, music and films.
+- [docs/scripting.md](docs/scripting.md) explains life scripts and tracks
+  and lists every opcode and variable.
 - [NOTES.md](NOTES.md) is the reverse engineering reference: addresses,
   file formats and the differences between the games.
 
