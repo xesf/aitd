@@ -243,8 +243,8 @@ static void cards_select(void)
 }
 
 /* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
- * 3 and 4 (credits and the intro films) are not rebuilt; 5 is the
- * difficulty screen. */
+ * 3 starts Windows' volume control and is left out, 4 replays the second
+ * intro film, 5 is the difficulty screen. */
 static int ring_menu(void)
 {
     struct game_timer timer;
@@ -274,6 +274,14 @@ static int ring_menu(void)
             case 0: return MENU_RESULT_NEW_GAME;
             case 2: return MENU_RESULT_LOAD_GAME;
             case 6: return MENU_RESULT_QUIT;
+            case 4:     /* TG 0x409835(1): the second intro film again */
+                if (game_current()->intro_movies != NULL && game_current()->intro_movies[0] != NULL
+                    && game_current()->intro_movies[1] != NULL) {
+                    movie_play(game_current()->intro_movies[1]);
+                }
+                ring_draw(selected);
+                timer_reset(&timer);
+                break;
             case 5:
                 cards_select();
                 ring_draw(selected);
