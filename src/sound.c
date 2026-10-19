@@ -20,6 +20,7 @@
 #include "aitd.h"
 #include "draw.h"
 #include "game.h"
+#include "hmp.h"
 #include "music.h"
 #include "pak.h"
 #include "life.h"
@@ -198,7 +199,10 @@ static int music_play_data(s16 music)
     if (music == playing) {
         return 1;
     }
-    data = pak_load(profile->music_pak, music, &size);
+    /* The DOS Time Gate's first two entries are instrument banks; the
+     * Windows build has copies of song 19 there. */
+    data = pak_load(profile->music_pak,
+                    profile->music_source == MUSIC_TG_DOS && music < 2 ? 19 : music, &size);
     if (data == NULL) {
         return 1;
     }
@@ -211,6 +215,23 @@ static int music_play_data(s16 music)
             fprintf(stderr, "music %d: not a MIDI file the host plays\n", music);
         }
         break;
+    case MUSIC_TG_DOS: {
+        u32 midi_size = 0;
+        u8 *midi = hmp_to_midi(data, size, &midi_size);
+
+        if (midi != NULL && getenv("AITD_MIDI_DUMP") != NULL) {   /* harness only */
+            FILE *dump = fopen(getenv("AITD_MIDI_DUMP"), "wb");
+            if (dump != NULL) {
+                fwrite(midi, 1, midi_size, dump);
+                fclose(dump);
+            }
+        }
+        if (midi == NULL || !platform_midi_play(midi, midi_size, 1)) {
+            fprintf(stderr, "music %d: HMP not played\n", music);
+        }
+        free(midi);
+        break;
+    }
     case MUSIC_ADLIB:
         platform_set_music_render(music_adlib_render);
         music_adlib_play(data, size);

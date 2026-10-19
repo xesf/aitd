@@ -375,7 +375,11 @@ and checked against it; no third party code is used.
   MIDI) to the host's General MIDI synth (TG 0x42085a used MCI), tune 0
   under the menu. AITD3's music is CD audio, not part of the data: ripped
   tracks named track02.m4a (or .mp3/.wav/.aiff) in the data folder play.
-  The DOS Time Gate's MUSIC.PAK format is not rebuilt yet. Jack's driver
+  The DOS Time Gate's MUSIC.PAK holds two AdLib instrument banks, then the
+  same songs as HMI HMP (`hmp.c` converts them to standard MIDI: tracks
+  at 0x388, 12 byte track headers, little-endian 7 bit delta groups ended
+  by bit 7, 120 ticks a second); a converted song matches its WINMUS twin
+  in tracks, length and notes. Jack's driver
   differs from the AITD1/2 one and is not checked separately.
 - **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw the framed
   three-row menu (old 16 bit offset sprites, `frame.c`; AITD2's
