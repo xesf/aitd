@@ -65,6 +65,15 @@ enum menu_style {
                            TG320.EX_ 0x405f6b) */
 };
 
+/* Inventory screen layout. */
+enum inventory_style {
+    INVENTORY_DIMMED,   /* the game dimmed under a picture with sprite frames
+                           (AITD3, 0x40f1c3) */
+    INVENTORY_PICTURE,  /* ITD_RESS 14 + inventory type, a sprite (AITD2) */
+    INVENTORY_FRAMED,   /* three sprite frames over the game (AITD1, Jack) */
+    INVENTORY_NONE      /* not rebuilt (Time Gate) */
+};
+
 /* Raw life opcode and variable numbering. */
 enum life_dialect {
     LIFE_DIALECT_AITD1, /* its own order, see lifemap.c */
@@ -119,6 +128,7 @@ struct game_profile {
 
     const char *const *intro_movies;  /* Smacker films before the menu, or NULL */
     enum menu_style menu_style;
+    enum inventory_style inventory_style;
     int menu_palette;               /* ITD_RESS palette (768 bytes) or
                                        picture whose palette the framed menu
                                        shows, -1 to keep the current one */

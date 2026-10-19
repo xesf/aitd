@@ -5,8 +5,7 @@
  * Framed (AITD1, AITD2, Jack): a frame of old style sprites around the
  * middle of a black screen and three rows, text 11..13 (new game, load,
  * quit). The selected row sits on a colour 100 bar in colour 15 over a
- * colour 4 shadow; the others are colour 4. Facts from FITD's DrawMenu,
- * AffBigCadre and AffSpf; the original routines are not rebuilt.
+ * colour 4 shadow; the others are colour 4 (FITD's DrawMenu; frame.c).
  *
  * Ring (Time Gate, TG320.EX_ 0x405f6b / 0x405c64): ITD_RESS picture 1, a
  * medallion, with seven HYB icons around it; left and right walk the ring
@@ -18,6 +17,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "frame.h"
 #include "game.h"
 #include "hyb.h"
 #include "life.h"
@@ -27,11 +27,6 @@
 #include "picture.h"
 #include "raster.h"
 #include "subsystems.h"
-
-static u16 rd16(const u8 *p)
-{
-    return (u16)(p[0] | (p[1] << 8));
-}
 
 /* The menus draw on whatever the window shows; before any scene has run
  * the raster is not set up yet. */
@@ -59,68 +54,16 @@ static int confirm_key(void)
 
 /* ---- framed --------------------------------------------------------------- */
 
-/* FITD AffSpf: sprite `index` of an old style bank (16 bit offsets; four
- * bytes, width, height, then opaque pixels). */
-static void old_sprite(s16 x, s16 y, int index, const u8 *bank)
-{
-    const u8 *p = bank + rd16(bank + index * 2) + 4;
-    int width = rd16(p), height = rd16(p + 2);
-    int row, col;
-
-    p += 4;
-    for (row = 0; row < height; row++) {
-        for (col = 0; col < width; col++) {
-            int tx = x + col, ty = y + row;
-
-            if (tx >= 0 && tx < 320 && ty >= 0 && ty < 200) {
-                g_raster.target[ty * g_raster.pitch + tx] = p[col];
-            }
-        }
-        p += width;
-    }
-}
-
-/* FITD AffBigCadre: corners 0..3, top 4, bottom 5, left 6, right 7 in 20
- * pixel steps, the title plate 8, and a black inside. */
-static void big_frame(s16 x, s16 y, s16 width, s16 height, const u8 *bank)
-{
-    s16 left = (s16)(x - width / 2), top = (s16)(y - height / 2);
-    s16 right = (s16)(x + width / 2), bottom = (s16)(y + height / 2);
-    s16 cx, cy;
-
-    old_sprite(left, top, 0, bank);
-    for (cx = (s16)(left + 20); right - 20 > cx; cx = (s16)(cx + 20)) {
-        old_sprite(cx, top, 4, bank);
-    }
-    old_sprite(cx, top, 1, bank);
-    for (cy = (s16)(top + 20); bottom - 20 > cy; cy = (s16)(cy + 20)) {
-        old_sprite(left, cy, 6, bank);
-    }
-    for (cy = (s16)(top + 20); bottom - 20 > cy; cy = (s16)(cy + 20)) {
-        old_sprite((s16)(right - 8), cy, 7, bank);
-    }
-    old_sprite(left, cy, 2, bank);
-    for (cx = (s16)(left + 20); right - 20 > cx; cx = (s16)(cx + 20)) {
-        old_sprite(cx, (s16)(cy + 12), 5, bank);
-    }
-    old_sprite(cx, cy, 3, bank);
-    old_sprite((s16)(x - 20), (s16)(cy + 12), 8, bank);
-
-    raster_rect((s16)(left + 8), (s16)(right - 9), (s16)(top + 8), (s16)(bottom - 9), 0);
-}
-
 static void framed_draw(int selected)
 {
-    const u8 *bank = engine_resource(ITD_RESS_UI_SPRITES);
     s16 y = 76;
     int i;
 
     target_begin();
     raster_set_clip(0, 0, 319, 199);
     memset(g_raster.target, 0, 64000);
-    if (bank != NULL) {
-        big_frame(160, 100, 320, 80, bank);
-    }
+    frame_draw(160, 100, 320, 80);
+    raster_set_clip(0, 0, 319, 199);
     for (i = 0; i < 3; i++, y = (s16)(y + 16)) {
         if (i == selected) {
             raster_rect(10, 309, y, (s16)(y + 16), 100);

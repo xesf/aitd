@@ -16,10 +16,13 @@
 #include "anim.h"
 #include "draw.h"
 #include "font.h"
+#include "frame.h"
 #include "hyb.h"
 #include "life.h"
 #include "menu.h"
+#include "pak.h"
 #include "palette.h"
+#include "picture.h"
 #include "platform.h"
 #include "r3d.h"
 #include "raster.h"
@@ -32,6 +35,51 @@
 /* Positions of the three frame sprites, per character (0x434efc / 0x434f0e). */
 static const s16 s_frame_x[9] = { 0, 128, 286, 0, 129, 286, 0, 110, 282 };
 static const s16 s_frame_y[9] = { 100, 100, 100, 100, 100, 100, 140, 119, 141 };
+
+/* The older titles (FITD's processInventory and DrawListObjets for the
+ * facts): AITD2 lays ITD_RESS 14 + inventory type under the screen with a
+ * sprite from entry 18; AITD1 and Jack draw three frames over the game.
+ * Both use colour 4 text, the selection in 15 (14 once the actions have
+ * the focus), framed rows on a colour 100 bar. */
+static enum inventory_style s_style;
+static s16 s_status[4] = { 27, 100, 159, 174 };   /* the turning object */
+
+static const s16 s_aitd2_sprite_x[3] = { 127, 118, 124 };
+static const s16 s_aitd2_sprite_y[3] = { 136, 104, 131 };
+
+static void aitd2_sprite(void)
+{
+    static u8 *sprites;
+    int type = g_player_type;
+
+    if (s_style != INVENTORY_PICTURE || type < 0 || type > 2) {
+        return;
+    }
+    if (sprites == NULL) {
+        u32 size = 0;
+        sprites = pak_load("ITD_RESS.PAK", 18, &size);
+    }
+    if (sprites != NULL) {
+        raster_set_clip(0, 0, 319, 199);
+        old_sprite_draw(s_aitd2_sprite_x[type], s_aitd2_sprite_y[type], type, sprites, 1);
+    }
+}
+
+static void scroll_arrows(s16 first)
+{
+    const u8 *bank = engine_resource(ITD_RESS_UI_SPRITES);
+
+    if (bank == NULL) {
+        return;
+    }
+    raster_set_clip(0, 0, 319, 199);
+    if (first > 0) {
+        old_sprite_draw(298, 10, 10, bank, 1);
+    }
+    if (first + VISIBLE_ITEMS < g_inventory_count[g_inventory_index]) {
+        old_sprite_draw(298, 74, 9, bank, 1);
+    }
+}
 
 static s16 s_actions[MAX_ACTIONS];   /* 0x4415e8 */
 static s16 s_action_count;           /* 0x4415f2 */
@@ -56,6 +104,10 @@ static void draw_frames(void)
     int type = g_player_type;
     int i;
 
+    if (s_style != INVENTORY_DIMMED) {
+        aitd2_sprite();
+        return;
+    }
     if (data == NULL || type < 0 || type > 2) {
         return;
     }
@@ -69,25 +121,54 @@ static void draw_frames(void)
 static s16 inventory_draw_list(s16 first, s16 selected, u8 colour)
 {
     s16 *list = g_inventory[g_inventory_index];
-    s16 y = 28;
+    s16 y = 28, pitch = 14, start = first;
     s16 chosen = -1;
+    u8 normal = 64;
     int i;
 
-    raster_set_clip(30, 25, 292, 98);
-    raster_copy_rect(30, 25, 292, 98, g_back_buffer);
+    switch (s_style) {
+    case INVENTORY_FRAMED:
+        frame_draw(160, 50, 320, 100);
+        y = (s16)(g_window[1] + 1);
+        pitch = 16;
+        normal = 4;
+        break;
+    case INVENTORY_PICTURE:
+        raster_set_clip(27, 25, 292, 98);
+        raster_rect(27, 292, 25, 98, 0);
+        normal = 4;
+        break;
+    default:
+        raster_set_clip(30, 25, 292, 98);
+        raster_copy_rect(30, 25, 292, 98, g_back_buffer);
+        break;
+    }
+    if (s_style != INVENTORY_DIMMED) {
+        colour = (u8)(colour == 1 ? 15 : 14);
+    }
 
     for (i = 0; i < VISIBLE_ITEMS && first < g_inventory_count[g_inventory_index]; i++) {
         s16 obj = list[first];
         const struct world_object *o = object_get(obj);
 
         if (first == selected) {
-            text_draw_centered(160, y, o->found_name, colour);
+            if (s_style == INVENTORY_FRAMED) {
+                if (colour == 15) {
+                    raster_rect(10, 309, y, (s16)(y + 16), 100);
+                }
+                text_draw_centered_shadowed(160, y, o->found_name, colour, 4);
+            } else {
+                text_draw_centered(160, y, o->found_name, colour);
+            }
             chosen = obj;
         } else {
-            text_draw_centered(160, y, o->found_name, 64);
+            text_draw_centered(160, y, o->found_name, normal);
         }
-        y = (s16)(y + 14);
+        y = (s16)(y + pitch);
         first++;
+    }
+    if (s_style != INVENTORY_DIMMED) {
+        scroll_arrows(start);
     }
     return chosen;
 }
@@ -98,11 +179,30 @@ static void inventory_draw_actions(s16 selected)
     s16 y = (s16)(139 - (s16)((s16)(s_action_count * 14) / 2));
     int i;
 
-    raster_set_clip(161, 100, 292, 174);
-    raster_copy_rect(161, 100, 292, 174, g_back_buffer);
+    if (s_style == INVENTORY_FRAMED) {
+        frame_draw(240, 150, 160, 100);
+        y = (s16)(150 - (s_action_count * 16) / 2);
+        for (i = 0; i < s_action_count; i++, y = (s16)(y + 16)) {
+            if (i == selected) {
+                raster_rect(170, 309, y, (s16)(y + 16), 100);
+                text_draw_centered_shadowed(240, y, s_actions[i], 15, 4);
+            } else {
+                text_draw_centered(240, y, s_actions[i], 4);
+            }
+        }
+        return;
+    }
+    if (s_style == INVENTORY_PICTURE) {
+        raster_set_clip(162, 100, 292, 174);
+        raster_rect(162, 292, 100, 174, 0);
+    } else {
+        raster_set_clip(161, 100, 292, 174);
+        raster_copy_rect(161, 100, 292, 174, g_back_buffer);
+    }
 
     for (i = 0; i < s_action_count; i++) {
-        text_draw_centered(240, y, s_actions[i], (u8)(i == selected ? 1 : 64));
+        u8 normal = s_style == INVENTORY_PICTURE ? 4 : 64;
+        text_draw_centered(240, y, s_actions[i], (u8)(i == selected ? 1 : normal));
         y = (s16)(y + 14);
     }
     draw_frames();
@@ -111,8 +211,12 @@ static void inventory_draw_actions(s16 selected)
 /* 0x40eee4 */
 static void inventory_draw_object(s16 counter)
 {
-    raster_set_clip(27, 100, 159, 174);
-    raster_copy_rect(27, 100, 159, 174, g_back_buffer);
+    raster_set_clip(s_status[0], s_status[1], s_status[2], s_status[3]);
+    if (s_style == INVENTORY_DIMMED) {
+        raster_copy_rect(27, 100, 159, 174, g_back_buffer);
+    } else {
+        raster_rect(s_status[0], s_status[2], s_status[1], s_status[3], 0);
+    }
 
     g_preview_angle = (s16)(g_preview_angle - 8);
     r3d_set_camera_target(0, 0, 0, 60, g_preview_angle, 0, 24000);
@@ -123,9 +227,10 @@ static void inventory_draw_object(s16 counter)
         char text[16];
 
         snprintf(text, sizeof(text), "%d", g_vars[counter]);
-        font_set_colour(s_colour_table, 64);
+        font_set_colour(s_colour_table, s_style == INVENTORY_DIMMED ? 64 : 4);
         font_bind(g_font_data, s_colour_table, 1);
-        font_draw_string(g_raster.target, g_raster.pitch, g_raster.height, 31, 104, text);
+        font_draw_string(g_raster.target, g_raster.pitch, g_raster.height,
+                         (s16)(s_status[0] + 4), (s16)(s_status[1] + 4), text);
     }
     draw_frames();
     draw_present();
@@ -134,9 +239,8 @@ static void inventory_draw_object(s16 counter)
 /* 0x40f1c3 */
 void inventory_open(void)
 {
-    /* The screens below are Alone in the Dark 3's (ITD_RESS 0x0e..0x14);
-     * the other titles lay theirs out differently and are not rebuilt yet. */
-    if (game_id() != GAME_AITD3) {
+    s_style = game_current()->inventory_style;
+    if (s_style == INVENTORY_NONE) {
         static int reported;
         if (!reported) {
             reported = 1;
@@ -158,6 +262,7 @@ void inventory_open(void)
 
     g_preview_angle = 0;
 
+    if (s_style == INVENTORY_DIMMED) {
     /* 0x40f251: dim the game into colours 120..127 and lay the picture
      * over it; the picture's zero pixels let the game show through. */
     memcpy(g_back_buffer, g_screen, 64000);
@@ -178,13 +283,33 @@ void inventory_open(void)
         }
     }
     memcpy(g_back_buffer, g_screen, 64000);
+    s_status[0] = 27;
+    s_status[1] = 100;
+    s_status[2] = 159;
+    s_status[3] = 174;
+    } else if (s_style == INVENTORY_PICTURE) {
+        int type = g_player_type;
+
+        picture_load(14 + (type >= 0 && type <= 2 ? type : 0), g_screen, NULL);
+        memcpy(g_back_buffer, g_screen, 64000);
+        s_status[0] = 27;
+        s_status[1] = 100;
+        s_status[2] = 159;
+        s_status[3] = 174;
+    } else {
+        raster_push_target(g_screen);
+        frame_draw(80, 150, 160, 100);
+        raster_pop_target();
+        memcpy(s_status, g_window, sizeof(s_status));
+    }
 
     ticks_freeze();
     shaking_save();
     if (g_black_screen) {
         palette_blackout();
     }
-    r3d_set_projection(93, 137, 128, 400, 390);
+    r3d_set_projection((s16)((s_status[2] - s_status[0]) / 2 + s_status[0]),
+                       (s16)((s_status[3] - s_status[1]) / 2 + s_status[1]), 128, 400, 390);
 
     while (!done) {
         input_poll();
