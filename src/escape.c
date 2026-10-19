@@ -14,6 +14,8 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "game.h"
+#include "frame.h"
 #include "anim.h"
 #include "draw.h"
 #include "life.h"
@@ -38,6 +40,58 @@ enum escape_entry {
 
 
 static u8 *s_picture;          /* 0x444960 */
+static u8 s_saved_palette[AITD_PALETTE_BYTES];
+
+/* The framed titles (AITD1, AITD2, Jack): a frame over the whole screen
+ * and seven rows, 16 apart around its middle, in their own text ids
+ * (48 return, 45 save, 46 load, 41/42 music, 43 sound, 49 detail, 47
+ * quit); no difficulty row. Facts worked out from the data. */
+static const s16 s_framed_rows[] = {
+    ESCAPE_RETURN, ESCAPE_SAVE, ESCAPE_LOAD, ESCAPE_MUSIC, ESCAPE_SOUND, ESCAPE_DETAIL, ESCAPE_QUIT
+};
+
+static int escape_framed(void)
+{
+    return game_current()->menu_style == MENU_STYLE_FRAMED;
+}
+
+static s16 escape_rows(void)
+{
+    return escape_framed() ? (s16)(sizeof(s_framed_rows) / sizeof(s_framed_rows[0])) : ESCAPE_COUNT;
+}
+
+static s16 escape_choice(s16 row)
+{
+    return escape_framed() ? s_framed_rows[row] : row;
+}
+
+static void escape_draw_framed(s16 selected)
+{
+    static const s16 texts[] = { 48, 45, 46, 41, 43, 49, 47 };
+    s16 top, y;
+    int i;
+
+    frame_draw(160, 100, 320, 200);
+    top = (s16)(g_window[1] + (g_window[3] - g_window[1]) / 2 - (7 * 16) / 2);
+    for (i = 0; i < 7; i++) {
+        s16 text = texts[i];
+
+        if (i == 3) {
+            text = (s16)(text + (g_cdaudio_ready ? 1 : 0));
+        } else if (i == 4) {
+            text = (s16)(text + (g_sound_ready2 ? 1 : 0));
+        } else if (i == 5) {
+            text = (s16)(text + (g_poly_detail ? 1 : 0));
+        }
+        y = (s16)(top + i * 16);
+        if (i == selected) {
+            text_draw_centered_shadowed(160, y, text, 15, 4);
+        } else {
+            text_draw_centered(160, y, text, 4);
+        }
+    }
+    raster_reset_clip();
+}
 
 /* 0x4083dc */
 static void escape_draw_entry(s16 index, s16 text, s16 selected)
@@ -56,6 +110,10 @@ static void escape_draw(s16 selected)
 {
     struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_escape_picture };
 
+    if (escape_framed()) {
+        escape_draw_framed(selected);
+        return;
+    }
     raster_blit(0, 0, &picture);
     escape_draw_entry(ESCAPE_RETURN, TEXT_ID_RETURN_TO_GAME, selected);
     escape_draw_entry(ESCAPE_SAVE, TEXT_ID_SAVE_GAME, selected);
@@ -71,6 +129,9 @@ static void restore_menu_palette(void)
 {
     const u8 *picture = s_picture != NULL ? s_picture : g_back_buffer;
 
+    if (escape_framed()) {
+        return;     /* the game's palette stays */
+    }
     memcpy(g_palette_buffer, picture + (size_t)g_screen_width * (size_t)g_screen_height, 0x300);
 }
 
@@ -101,7 +162,13 @@ int scene_escape_menu(void)
 
     ticks_freeze();
     shaking_save();
+    if (escape_framed()) {
+        memcpy(s_saved_palette, g_palette_buffer, sizeof(s_saved_palette));
+    }
     palette_blackout();
+    if (escape_framed()) {
+        memcpy(g_palette_buffer, s_saved_palette, sizeof(s_saved_palette));
+    }
     memcpy(g_back_buffer, g_screen, (size_t)g_screen_width * (size_t)g_screen_height); /* 0x402c8b */
     savegame_make_thumbnail(g_back_buffer);
     s_picture = g_escape_picture;
@@ -123,7 +190,7 @@ int scene_escape_menu(void)
             g_scene_confirm = (s16)g_key_confirm;
             g_scene_dir_flags = (s16)g_key_dir_flags;
 
-            if (g_mouse_buttons && g_mouse_x > 100 && g_mouse_x < 220
+            if (!escape_framed() && g_mouse_buttons && g_mouse_x > 100 && g_mouse_x < 220
                 && g_mouse_y > 44 && g_mouse_y < 156) {
                 s16 row = (s16)((g_mouse_y - 44) / 14);
 
@@ -141,7 +208,7 @@ int scene_escape_menu(void)
                 continue;
             }
             if (g_scene_scancode == SC_ENTER || g_scene_confirm || g_mouse_buttons) {
-                choice = selected;
+                choice = escape_choice(selected);
                 break;
             }
             if (g_scene_scancode == SC_ESC) {
@@ -151,13 +218,13 @@ int scene_escape_menu(void)
             }
             if (g_scene_dir_flags & DIR_UP) {
                 if (--selected < 0) {
-                    selected = ESCAPE_COUNT - 1;
+                    selected = (s16)(escape_rows() - 1);
                 }
                 g_message_shown = 1;
                 redraw(selected);
             }
             if (g_scene_dir_flags & DIR_DOWN) {
-                if (++selected == ESCAPE_COUNT) {
+                if (++selected == escape_rows()) {
                     selected = 0;
                 }
                 g_message_shown = 1;
