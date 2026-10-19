@@ -248,8 +248,59 @@ static void ring_draw(int selected)
     screen_present();
 }
 
+/* TG 0x4062c3 / 0x406148: ITD_RESS picture 0x74 (three tarot cards) and
+ * three HYB icons; left/right choose, Enter, space or Escape keep the
+ * choice for all three difficulty words (0x452580..0x452584). */
+static const struct {
+    s16 x;
+    u8 icon, selected;
+} s_cards[3] = { { 0x29, 0x60, 0x61 }, { 0x7a, 0x62, 0x63 }, { 0xce, 0x64, 0x65 } };
+
+static void cards_draw(int selected)
+{
+    u8 palette[AITD_PALETTE_BYTES];
+    int i;
+
+    target_begin();
+    raster_set_clip(0, 0, 319, 199);
+    if (picture_load(0x74, g_raster.target, palette) == 1) {
+        memcpy(g_palette_buffer, palette, sizeof(palette));
+        palette_set_range(g_palette_buffer, 0, 256);
+    }
+    for (i = 0; i < 3; i++) {
+        ring_icon(s_cards[i].icon, s_cards[i].x, 0x25);
+    }
+    ring_icon(s_cards[selected].selected, s_cards[selected].x, 0x25);
+    raster_pop_target();
+    screen_present();
+}
+
+static void cards_select(void)
+{
+    int selected = g_difficulty[0];
+
+    if (selected < 0 || selected > 2) {
+        selected = selected < 0 ? 0 : 2;
+    }
+    cards_draw(selected);
+    wait_released();
+    for (;;) {
+        input_poll();
+        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
+            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? 2 : 1)) % 3;
+            cards_draw(selected);
+            wait_released();
+        } else if (confirm_key() || (g_last_scancode & 0xff) == SC_ESC) {
+            wait_released();
+            break;
+        }
+    }
+    g_difficulty[0] = g_difficulty[1] = g_difficulty[2] = (s16)selected;
+}
+
 /* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
- * 3 and 4 (credits and the intro films) are not rebuilt. */
+ * 3 and 4 (credits and the intro films) are not rebuilt; 5 is the
+ * difficulty screen. */
 static int ring_menu(void)
 {
     struct game_timer timer;
@@ -279,6 +330,11 @@ static int ring_menu(void)
             case 0: return MENU_RESULT_NEW_GAME;
             case 2: return MENU_RESULT_LOAD_GAME;
             case 6: return MENU_RESULT_QUIT;
+            case 5:
+                cards_select();
+                ring_draw(selected);
+                timer_reset(&timer);
+                break;
             default:
                 fprintf(stderr, "menu: ring entry %d not rebuilt\n", selected);
                 timer_reset(&timer);
