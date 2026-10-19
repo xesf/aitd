@@ -72,7 +72,9 @@ enum inventory_style {
                            (AITD3, 0x40f1c3) */
     INVENTORY_PICTURE,  /* ITD_RESS 14 + inventory type, a sprite (AITD2) */
     INVENTORY_FRAMED,   /* three sprite frames over the game (AITD1, Jack) */
-    INVENTORY_NONE      /* not rebuilt (Time Gate) */
+    INVENTORY_ICONS,    /* objects in a round window, action icons in two
+                           columns (Time Gate, TG320.EX_ 0x4015d0) */
+    INVENTORY_NONE
 };
 
 /* Where MUSIC takes its tunes from. */

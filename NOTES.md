@@ -405,6 +405,13 @@ and checked against it; no third party code is used.
   header but use 16 bit skip / copy pairs on a 640 pitch (0x42a68c), and
   the 320 x 200 Smacker films are shown doubled. ITD_RESS and LISTHYB come
   from the 640/ folder with larger pictures, fonts and sprites.
+- **Time Gate inventory** (TG320.EX_ 0x4015d0, layout recovered with a
+  symbolic pass over its sprite calls): ITD_RESS picture 5, the object
+  turning in the round window (projection 159, 102, focal 300, camera at
+  z -24000, rows 67..137), its name in the foot strip, and nine action
+  icons (absent / available / selected banks): bits 0-3, 9, 10 on the
+  left for objects, 4, 6, 8 on the right for the hero, who stays first in
+  the list (take inserts behind entry 0, 0x414dc2).
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in

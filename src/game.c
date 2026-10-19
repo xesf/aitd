@@ -94,7 +94,7 @@ static const struct game_profile s_timegate = {
     54, 70, LIFE_DIALECT_AITD2,
     2, 0, 1, 0,
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
-    NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_NONE, -1,
+    NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_ICONS, -1,
     MUSIC_TG_DOS, "MUSIC.PAK", 0,
     0, 5, -1, -1
 };

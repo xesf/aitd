@@ -9,6 +9,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
@@ -235,10 +236,180 @@ static void inventory_draw_object(s16 counter)
     draw_present();
 }
 
+/* ---- Time Gate (TG320.EX_ 0x4015d0) ------------------------------------ */
+
+/* ITD_RESS 5 is the frame: two columns of action slots, a round window in
+ * the middle where the object turns, arrows and a strip for its name.
+ * Each action bit has an icon in three HYB banks (absent, available,
+ * selected); the first object (the hero) uses the right column. Left and
+ * right choose the object, up and down the action, Enter uses it. */
+static const struct {
+    u16 bit;
+    s16 x, y;
+    u8 absent, available, selected;
+} s_tg_actions[] = {
+    { 0x001, 28, 38, 0x27, 0x26, 0x25 }, { 0x002, 18, 62, 0x1b, 0x1a, 0x19 },
+    { 0x004, 14, 86, 0x18, 0x17, 0x16 }, { 0x008, 14, 110, 0x12, 0x11, 0x10 },
+    { 0x200, 17, 134, 0x15, 0x14, 0x13 }, { 0x400, 25, 158, 0x1e, 0x1d, 0x1c },
+    { 0x010, 251, 62, 0x0c, 0x0b, 0x0a }, { 0x040, 261, 86, 0x0f, 0x0e, 0x0d },
+    { 0x100, 264, 110, 0x21, 0x20, 0x1f }
+};
+
+enum {
+    TG_FRAME = 5, TG_TITLE = 0x2a, TG_ARROW_LEFT = 0x29, TG_ARROW_RIGHT = 0x28,
+    TG_HERO_COLUMN = 0x150      /* bits 4, 6, 8 */
+};
+
+static void tg_icon(int entry, s16 x, s16 y)
+{
+    static u8 *banks[0x30];
+
+    if (entry < 0 || entry >= 0x30) {
+        return;
+    }
+    if (banks[entry] == NULL) {
+        u32 size = 0;
+        banks[entry] = pak_load("ITD_RESS.PAK", entry, &size);
+    }
+    if (banks[entry] != NULL) {
+        hyb_render(0, SCALED(x), SCALED(y), banks[entry]);
+    }
+}
+
+static void tg_draw(const u8 *frame, int cursor, int action, u16 actions)
+{
+    const s16 *list = g_inventory[g_inventory_index];
+    const struct world_object *o = object_get(list[cursor]);
+    u16 column = cursor <= 0 ? TG_HERO_COLUMN : (u16)~TG_HERO_COLUMN;
+    size_t i;
+
+    memcpy(g_screen, frame, SCREEN_PIXELS);
+    raster_reset_clip();
+    tg_icon(TG_TITLE, 132, 1);
+    tg_icon(TG_ARROW_LEFT, 102, 156);
+    tg_icon(TG_ARROW_RIGHT, 205, 156);
+    for (i = 0; i < sizeof(s_tg_actions) / sizeof(s_tg_actions[0]); i++) {
+        u16 bit = s_tg_actions[i].bit;
+        int entry = s_tg_actions[i].absent;
+
+        if ((bit & column) && (actions & bit)) {
+            entry = (s_actions[action] == 23 + __builtin_ctz(bit)) ? s_tg_actions[i].selected
+                                                                    : s_tg_actions[i].available;
+        }
+        tg_icon(entry, s_tg_actions[i].x, s_tg_actions[i].y);
+    }
+    /* 0x401010: the name in the strip at the foot. */
+    raster_set_clip(0, SCALED(185), (s16)(g_screen_width - 1), SCALED(198));
+    text_draw_centered(SCALED(160), (s16)(SCALED(195) + 1), o->found_name, 64);
+    raster_reset_clip();
+}
+
+static void tg_turn(s16 beta, s16 body)
+{
+    /* 0x4011ae: the object turns in the window, clipped to rows 67..137. */
+    raster_set_clip(SCALED(90), SCALED(67), SCALED(229), SCALED(137));
+    r3d_set_camera_position(0, 0, -24000);
+    r3d_set_camera_angles(0, 0, 0);
+    r3d_set_clip_y(10000);
+    {
+        r3d_draw_body(0, 0, 0, 0, beta, 0, hqr_get(g_cache_body, body, NULL));
+    }
+    raster_reset_clip();
+}
+
+static void inventory_open_icons(void)
+{
+    u8 *frame = malloc(SCREEN_PIXELS);
+    u8 palette[AITD_PALETTE_BYTES], saved[AITD_PALETTE_BYTES];
+    int count = g_inventory_count[g_inventory_index];
+    int cursor = 0, action = 0, use = 0, drawn = -1, drawn_action = -1;
+    s16 beta = 0, object = -1;
+    u16 actions = 0;
+
+    if (frame == NULL || count == 0) {
+        free(frame);
+        return;
+    }
+    memcpy(saved, g_palette_buffer, sizeof(saved));
+    picture_load(TG_FRAME, frame, palette);
+    memcpy(g_palette_buffer, palette, sizeof(palette));
+    palette_set_range(g_palette_buffer, 0, 256);
+    ticks_freeze();
+    shaking_save();
+    r3d_set_projection(SCALED(159), SCALED(102), 128, SCALED(300), SCALED(300));
+
+    for (;;) {
+        input_poll();
+        if ((g_last_scancode & 0xff) == SC_ESC) {
+            break;
+        }
+        if ((g_last_scancode & 0xff) == SC_ENTER || (g_last_scancode & 0xff) == 0x9c
+            || g_key_confirm) {
+            if (s_action_count > 0) {
+                use = 1;
+            }
+            break;
+        }
+        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
+            cursor += (g_key_dir_flags & DIR_RIGHT) ? 1 : -1;
+            cursor = cursor < 0 ? 0 : cursor >= count ? count - 1 : cursor;
+            action = 0;
+        } else if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            action += (g_key_dir_flags & DIR_DOWN) ? 1 : -1;
+            action = action < 0 ? 0 : action >= s_action_count ? s_action_count - 1 : action;
+        }
+        while (g_key_dir_flags) {
+            input_poll();
+        }
+
+        if (cursor != drawn) {
+            int bit;
+
+            object = g_inventory[g_inventory_index][cursor];
+            actions = object_get(object)->flags2 & 0x7ff;
+            s_action_count = 0;
+            for (bit = 0; bit < 11; bit++) {
+                if ((actions & (1 << bit)) && s_action_count < 6) {
+                    s_actions[s_action_count++] = (s16)(bit + 23);
+                }
+            }
+            drawn = cursor;
+            drawn_action = -1;
+        }
+        if (action != drawn_action) {
+            tg_draw(frame, cursor, action, actions);
+            drawn_action = action;
+        }
+        /* The window is drawn again each turn from the frame. */
+        raster_copy_rect(SCALED(90), SCALED(67), SCALED(229), SCALED(137), frame);
+        beta = (s16)(beta - 8);
+        tg_turn(beta, object_get(object)->found_body);
+        draw_present();
+        platform_delay(15);
+    }
+
+    while (g_key_confirm || (g_last_scancode & 0xff) || g_key_dir_flags) {
+        input_poll();
+    }
+    memcpy(g_palette_buffer, saved, sizeof(saved));
+    ticks_unfreeze();
+    g_init_view = 1;
+    free(frame);
+    if (use) {
+        g_action = (s16)(1 << (s_actions[action] - 23));
+        life_run_global(object);
+    }
+    shaking_restore();
+}
+
 /* 0x40f1c3 */
 void inventory_open(void)
 {
     s_style = game_current()->inventory_style;
+    if (s_style == INVENTORY_ICONS) {
+        inventory_open_icons();
+        return;
+    }
     if (s_style == INVENTORY_NONE) {
         static int reported;
         if (!reported) {

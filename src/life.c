@@ -554,12 +554,17 @@ void object_take(s16 object)
     s16 *list = g_inventory[g_inventory_index];
     int i;
 
-    for (i = g_inventory_count[g_inventory_index]; i > 0; i--) {
+    /* Time Gate (TG320.EX_ 0x414dc2) keeps the first entry, the hero's
+     * own actions, in place and takes new objects in behind it. */
+    int first = (game_current()->inventory_style == INVENTORY_ICONS
+                 && g_inventory_count[g_inventory_index] > 0) ? 1 : 0;
+
+    for (i = g_inventory_count[g_inventory_index]; i > first; i--) {
         if (i < 50) {
             list[i] = list[i - 1];
         }
     }
-    list[0] = object;
+    list[first] = object;
     g_inventory_count[g_inventory_index]++;
     g_action = 0x800;
     life_run_global(object);
