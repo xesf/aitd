@@ -71,7 +71,8 @@ static s16 nearest(s16 cam, s16 v1, s16 v2)
     return (s16)(d1 < d2 ? d1 : d2);
 }
 
-/* 0x40c290 - farther first. */
+/* 0x40c290 - farther first. Time Gate (TG 0x408b3e) has no height
+ * layers: every actor is ordered by its distance on the ground. */
 static int compare_actors(s16 ia, s16 ib)
 {
     const struct actor *a = &g_actors[ia];
@@ -98,6 +99,9 @@ static int compare_actors(s16 ia, s16 ib)
     layer_b = (((s32)zb[2] + zb[3]) >> 1) - 2000;
     layer_b = (layer_b / 2000) * 2000;
 
+    if (game_id() == GAME_TIMEGATE) {
+        layer_a = layer_b = 0;
+    }
     if ((s16)layer_a != (s16)layer_b) {
         da = (s16)abs((s32)cam_y - 2000 - (s16)layer_a);
         db = (s16)abs((s32)cam_y - 2000 - (s16)layer_b);

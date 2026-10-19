@@ -202,6 +202,8 @@ all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_
 | `AITD_INPUT="a-b:keys,..."` | hold keys during input polls a..b: `u d l r` arrows, `s` space, `c` ctrl, `e` enter, `x` esc, `t` tab |
 | `AITD_DUMP_EVERY=n` + `AITD_DUMP_FRAME=prefix` | PPM of the presented screen every n polls |
 | `AITD_TRACE=1` | per-frame player state on stderr |
+| `AITD_TELEPORT=f,room,x,y,z[,beta]` | put the player there at frame f |
+| `AITD_ACTORS=f` | list every live actor at frame f |
 | `AITD_WINDOW_SCALE=2` | window at 1280 x 960 instead of 640 x 480 (1..4) |
 | `AITD_LIFETRACE=1` | life opcodes as they run |
 | `AITD_NOLIFE`, `AITD_CAM=n` | freeze scripts / force a camera |

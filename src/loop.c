@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "actor.h"
 #include "aitd.h"
 #include "anim.h"
 #include "draw.h"
@@ -433,6 +434,36 @@ void game_scene_loop(s16 flag)
                 palette_fade_out(0x20, 0);
                 read_document((s16)text, (s16)type);
                 g_init_view = 2;
+            }
+        }
+        if (getenv("AITD_TELEPORT") != NULL) {
+            int frame, room, x, y, z, beta = -1;  /* harness only: frame,room,x,y,z[,beta] */
+            if (sscanf(getenv("AITD_TELEPORT"), "%d,%d,%d,%d,%d,%d", &frame, &room, &x, &y, &z, &beta) >= 5
+                && s_frame_number == frame) {
+                struct actor *saved = g_cur_actor;
+                s16 saved_index = g_cur_actor_index;
+
+                g_cur_actor = &g_actors[g_player_actor];
+                g_cur_actor_index = g_player_actor;
+                actor_teleport(g_cur_floor, (s16)room, (s16)x, (s16)y, (s16)z);
+                if (beta >= 0) {
+                    g_cur_actor->beta = (s16)beta;
+                }
+                g_cur_actor = saved;
+                g_cur_actor_index = saved_index;
+            }
+        }
+        if (getenv("AITD_ACTORS") != NULL && s_frame_number == atoi(getenv("AITD_ACTORS"))) {
+            int i;      /* harness only: every live actor at that frame */
+            for (i = 0; i < ACTOR_MAX; i++) {
+                const struct actor *a = &g_actors[i];
+                if (a->object == -1) {
+                    continue;
+                }
+                fprintf(stderr, "actor %d obj=%d body=%d flags=%x room=%d pos=%d,%d,%d beta=%d zv=%d,%d,%d,%d,%d,%d life=%d anim=%d screen=%d,%d,%d,%d\n",
+                        i, a->object, a->body, a->flags, a->room, a->room_x, a->room_y, a->room_z, a->beta,
+                        a->zv[0], a->zv[1], a->zv[2], a->zv[3], a->zv[4], a->zv[5], a->life, a->anim,
+                        a->screen[0], a->screen[1], a->screen[2], a->screen[3]);
             }
         }
         if (getenv("AITD_TRACE")) {
