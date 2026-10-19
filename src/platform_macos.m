@@ -428,10 +428,16 @@ int platform_video_init(const char *title, int width, int height)
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        /* Every title opens in a 640 x 480 window shown twice its size,
-         * 1280 x 960, the frame stretched to fill it as on a 4:3 screen. */
-        int window_w = 640 * 2;
-        int window_h = 480 * 2;
+        /* Every title opens in a 640 x 480 (SVGA) window, the frame
+         * stretched to fill it as on a 4:3 screen; AITD_WINDOW_SCALE
+         * multiplies that (2 for 1280 x 960). */
+        const char *scale_env = getenv("AITD_WINDOW_SCALE");
+        int window_scale = scale_env != NULL ? atoi(scale_env) : 1;
+        if (window_scale < 1 || window_scale > 4) {
+            window_scale = 1;
+        }
+        int window_w = 640 * window_scale;
+        int window_h = 480 * window_scale;
         NSRect frame = NSMakeRect(0, 0, window_w, window_h);
         NSUInteger style = NSWindowStyleMaskTitled
                          | NSWindowStyleMaskClosable
