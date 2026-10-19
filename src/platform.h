@@ -66,6 +66,8 @@ void platform_sound_shutdown(void);
 void platform_sound_play(const void *sample, u32 size, u32 rate, int loops);
 void platform_sound_stop(void);
 int platform_sound_playing(void);
+/* A music generator mixed under the samples (called on the audio thread). */
+void platform_set_music_render(void (*render)(short *out, int frames, int rate));
 
 /* Redbook / CD audio. Replaces cdaudio_init (0x401010), which issued
  * mciSendStringA commands and was retried five times by engine_init. */

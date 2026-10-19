@@ -15,7 +15,7 @@ CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
             $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c $(SRCDIR)/texture.c \
             $(SRCDIR)/anim.c $(SRCDIR)/hyb.c $(SRCDIR)/world.c $(SRCDIR)/draw.c \
             $(SRCDIR)/actor.c $(SRCDIR)/life.c $(SRCDIR)/lifemap.c $(SRCDIR)/ui.c $(SRCDIR)/inventory.c \
-            $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c $(SRCDIR)/music.c \
+            $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c $(SRCDIR)/music.c $(SRCDIR)/opl.c \
             $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/stubs.c
 MAC_SRC  := $(SRCDIR)/platform_macos.m
 
@@ -85,13 +85,19 @@ check: $(TARGET)
 	done
 
 clean:
-	rm -rf $(BUILD) $(TARGET) pak_dump
+	rm -rf $(BUILD) $(TARGET) pak_dump music_render
 
 # Offline tool: exercises the reconstructed .PAK reader against real data.
 TOOL_OBJ := $(filter-out $(BUILD)/main.o,$(OBJ))
 
 pak_dump: $(TOOL_OBJ) $(BUILD)/pak_dump.o
 	$(CC) $(TOOL_OBJ) $(BUILD)/pak_dump.o $(LDFLAGS) -o $@
+
+music_render: $(TOOL_OBJ) $(BUILD)/music_render.o
+	$(CC) $(TOOL_OBJ) $(BUILD)/music_render.o $(LDFLAGS) -o $@
+
+$(BUILD)/music_render.o: tools/music_render.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/pak_dump.o: tools/pak_dump.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@

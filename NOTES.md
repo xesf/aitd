@@ -367,6 +367,16 @@ and checked against it; no third party code is used.
   character's story on 14, then plays the car scene (floor 7, room 1)
   before floor 0. When the menu times out a random character, the car
   scene and the logo play. Jack in the Dark has no menu.
+- **Music**: AITD1, AITD2 and Jack play LISTMUS.PAK "ADLM" tunes through
+  their ADLIBM.COM driver (PKLITE packed; unpacked and read to rebuild its
+  logic in `music.c`) on an OPL2 synthesiser written for the engine
+  (`opl.c`, floating point, not bit exact); `make music_render` renders a
+  tune to WAV. Time Gate for Windows hands WINMUS.PAK entries (standard
+  MIDI) to the host's General MIDI synth (TG 0x42085a used MCI), tune 0
+  under the menu. AITD3's music is CD audio, not part of the data: ripped
+  tracks named track02.m4a (or .mp3/.wav/.aiff) in the data folder play.
+  The DOS Time Gate's MUSIC.PAK format is not rebuilt yet. Jack's driver
+  differs from the AITD1/2 one and is not checked separately.
 - **Main menus** (`menu_styles.c`): AITD1/AITD2/Jack draw the framed
   three-row menu (old 16 bit offset sprites, `frame.c`; AITD2's
   palette is ITD_RESS 59 with the interface overlay, Jack's is taken from

@@ -212,6 +212,7 @@ static int music_play_data(s16 music)
         }
         break;
     case MUSIC_ADLIB:
+        platform_set_music_render(music_adlib_render);
         music_adlib_play(data, size);
         break;
     default:

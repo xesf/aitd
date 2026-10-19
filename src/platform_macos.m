@@ -595,8 +595,8 @@ void platform_delay(u32 milliseconds)
  * resampled to the output rate in the callback.
  */
 #define AUDIO_BUFFER_COUNT 3
-#define AUDIO_BUFFER_BYTES 2048
-#define AUDIO_SAMPLE_RATE 22050
+#define AUDIO_FRAMES 1024
+#define AUDIO_SAMPLE_RATE 44100
 
 static AudioQueueRef s_queue;
 static AudioQueueBufferRef s_buffers[AUDIO_BUFFER_COUNT];
@@ -607,28 +607,42 @@ static u32 s_voice_step;    /* 16.16 source samples per output sample */
 static u64 s_voice_pos;     /* 16.16 */
 static int s_voice_loops;   /* plays left, 0 = forever */
 static int s_voice_active;
+static void (*s_music_render)(short *out, int frames, int rate);
 
+void platform_set_music_render(void (*render)(short *out, int frames, int rate))
+{
+    pthread_mutex_lock(&s_voice_lock);
+    s_music_render = render;
+    pthread_mutex_unlock(&s_voice_lock);
+}
+
+/* 16 bit mono: the sample voice (8 bit unsigned, resampled) over the
+ * music, when a renderer is installed. */
 static void audio_callback(void *user, AudioQueueRef queue, AudioQueueBufferRef buffer)
 {
-    u8 *out = buffer->mAudioData;
+    short *out = buffer->mAudioData;
     u32 i;
 
     (void)user;
 
     pthread_mutex_lock(&s_voice_lock);
-    for (i = 0; i < AUDIO_BUFFER_BYTES; i++) {
+    if (s_music_render != NULL) {
+        s_music_render(out, AUDIO_FRAMES, AUDIO_SAMPLE_RATE);
+    } else {
+        memset(out, 0, AUDIO_FRAMES * sizeof(short));
+    }
+    for (i = 0; i < AUDIO_FRAMES; i++) {
         u32 index;
+        int mixed;
 
         if (!s_voice_active) {
-            out[i] = 0x80;
-            continue;
+            break;
         }
         index = (u32)(s_voice_pos >> 16);
         if (index >= s_voice_size) {
             if (s_voice_loops == 1) {
                 s_voice_active = 0;
-                out[i] = 0x80;
-                continue;
+                break;
             }
             if (s_voice_loops > 1) {
                 s_voice_loops--;
@@ -636,12 +650,13 @@ static void audio_callback(void *user, AudioQueueRef queue, AudioQueueBufferRef 
             s_voice_pos = 0;
             index = 0;
         }
-        out[i] = s_voice[index];
+        mixed = out[i] + ((int)s_voice[index] - 128) * 192;
+        out[i] = (short)(mixed > 32767 ? 32767 : mixed < -32768 ? -32768 : mixed);
         s_voice_pos += s_voice_step;
     }
     pthread_mutex_unlock(&s_voice_lock);
 
-    buffer->mAudioDataByteSize = AUDIO_BUFFER_BYTES;
+    buffer->mAudioDataByteSize = AUDIO_FRAMES * sizeof(short);
     AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
 }
 
@@ -652,12 +667,12 @@ int platform_sound_init(void)
     memset(&format, 0, sizeof(format));
     format.mSampleRate = AUDIO_SAMPLE_RATE;
     format.mFormatID = kAudioFormatLinearPCM;
-    format.mFormatFlags = kLinearPCMFormatFlagIsPacked;
+    format.mFormatFlags = kLinearPCMFormatFlagIsPacked | kLinearPCMFormatFlagIsSignedInteger;
     format.mChannelsPerFrame = 1;
-    format.mBitsPerChannel = 8;
-    format.mBytesPerFrame = 1;
+    format.mBitsPerChannel = 16;
+    format.mBytesPerFrame = 2;
     format.mFramesPerPacket = 1;
-    format.mBytesPerPacket = 1;
+    format.mBytesPerPacket = 2;
 
     if (AudioQueueNewOutput(&format, audio_callback, NULL, NULL, NULL, 0,
                             &s_queue) != noErr) {
@@ -665,12 +680,12 @@ int platform_sound_init(void)
     }
 
     for (int i = 0; i < AUDIO_BUFFER_COUNT; i++) {
-        if (AudioQueueAllocateBuffer(s_queue, AUDIO_BUFFER_BYTES,
+        if (AudioQueueAllocateBuffer(s_queue, AUDIO_FRAMES * sizeof(short),
                                      &s_buffers[i]) != noErr) {
             return 0;
         }
-        memset(s_buffers[i]->mAudioData, 0x80, AUDIO_BUFFER_BYTES);
-        s_buffers[i]->mAudioDataByteSize = AUDIO_BUFFER_BYTES;
+        memset(s_buffers[i]->mAudioData, 0, AUDIO_FRAMES * sizeof(short));
+        s_buffers[i]->mAudioDataByteSize = AUDIO_FRAMES * sizeof(short);
         AudioQueueEnqueueBuffer(s_queue, s_buffers[i], 0, NULL);
     }
 
