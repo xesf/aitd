@@ -164,6 +164,60 @@ struct camera_index {
     int picture, masks, extra;
 };
 
+/*
+ * Time Gate (TG320.EX_ 0x4146f1, TIMEGATE.EXE 0x26582): once the story
+ * sets one of the variables 75..82, some cameras come from the second set
+ * of files, CYMERA (CYMERX at 640) and the NK masks, where a wall has
+ * fallen or a passage opened.
+ */
+static const struct {
+    int var;            /* g_defines_itd index (TG 0x45266c..) */
+    s16 floor;
+    s16 cameras[8];     /* camera files, -1 ends */
+} s_alt_cameras[] = {
+    { 75, 1, { 1, -1 } },
+    { 76, 1, { 11, -1 } },
+    { 77, 1, { 17, -1 } },
+    { 78, 11, { 11, 12, 13, 16, 0, 1, 2, -1 } },
+    { 79, 12, { 28, 29, 32, -1 } },
+    { 80, 12, { 34, 35, 37, -1 } },
+    { 81, 15, { 5, 6, 17, -1 } },
+    { 82, 5, { 7, 18, -1 } },
+};
+
+static int alt_camera(s16 camera)
+{
+    size_t i;
+    int k;
+
+    if (game_id() != GAME_TIMEGATE) {
+        return 0;
+    }
+    for (i = 0; i < sizeof(s_alt_cameras) / sizeof(s_alt_cameras[0]); i++) {
+        if (g_defines_itd[s_alt_cameras[i].var] == 0 || g_cur_floor != s_alt_cameras[i].floor) {
+            continue;
+        }
+        for (k = 0; s_alt_cameras[i].cameras[k] >= 0; k++) {
+            if (s_alt_cameras[i].cameras[k] == camera) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/* CAMERA##.PAK, or CYMERA##.PAK for an altered camera. */
+static void background_name(char *out, size_t size, s16 camera)
+{
+    char prefix[16];
+
+    snprintf(prefix, sizeof(prefix), "%s", game_current()->background_prefix);
+    if (alt_camera(camera) && prefix[0] != '\0') {
+        prefix[1] = 'Y';
+    }
+    build_name(out, size, prefix, g_cur_floor);
+}
+
 static int camera_index(s16 camera, struct camera_index *out)
 {
     char name[32];
@@ -171,7 +225,7 @@ static int camera_index(s16 camera, struct camera_index *out)
     u8 *index;
     int ok = 0;
 
-    build_name(name, sizeof(name), game_current()->background_prefix, g_cur_floor);
+    background_name(name, sizeof(name), camera);
     index = pak_load(name, 0, &size);
     if (index != NULL && (u32)(camera + 1) * 12 <= size) {
         out->picture = (int)blob_u32(index, camera * 12);
@@ -431,7 +485,7 @@ void world_load_background(s16 camera)
     if (entry < 0) {
         struct camera_index index;
 
-        build_name(name, sizeof(name), profile->background_prefix, g_cur_floor);
+        background_name(name, sizeof(name), camera);
         entry = camera;
         if (profile->mask_layout == MASK_CAMERA_INDEXED && camera_index(camera, &index)) {
             entry = index.picture;
@@ -518,10 +572,46 @@ void world_setup_camera(void)
         build_name(name, sizeof(name), mask_prefix, g_cur_floor);
         g_camera_masks = file_load_alloc(name, cam_file);
         break;
-    case MASK_SLOT_FILES:
-        snprintf(name, sizeof(name), "MK%02d%02d00.PAK", g_cur_floor, cam_file);
+    case MASK_SLOT_FILES: {
+        u32 size = 0;
+        u8 *lights;
+        int v;
+
+        /* TIMEGATE.EXE 0x1db95: NK for an altered camera, MK otherwise. */
+        snprintf(name, sizeof(name), "%s%02d%02d00.PAK", alt_camera(cam_file) ? "NK" : "MK",
+                 g_cur_floor, cam_file);
         load_mask_slots(name, 0, CAMERA_VIEW_COUNT(cam) * MASK_SLOTS_PER_VIEW);
+
+        /* 0x1dc1c: LGHT####.GRD replaces the light of each viewed room,
+         * 24 bytes apart; without the file the lights are cleared
+         * (0x1e790). */
+        snprintf(name, sizeof(name), "LGHT%02d%02d.GRD", g_cur_floor, cam_file);
+        size = file_size(name);
+        lights = NULL;
+        if (size > 0) {
+            int handle = file_open(name, 0);
+
+            if (handle != 0) {
+                lights = mem_alloc_checked(size);
+                if (!file_read(handle, lights, size)) {
+                    mem_free(lights);
+                    lights = NULL;
+                }
+                file_close(handle);
+            }
+        }
+        for (v = 0; v < CAMERA_VIEW_COUNT(cam); v++) {
+            if (lights == NULL) {
+                memset(CAMERA_VIEW(cam, v) + 10, 0, 12);
+            } else if ((u32)v * 24 + 12 <= size) {
+                memcpy(CAMERA_VIEW(cam, v) + 10, lights + v * 24, 12);
+            }
+        }
+        if (lights != NULL) {
+            mem_free(lights);
+        }
         break;
+    }
     case MASK_CAMERA_INDEXED: {
         struct camera_index index;
 
@@ -530,7 +620,7 @@ void world_setup_camera(void)
             u8 *lights;
             int v;
 
-            build_name(name, sizeof(name), game_current()->background_prefix, g_cur_floor);
+            background_name(name, sizeof(name), cam_file);
             load_mask_slots(name, index.picture + 2, index.masks);
 
             /* TG 0x40c7c7: 24 bytes per viewed room; the first 12 replace

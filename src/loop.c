@@ -505,6 +505,13 @@ void game_run(s16 floor, s16 room, s16 flag)
     }
     file_read_be16(handle, g_defines_itd, (u32)game_current()->defines_words);
     file_close(handle);
+    if (getenv("AITD_SET_VAR") != NULL) {
+        int index, value;   /* harness only: index=value */
+        if (sscanf(getenv("AITD_SET_VAR"), "%d=%d", &index, &value) == 2
+            && index >= 0 && index < DEFINES_WORDS_MAX) {
+            g_defines_itd[index] = (u16)value;
+        }
+    }
 
     draw_init();
     g_present_buffer = g_screen;
