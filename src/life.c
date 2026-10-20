@@ -1102,7 +1102,7 @@ void life_run(s16 life, int flag)
         case LIFE_OP_READ: {
             s16 a1 = fetch(), a2 = fetch();
             if (game_id() == GAME_AITD1) {
-                fetch();    /* the CD version's voice number */
+                g_reader_voc = fetch();    /* the CD release's voice */
             }
             palette_fade_out(0x20, 0);
             read_document((s16)(a2 + 1), a1);

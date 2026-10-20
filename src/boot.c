@@ -268,9 +268,11 @@ int boot_aitd1_new_game(void)
     palette_set_range(g_palette_buffer, 0, 256);
     g_page_turn_style = 0;
     if (choice == 0) {
+        g_reader_voc = 1;   /* INDARK.EXE 0x45a1 */
         text_reader((s16)(g_defines_itd[DEFINE_STORY_HEIRESS] + 1), 165, 5, 314, 194, 2, 15, 0);
         g_defines_itd[DEFINE_CHOSEN] = 1;
     } else {
+        g_reader_voc = 0;   /* INDARK.EXE 0x4634 */
         text_reader((s16)(g_defines_itd[DEFINE_STORY_DETECTIVE] + 1), 5, 5, 154, 194, 2, 15, 0);
         g_defines_itd[DEFINE_CHOSEN] = 0;
     }

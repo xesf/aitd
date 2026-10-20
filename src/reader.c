@@ -11,6 +11,7 @@
  * a CD voice track. Lines are justified unless they end a paragraph.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -82,8 +83,98 @@ static void next_sample(u8 *index)
     }
 }
 
+/*
+ * The CD release of AITD1 reads the character stories and the documents
+ * aloud: page p of voice v is a run of Creative Voice files
+ * "<v><p><n>.VOC" (two digits each, n from 0), played one after another
+ * (INDARK.EXE reader 0x101f6, names built at 0x101cd). The voice comes with
+ * the reading: 0 for Carnby's story, 1 for Emily's, the third word of
+ * READ for a document, -1 for none.
+ */
+s16 g_reader_voc = -1;
+static s16 s_voc_page = -1, s_voc_next;
+
+/* 8 bit unsigned samples of a VOC file's sound blocks (types 1 and 2). */
+static int voc_play(s16 voice, s16 page, s16 part)
+{
+    char name[16];
+    u8 *file, *pcm;
+    u32 size = 0, at, out = 0, rate = 11025;
+
+    snprintf(name, sizeof(name), "%02d%02d%02d.VOC", voice, page, part);
+    size = file_size(name);
+    file = size > 0 ? load_malloc(name) : NULL;
+    if (file == NULL) {
+        return 0;
+    }
+    pcm = mem_alloc_checked(size);
+    at = size >= 0x1a ? (u32)(file[0x14] | (file[0x15] << 8)) : size;
+    while (at + 4 <= size && file[at] != 0) {
+        u8 type = file[at];
+        u32 len = (u32)file[at + 1] | ((u32)file[at + 2] << 8) | ((u32)file[at + 3] << 16);
+        const u8 *data = file + at + 4;
+
+        if (at + 4 + len > size) {
+            len = size - at - 4;
+        }
+        if (type == 1 && len >= 2) {
+            rate = 1000000u / (256u - data[0]);
+            memcpy(pcm + out, data + 2, len - 2);
+            out += len - 2;
+        } else if (type == 2) {
+            memcpy(pcm + out, data, len);
+            out += len;
+        }
+        at += 4 + len;
+    }
+    if (out > 0) {
+        platform_sound_play(pcm, out, rate, 1);
+    }
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "voice %s: %u samples at %u Hz\n", name, out, rate);
+    }
+    mem_free(pcm);
+    mem_free(file);
+    return out > 0;
+}
+
+static void voc_page(s16 page)
+{
+    if (g_reader_voc < 0 || game_id() != GAME_AITD1) {
+        return;
+    }
+    platform_sound_stop();
+    s_voc_page = page;
+    s_voc_next = 0;
+    if (voc_play(g_reader_voc, page, s_voc_next)) {
+        s_voc_next++;
+    } else {
+        s_voc_page = -1;
+    }
+}
+
+/* The next file of the page once the current one ended. */
+static int voc_service(void)
+{
+    if (s_voc_page < 0) {
+        return 0;
+    }
+    if (!sample_busy()) {
+        if (voc_play(g_reader_voc, s_voc_page, s_voc_next)) {
+            s_voc_next++;
+        } else {
+            s_voc_page = -1;
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void keep_samples_going(u8 *index)
 {
+    if (voc_service()) {
+        return;
+    }
     if (!sample_busy()) {
         g_sample_priority = -1;
         g_sample_current = -1;
@@ -307,6 +398,7 @@ page_done:
                 voice_play(voice);
             }
         }
+        voc_page(page);
         (void)previous;
 
         if (mode == READER_AUTO) {
@@ -375,6 +467,11 @@ page_done:
         }
     }
 
+    if (s_voc_page >= 0 || g_reader_voc >= 0) {
+        platform_sound_stop();
+        s_voc_page = -1;
+    }
+    g_reader_voc = -1;
     if (voice_on) {
         platform_cdaudio_stop();   /* 0x4011ce */
         if (g_music_pending != -1) {

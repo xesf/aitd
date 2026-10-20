@@ -256,6 +256,7 @@ void read_document(s16 text, s16 type);     /* 0x4160b6, opcode 33 */
 /* An ITD_RESS picture (and its palette) as the reader's backdrop. */
 void reader_set_backdrop(s16 entry);
 extern s16 g_page_turn_style;
+extern s16 g_reader_voc;   /* AITD1 CD: voice read aloud, -1 none */
 s16 text_reader(s16 text, s16 xmin, s16 ymin, s16 xmax, s16 ymax, s16 mode,
                 s16 colour, s16 shadow);    /* 0x4156a6 */
 void play_cutscene(s16 number, s16 flags, s16 repeat); /* 0x4025a3 */
