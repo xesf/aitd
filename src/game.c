@@ -209,7 +209,6 @@ const struct game_profile *game_detect(void)
         static struct game_profile dos;
 
         dos = *s_current;
-        dos.name = "Alone in the Dark 3 (DOS)";
         dos.floor_layout = FLOOR_ETAGE_BLOB;
         dos.room_prefix = "ETAGE";
         dos.background_header = 0;          /* 64000 pixels, 6 bit palette */
@@ -224,7 +223,6 @@ const struct game_profile *game_detect(void)
         static struct game_profile cd;
 
         cd = *s_current;
-        cd.name = "Alone in the Dark (CD)";
         cd.music_source = MUSIC_CD;
         s_current = &cd;
     }

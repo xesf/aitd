@@ -113,6 +113,17 @@ make run-aitd1 ARGS=--stage=game
 The window is 640 x 480, and the picture fills it at a 4:3 ratio as on a
 DOS screen. To make it larger, set `AITD_WINDOW_SCALE=2`.
 
+## Language
+
+The engine uses English text when the game has it: `ENGLISH.PAK`,
+`TEXTES.PAK` or `USA.PAK`, in the data folder or in the CD image. To pick
+another language, set `AITD_LANG` to the name of the text file without
+`.PAK`:
+
+```sh
+AITD_LANG=FRANCAIS make run-aitd1
+```
+
 ## Controls
 
 | Key | Action |
