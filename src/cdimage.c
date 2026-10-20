@@ -542,3 +542,30 @@ int cdimage_extract_all(void)
     }
     return count;
 }
+
+void *cdimage_read_file(const char *name, u32 *size)
+{
+    char path[512];
+    const struct iso_entry *e;
+    u8 *data, sector[SECTOR_DATA];
+    u32 done;
+
+    if (!s_open) {
+        return NULL;
+    }
+    snprintf(path, sizeof(path), "%s%s%s", s_root, s_root[0] ? "/" : "", name);
+    e = find_entry(path);
+    if (e == NULL || (data = malloc(e->size ? e->size : 1)) == NULL) {
+        return NULL;
+    }
+    for (done = 0; done < e->size; done += SECTOR_DATA) {
+        u32 n = e->size - done < SECTOR_DATA ? e->size - done : SECTOR_DATA;
+        if (!read_sector(e->extent + done / SECTOR_DATA, sector)) {
+            free(data);
+            return NULL;
+        }
+        memcpy(data + done, sector, n);
+    }
+    *size = e->size;
+    return data;
+}

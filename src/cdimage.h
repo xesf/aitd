@@ -27,6 +27,10 @@ int cdimage_is_open(void);
  * Returns 1 when the disc has the file. */
 int cdimage_resolve(const char *name, char *out, size_t out_size);
 
+/* A file of the game folder on the disc, read into memory without
+ * copying it out (malloc'd; the caller frees). NULL when it is missing. */
+void *cdimage_read_file(const char *name, u32 *size);
+
 /* Copies every file of the game folder into the cache, as the game's
  * installer would. Returns the number of files copied. */
 int cdimage_extract_all(void);

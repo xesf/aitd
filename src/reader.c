@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "cdimage.h"
 #include "anim.h"
 #include "draw.h"
 #include "font.h"
@@ -102,8 +103,14 @@ static int voc_play(s16 voice, s16 page, s16 part)
     u32 size = 0, at, out = 0, rate = 11025;
 
     snprintf(name, sizeof(name), "%02d%02d%02d.VOC", voice, page, part);
-    size = file_size(name);
-    file = size > 0 ? load_malloc(name) : NULL;
+    /* The original reads the speech from the CD (its path names the CD
+     * drive), so a disc image wins over files in the data folder: an
+     * installation from another language's CD keeps its own voices. */
+    file = cdimage_read_file(name, &size);
+    if (file == NULL) {
+        size = file_size(name);
+        file = size > 0 ? load_malloc(name) : NULL;
+    }
     if (file == NULL) {
         return 0;
     }
@@ -134,7 +141,7 @@ static int voc_play(s16 voice, s16 page, s16 part)
         fprintf(stderr, "voice %s: %u samples at %u Hz\n", name, out, rate);
     }
     mem_free(pcm);
-    mem_free(file);
+    mem_free(file);     /* mem_free is free, for both sources */
     return out > 0;
 }
 
