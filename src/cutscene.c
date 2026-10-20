@@ -177,16 +177,21 @@ void play_cutscene(s16 number, s16 flags, s16 repeat)
                         palette[k] = (u8)((palette[k] * 255u) / 63u);
                     }
                 }
-                blit_frame(entry + 0x300);
-                memcpy(&count, entry + FIRST_COUNT_OFFSET, 2);
+                /* The picture on screen fades out under its own palette
+                 * before the first frame replaces it; fading after the
+                 * blit showed the new frame in the old colours. */
                 if (starting) {
-                    first = entry;
                     if (flags & CUTSCENE_FADE_IN) {
                         palette_fade_out(0x10, 0);
                     }
                     if (flags & CUTSCENE_BLACKOUT) {
                         palette_blackout();
                     }
+                }
+                blit_frame(entry + 0x300);
+                memcpy(&count, entry + FIRST_COUNT_OFFSET, 2);
+                if (starting) {
+                    first = entry;
                 }
             } else {
                 /* Later frames build on the first entry's picture. */
