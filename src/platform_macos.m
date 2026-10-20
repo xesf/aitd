@@ -32,6 +32,7 @@
 #include <stdlib.h>
 
 #include "aitd.h"
+#include "cdimage.h"
 #include "platform.h"
 
 /* ---- state ------------------------------------------------------------- */
@@ -274,6 +275,59 @@ static aitd_window_delegate *s_delegate;
  * Assets sit next to the executable by default, or inside Contents/Resources
  * when the binary is bundled. AITD_DATA_DIR overrides both.
  */
+/* ---- disc images ------------------------------------------------------- */
+
+static char s_image_cache[1024];
+
+/* ~/Library/Caches/aitd/<image name>, created. */
+static int open_disc_image(const char *cue)
+{
+    const char *home = getenv("HOME");
+    const char *base = strrchr(cue, '/');
+    char name[256];
+    size_t len;
+
+    base = base != NULL ? base + 1 : cue;
+    snprintf(name, sizeof(name), "%s", base);
+    len = strlen(name);
+    if (len > 4) {
+        name[len - 4] = '\0';
+    }
+    snprintf(s_image_cache, sizeof(s_image_cache), "%s/Library/Caches/aitd/%s/",
+             home != NULL ? home : "/tmp", name);
+    for (char *p = s_image_cache + 1; *p != '\0'; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            mkdir(s_image_cache, 0755);
+            *p = '/';
+        }
+    }
+    s_image_cache[strlen(s_image_cache) - 1] = '\0';
+    return cdimage_open(cue, s_image_cache);
+}
+
+/* A data folder that holds a .cue sheet instead of the game files. */
+static void open_disc_in_folder(const char *dir)
+{
+    char path[1024];
+    DIR *handle;
+    struct dirent *entry;
+
+    snprintf(path, sizeof(path), "%s/ITD_RESS.PAK", dir);
+    if (access(path, R_OK) == 0 || (handle = opendir(dir)) == NULL) {
+        return;
+    }
+    while ((entry = readdir(handle)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".cue") == 0) {
+            snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name);
+            open_disc_image(path);
+            break;
+        }
+    }
+    closedir(handle);
+}
+
 static const char *data_dir(void)
 {
     static char cached[1024];
@@ -284,7 +338,18 @@ static const char *data_dir(void)
 
     const char *env = getenv("AITD_DATA_DIR");
     if (env != NULL && env[0] != '\0') {
+        size_t len = strlen(env);
+
         snprintf(cached, sizeof(cached), "%s", env);
+        if (len > 4 && strcasecmp(env + len - 4, ".cue") == 0) {
+            /* A disc image: files come out of it into a cache folder,
+             * which also holds the saves. */
+            if (open_disc_image(env)) {
+                snprintf(cached, sizeof(cached), "%s", s_image_cache);
+            }
+        } else {
+            open_disc_in_folder(cached);
+        }
         return cached;
     }
 
@@ -351,7 +416,21 @@ int platform_resolve_path(const char *name, char *out, size_t out_size)
             return 1;
         }
     }
-    return resolve_in(data_dir(), name, out, out_size);
+    if (resolve_in(data_dir(), name, out, out_size)) {
+        return 1;
+    }
+    if (cdimage_is_open()) {
+        if (s_overlay_dir[0] != '\0') {
+            char inner[256];
+
+            snprintf(inner, sizeof(inner), "%s/%s", s_overlay_dir, name);
+            if (cdimage_resolve(inner, out, out_size)) {
+                return 1;
+            }
+        }
+        return cdimage_resolve(name, out, out_size);
+    }
+    return 0;
 }
 
 static int resolve_in(const char *dir, const char *name, char *out, size_t out_size)
@@ -801,6 +880,25 @@ void platform_cdaudio_shutdown(void)
  * folder (track02.m4a, .mp3, .wav or .aiff) is played when present. */
 static NSSound *s_cd_sound;
 
+/* An audio track of the disc image, mixed in by the audio callback. */
+static short *s_cd_pcm;          /* 16 bit stereo, 44.1 kHz */
+static u32 s_cd_frames, s_cd_pos;
+
+static void cd_render(short *out, int frames, int rate)
+{
+    int i;
+
+    (void)rate;     /* the mixer runs at the CD rate */
+    for (i = 0; i < frames; i++) {
+        if (s_cd_pcm == NULL || s_cd_pos >= s_cd_frames) {
+            out[i] = 0;
+            continue;
+        }
+        out[i] = (short)(((int)s_cd_pcm[s_cd_pos * 2] + s_cd_pcm[s_cd_pos * 2 + 1]) / 2);
+        s_cd_pos++;
+    }
+}
+
 void platform_cdaudio_play_track(int track)
 {
     static const char *const ext[] = { "m4a", "mp3", "wav", "aiff", "aif" };
@@ -809,6 +907,23 @@ void platform_cdaudio_play_track(int track)
     size_t i;
 
     platform_cdaudio_stop();
+    if (cdimage_is_open()) {
+        u32 frames = 0;
+        short *pcm = cdimage_read_audio(track, &frames);
+
+        if (getenv("AITD_TRACE") != NULL) {
+            fprintf(stderr, "cd track %d from the disc image: %u frames\n", track, frames);
+        }
+        if (pcm != NULL) {
+            pthread_mutex_lock(&s_voice_lock);
+            s_cd_pcm = pcm;
+            s_cd_frames = frames;
+            s_cd_pos = 0;
+            s_music_render = cd_render;
+            pthread_mutex_unlock(&s_voice_lock);
+            return;
+        }
+    }
     for (i = 0; i < sizeof(ext) / sizeof(ext[0]); i++) {
         snprintf(name, sizeof(name), "track%02d.%s", track, ext[i]);
         if (platform_resolve_path(name, path, sizeof(path))) {
@@ -822,6 +937,16 @@ void platform_cdaudio_play_track(int track)
 
 void platform_cdaudio_stop(void)
 {
+    if (s_cd_pcm != NULL) {
+        pthread_mutex_lock(&s_voice_lock);
+        if (s_music_render == cd_render) {
+            s_music_render = NULL;
+        }
+        free(s_cd_pcm);
+        s_cd_pcm = NULL;
+        s_cd_frames = s_cd_pos = 0;
+        pthread_mutex_unlock(&s_voice_lock);
+    }
     if (s_cd_sound != nil) {
         [s_cd_sound stop];
         s_cd_sound = nil;
@@ -830,6 +955,9 @@ void platform_cdaudio_stop(void)
 
 int platform_cdaudio_playing(void)
 {
+    if (s_cd_pcm != NULL) {
+        return s_cd_pos < s_cd_frames;
+    }
     return s_cd_sound != nil && [s_cd_sound isPlaying];
 }
 

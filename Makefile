@@ -16,7 +16,7 @@ CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
             $(SRCDIR)/anim.c $(SRCDIR)/hyb.c $(SRCDIR)/world.c $(SRCDIR)/draw.c \
             $(SRCDIR)/actor.c $(SRCDIR)/life.c $(SRCDIR)/lifemap.c $(SRCDIR)/ui.c $(SRCDIR)/inventory.c \
             $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c $(SRCDIR)/music.c $(SRCDIR)/opl.c $(SRCDIR)/hmp.c \
-            $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/mux.c $(SRCDIR)/stubs.c
+            $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/mux.c $(SRCDIR)/cdimage.c $(SRCDIR)/stubs.c
 MAC_SRC  := $(SRCDIR)/platform_macos.m
 
 CORE_OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILD)/%.o,$(CORE_SRC))
@@ -85,7 +85,7 @@ check: $(TARGET)
 	done
 
 clean:
-	rm -rf $(BUILD) $(TARGET) pak_dump music_render
+	rm -rf $(BUILD) $(TARGET) pak_dump music_render cd_dump
 
 # Offline tool: exercises the reconstructed .PAK reader against real data.
 TOOL_OBJ := $(filter-out $(BUILD)/main.o,$(OBJ))
@@ -98,6 +98,10 @@ music_render: $(TOOL_OBJ) $(BUILD)/music_render.o
 
 $(BUILD)/music_render.o: tools/music_render.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Dumps a CD, or a disc image the system has attached, to BIN/CUE.
+cd_dump: tools/cd_dump.c
+	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD)/pak_dump.o: tools/pak_dump.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@

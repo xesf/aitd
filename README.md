@@ -57,8 +57,24 @@ If you have the Windows Alone in the Dark 3, also copy `WAITD3.EXE` into
 `data/INDARK3`. The patterned polygon fill reads its noise from that
 file. Without it, the engine uses its own noise and the pattern differs.
 
-Alone in the Dark 3 and the CD release of Alone in the Dark play their
-music from the CD. Rip the audio tracks into the data folder as
+Instead of the files, you can give the engine a BIN/CUE image of the
+game CD. Point `AITD_DATA_DIR` at the `.cue` file, or put the `.cue` and
+its `.bin` files in the game's data folder. The engine copies each game
+file out of the image the first time it needs it, into
+`~/Library/Caches/aitd/<image name>/`, and plays the CD music straight
+from the audio tracks. When you point at the `.cue` file, saves go to
+that cache folder too.
+
+```sh
+AITD_DATA_DIR=~/Games/ALONE.cue ./aitd3
+```
+
+The engine reads MODE1 and MODE2 data tracks (2048 or 2352 byte
+sectors) and audio tracks in BINARY, MOTOROLA or WAVE files. It does not
+read MDX, MDS or CCD images. Convert those to BIN/CUE first.
+
+Without an image, Alone in the Dark 3 and the CD release of Alone in the
+Dark play their music from ripped tracks. Rip the audio tracks into the data folder as
 `track02.m4a`, `track03.m4a` and so on, numbered as on the CD. The engine
 also accepts `.mp3`, `.wav` and `.aiff` files. Without the tracks these
 games play no music. The floppy release of Alone in the Dark plays its

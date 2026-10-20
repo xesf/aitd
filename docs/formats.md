@@ -11,6 +11,28 @@ coordinates are stored in tenths of that scale; this page calls those
 
 The source file that reads each format is named in its section.
 
+## Disc images (BIN/CUE)
+
+`src/cdimage.c`
+
+A CUE sheet is text. `FILE "name" type` names a data file: `BINARY`,
+`MOTOROLA` (big endian audio) or `WAVE`. `TRACK nn mode` starts a track
+in the current file, with mode `MODE1/2048`, `MODE1/2352`, `MODE2/2352` or
+`AUDIO`. `INDEX 01 mm:ss:ff` gives where the track starts in its file,
+at 75 frames a second. A track runs to the next track of the same file
+(its `INDEX 00` when present) or to the end of the file.
+
+In a 2352 byte sector the 2048 bytes of data start at offset 16 for
+MODE1 and at 24 for MODE2 form 1. Audio sectors hold 588 frames of 16 bit
+stereo samples at 44.1 kHz.
+
+The first data track holds an ISO 9660 file system. The engine reads the
+primary volume descriptor in sector 16 and walks the directory records
+from the root record at offset 156. A record has the extent at `+2`, the
+size at `+10`, the flags at `+25` (bit 1 marks a directory), the name
+length at `+32` and the name at `+33`, ended by `;1`. The game folder is
+the directory that holds `ITD_RESS.PAK`.
+
 ## PAK containers
 
 `src/pak.c`, `src/explode.c`
