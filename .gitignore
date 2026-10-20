@@ -14,3 +14,6 @@ __pycache__/
 *.pyc
 ida/*.i64
 music_render
+cd_dump
+cd_dump/
+cd_dump.dSYM/
