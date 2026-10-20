@@ -1162,12 +1162,15 @@ s16 actor_create(s16 body_index, s16 zv_type, s16 flags, s16 zone, s16 x,
  * player and chasing monsters use 0, room triggers 1, doors 2. Read with
  * the WAITD3 numbering, room triggers ran on the whole floor: the
  * corridor zombie of floor 1 was released and the attic window zombie
- * took the camera during the intro. Returns the WAITD3 class.
+ * took the camera during the intro. A -1 object still gets an actor in a
+ * room the camera shows, so it can be drawn or be a camera target (the
+ * mark the intro points the camera at when Carnby leaves the car); its
+ * script never runs. Returns the WAITD3 class.
  */
 static int life_mode_class(s16 mode)
 {
     if (game_current()->life_dialect == LIFE_DIALECT_AITD1) {
-        return mode == -1 ? LIFE_MODE_OFF : (mode & 3) + 1;
+        return mode == -1 ? LIFE_MODE_VISIBLE : (mode & 3) + 1;
     }
     return mode & 3;
 }
