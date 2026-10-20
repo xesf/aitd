@@ -156,8 +156,8 @@ static s16 actor_object(s16 actor_index)
     return g_actors[actor_index].object;
 }
 
-/* 0x40faef */
-static u8 matrix_lookup(s16 table, s16 a1, s16 a2)
+/* 0x40faef - the table bytes are signed: the scripts test for -1. */
+static s16 matrix_lookup(s16 table, s16 a1, s16 a2)
 {
     const u8 *t;
     u8 n;
@@ -170,7 +170,7 @@ static u8 matrix_lookup(s16 table, s16 a1, s16 a2)
         return 0;
     }
     n = t[0];
-    return t[2 + (u32)n * (u16)(g_actors[a1].material - 1)
+    return (s8)t[2 + (u32)n * (u16)(g_actors[a1].material - 1)
              + (u16)(g_actors[a2].material - 1)];
 }
 
