@@ -17,7 +17,11 @@
 #include <string.h>
 
 #include "aitd.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "anim.h"
+#include "game.h"
 #include "menu.h"
 #include "palette.h"
 #include "platform.h"
@@ -29,6 +33,35 @@
  */
 #define FADE_STEP 0x80
 #define FADE_FULL 0x100
+
+/*
+ * The DOS titles (AITD1, AITD2, Jack) fade by the step their caller gives,
+ * one step per screen refresh (INDARK.EXE FadeInPhys / FadeOutPhys), so
+ * palette_fade_out(8) takes 32 refreshes. WAITD3 ignores the argument and
+ * runs three steps. Each step is held for a 1/60 s tick: without that the
+ * fade between the intro and the game finished before it was seen.
+ */
+static int fade_step(s16 requested)
+{
+    if (game_id() == GAME_AITD1 || game_id() == GAME_AITD2 || game_id() == GAME_JACK) {
+        return (requested > 0 && requested <= FADE_FULL) ? requested : 8;
+    }
+    return FADE_STEP;
+}
+
+static void fade_present(void)
+{
+    u32 start = platform_get_ticks();
+
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u fade step\n", start);
+    }
+    platform_video_present(g_present_buffer != NULL ? g_present_buffer : g_blit_source,
+                           g_blit_width, g_blit_height);
+    while (platform_get_ticks() - start < 17) {
+        platform_delay(1);
+    }
+}
 
 s16 g_fade_state;  /* 0x43505e, 2 requests a fade out */
 
@@ -77,30 +110,27 @@ void palette_blackout(void)
  * The first argument is accepted and ignored, exactly as the original does,
  * so call sites keep reading the way the disassembly does.
  */
-void palette_fade(s16 ignored, s16 first_index)
+void palette_fade(s16 step_request, s16 first_index)
 {
     u8 scaled[AITD_PALETTE_BYTES];
     int level;
-
-    (void)ignored;
+    int step = fade_step(step_request);
 
     ticks_freeze();  /* 0x40af7b */
 
     if (g_fade_state == 2) {
         /* 0x40af8a: fade out, full down to black. */
-        for (level = FADE_FULL; level >= 0; level -= FADE_STEP) {
+        for (level = FADE_FULL; level >= 0; level -= step) {
             palette_scale(g_palette_buffer, scaled, level);
             palette_set_range(scaled, 0, 256);
-            platform_video_present(g_present_buffer != NULL ? g_present_buffer : g_blit_source,
-                                   g_blit_width, g_blit_height);
+            fade_present();
         }
     } else {
         /* 0x40afe5: fade in, black up to full. */
-        for (level = 0; level <= FADE_FULL; level += FADE_STEP) {
-            palette_scale(g_palette_buffer, scaled, level);
+        for (level = 0; level < FADE_FULL + step; level += step) {
+            palette_scale(g_palette_buffer, scaled, level > FADE_FULL ? FADE_FULL : level);
             palette_set_range(scaled, first_index, 256);
-            platform_video_present(g_present_buffer != NULL ? g_present_buffer : g_blit_source,
-                                   g_blit_width, g_blit_height);
+            fade_present();
         }
     }
 
@@ -116,20 +146,18 @@ void palette_fade(s16 ignored, s16 first_index)
  * palette_fade it accepts a first argument and never reads it (0x40b05f
  * overwrites eax with the step), so call sites keep their original shape.
  */
-void palette_fade_out(s16 ignored, s16 first_index)
+void palette_fade_out(s16 step_request, s16 first_index)
 {
     u8 scaled[AITD_PALETTE_BYTES];
     int level;
-
-    (void)ignored;
+    int step = fade_step(step_request);
 
     ticks_freeze();
 
-    for (level = FADE_FULL; level >= 0; level -= FADE_STEP) {
-        palette_scale(g_palette_buffer, scaled, level);
+    for (level = FADE_FULL; level > -step; level -= step) {
+        palette_scale(g_palette_buffer, scaled, level < 0 ? 0 : level);
         palette_set_range(scaled, first_index, 256);
-        platform_video_present(g_present_buffer != NULL ? g_present_buffer : g_blit_source,
-                                   g_blit_width, g_blit_height);
+        fade_present();
     }
 
     g_fade_state = 0;
