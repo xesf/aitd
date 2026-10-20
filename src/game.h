@@ -56,6 +56,13 @@ enum palette_source {
     PALETTE_CAMERA_8BIT /* after the pixels, 0..255 (AITD3, Time Gate) */
 };
 
+/* How the ITD_RESS font stores its glyphs. */
+enum font_format {
+    FONT_GLYPH_RECORDS, /* a record and a byte bitmap per glyph (WAITD3, Time Gate) */
+    FONT_BITMAP         /* one 1 bit strip and a width table (AITD1, AITD2, Jack,
+                           DOS AITD3) */
+};
+
 /* Main menu presentation. */
 enum menu_style {
     MENU_STYLE_PICTURE, /* ITD_RESS picture and four text rows (AITD3) */
@@ -157,6 +164,8 @@ struct game_profile {
     /* game_run arguments for a new game and for the intro (-1: none). */
     int start_floor, start_room;
     int intro_floor, intro_room;
+
+    enum font_format font_format;
 };
 
 /* Chooses a profile by probing the data directory. AITD_GAME overrides the

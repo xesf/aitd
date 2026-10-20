@@ -47,7 +47,8 @@ static const struct game_profile s_aitd1 = {
     "LISTSAMP", { 16, 26, 2, 57, 1, 183 },
     NULL, 0, NULL, boot_aitd1_intro, boot_aitd1_attract, boot_aitd1_new_game, MENU_STYLE_FRAMED, INVENTORY_FRAMED, -1,
     MUSIC_ADLIB, "LISTMUS.PAK", -1,
-    0, 0, 7, 1
+    0, 0, 7, 1,
+    FONT_BITMAP
 };
 
 static const struct game_profile s_jack = {
@@ -60,7 +61,8 @@ static const struct game_profile s_jack = {
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     SEQUENCES(s_sequences_jack), NULL, NULL, NULL, NULL, MENU_STYLE_NONE, INVENTORY_FRAMED, 2,
     MUSIC_ADLIB, "LISTMUS.PAK", -1,
-    16, 1, -1, -1
+    16, 1, -1, -1,
+    FONT_BITMAP
 };
 
 static const struct game_profile s_aitd2 = {
@@ -73,7 +75,8 @@ static const struct game_profile s_aitd2 = {
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     SEQUENCES(s_sequences_aitd2), NULL, NULL, NULL, NULL, MENU_STYLE_FRAMED, INVENTORY_PICTURE, 59,
     MUSIC_ADLIB, "LISTMUS.PAK", -1,
-    8, 7, 8, 0
+    8, 7, 8, 0,
+    FONT_BITMAP
 };
 
 static const struct game_profile s_aitd3 = {
@@ -86,7 +89,8 @@ static const struct game_profile s_aitd3 = {
     "LISTSAMP", { 14, 0x50, 8, 0xd0, 0, 185 },
     NULL, 0, NULL, NULL, NULL, NULL, MENU_STYLE_PICTURE, INVENTORY_DIMMED, -1,
     MUSIC_CD, NULL, -1,
-    0, 12, 1, 0
+    0, 12, 1, 0,
+    FONT_GLYPH_RECORDS
 };
 
 static const struct game_profile s_timegate = {
@@ -99,7 +103,8 @@ static const struct game_profile s_timegate = {
     "SAMPLES", { 80, 100, 80, 0x104, 0, 185 },
     NULL, 0, s_intro_timegate, NULL, NULL, NULL, MENU_STYLE_RING, INVENTORY_ICONS, -1,
     MUSIC_TG_DOS, "MUSIC.PAK", 0,
-    0, 5, -1, -1
+    0, 5, -1, -1,
+    FONT_GLYPH_RECORDS
 };
 
 /* The Windows build keeps ITD_RESS and LISTHYB in a folder per resolution. */
@@ -213,6 +218,7 @@ const struct game_profile *game_detect(void)
         dos.room_prefix = "ETAGE";
         dos.background_header = 0;          /* 64000 pixels, 6 bit palette */
         dos.palette_source = PALETTE_CAMERA_6BIT;
+        dos.font_format = FONT_BITMAP;     /* the older titles' font */
         s_current = &dos;
     }
     if (s_current->id == GAME_AITD1 && file_present("000000.VOC")) {

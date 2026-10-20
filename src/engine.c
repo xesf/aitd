@@ -119,8 +119,8 @@ static void load_font(void)
     }
 
     font_set_data(g_font_data);       /* 0x407234 */
-    font_set_old_format(game_id() == GAME_AITD1 || game_id() == GAME_AITD2
-                        || game_id() == GAME_JACK, game_current()->font_spacing);
+    font_set_old_format(game_current()->font_format == FONT_BITMAP,
+                        game_current()->font_spacing);
     font_set_spacing((u16)game_current()->font_spacing); /* 0x40723e */
     font_set_color_table(g_font_color_table); /* 0x407248, 0x44485c */
 
