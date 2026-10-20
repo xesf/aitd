@@ -306,15 +306,16 @@ static int open_disc_image(const char *cue)
     return cdimage_open(cue, s_image_cache);
 }
 
-/* A data folder that holds a .cue sheet instead of the game files. */
+/* A .cue sheet in the data folder is the game CD in the drive: installed
+ * files are read from the folder, files only on the disc come out of the
+ * image, and CD audio plays from its tracks. */
 static void open_disc_in_folder(const char *dir)
 {
     char path[1024];
     DIR *handle;
     struct dirent *entry;
 
-    snprintf(path, sizeof(path), "%s/ITD_RESS.PAK", dir);
-    if (access(path, R_OK) == 0 || (handle = opendir(dir)) == NULL) {
+    if ((handle = opendir(dir)) == NULL) {
         return;
     }
     while ((entry = readdir(handle)) != NULL) {

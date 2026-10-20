@@ -26,6 +26,10 @@ int cdimage_is_open(void);
  * Returns 1 when the disc has the file. */
 int cdimage_resolve(const char *name, char *out, size_t out_size);
 
+/* Copies every file of the game folder into the cache, as the game's
+ * installer would. Returns the number of files copied. */
+int cdimage_extract_all(void);
+
 /* Audio track `track` (1 based, as on the disc) as 16 bit stereo samples
  * at 44.1 kHz. Returns a malloc'd buffer the caller frees, or NULL when
  * the track is missing or not audio. `frames` receives the frame count. */

@@ -10,6 +10,7 @@
  *   --stage=font     init, then draw the font glyph sheet from ITD_RESS entry 1
  *   --stage=intro    init, then game_run(1, 0, 0) - the intro
  *   --stage=menu     init, then one pass of main_menu_run
+ *   --stage=install  copy the game folder out of the disc image
  *
  * AITD_FRAMES caps how long the presenting stages run, so a scripted check
  * never blocks.
@@ -20,6 +21,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "cdimage.h"
 #include "game.h"
 #include "harness.h"
 #include "platform.h"
@@ -238,6 +240,17 @@ int harness_run(int argc, char **argv)
         game_run(floor ? (s16)atoi(floor) : (s16)game_current()->start_floor,
                  room ? (s16)atoi(room) : (s16)game_current()->start_room, 1);
         engine_shutdown();
+        return 1;
+    }
+
+    if (strcmp(stage, "install") == 0) {
+        /* Copy the game folder out of the disc image in AITD_DATA_DIR. */
+        char path[1024];
+        int count;
+
+        platform_resolve_path("ITD_RESS.PAK", path, sizeof(path));
+        count = cdimage_extract_all();
+        printf("installed %d files from the disc image\n", count);
         return 1;
     }
 

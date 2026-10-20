@@ -69,6 +69,24 @@ that cache folder too.
 AITD_DATA_DIR=~/Games/ALONE.cue ./aitd3
 ```
 
+The image works as the installation. The game's own installer copied
+part of the CD to the hard disk and read the rest, with the music and
+speech, from the CD. Here the engine copies each file the first time it
+is needed, and keeps reading audio from the image. To copy every game
+file at once, run the `install` stage:
+
+```sh
+AITD_DATA_DIR=~/Games/AITD3.cue ./aitd3 --stage=install
+```
+
+When a data folder holds both the installed files and a `.cue`, the
+engine reads the files from the folder and only the missing files and
+the audio from the image, like a game installed with its CD in the
+drive.
+
+The DOS release of Alone in the Dark 3 (floors in `ETAGE` files) runs
+from its CD image as well as the Windows release.
+
 The engine reads MODE1 and MODE2 data tracks (2048 or 2352 byte
 sectors) and audio tracks in BINARY, MOTOROLA or WAVE files. It does not
 read MDX, MDS or CCD images. Convert those to BIN/CUE first.

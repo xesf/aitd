@@ -426,6 +426,17 @@ int cdimage_resolve(const char *name, char *out, size_t out_size)
     snprintf(path, sizeof(path), "%s%s%s", s_root, s_root[0] ? "/" : "", name);
     e = find_entry(path);
     if (e == NULL) {
+        int i;
+
+        /* A folder (Time Gate's 320/ and 640/): made in the cache. */
+        for (i = 0; i < s_entry_count; i++) {
+            if (s_entries[i].dir && strcasecmp(s_entries[i].path, path) == 0) {
+                snprintf(out, out_size, "%s/%s/", s_cache, s_entries[i].path);
+                make_dirs(out);
+                out[strlen(out) - 1] = '\0';
+                return 1;
+            }
+        }
         return 0;
     }
     if (snprintf(out, out_size, "%s/%s", s_cache, e->path) >= (int)out_size) {
@@ -494,4 +505,29 @@ short *cdimage_read_audio(int track, u32 *frames)
     }
     *frames = (u32)(bytes / 4);
     return pcm;
+}
+
+int cdimage_extract_all(void)
+{
+    char out[1024];
+    size_t root_len = strlen(s_root);
+    int i, count = 0;
+
+    for (i = 0; s_open && i < s_entry_count; i++) {
+        const char *path = s_entries[i].path;
+
+        if (s_entries[i].dir) {
+            continue;
+        }
+        if (root_len > 0) {
+            if (strncasecmp(path, s_root, root_len) != 0 || path[root_len] != '/') {
+                continue;
+            }
+            path += root_len + 1;
+        }
+        if (cdimage_resolve(path, out, sizeof(out))) {
+            count++;
+        }
+    }
+    return count;
 }

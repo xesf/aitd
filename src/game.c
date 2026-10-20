@@ -203,6 +203,19 @@ const struct game_profile *game_detect(void)
     if (s_current->id == GAME_TIMEGATE && folder_present("640")) {
         s_current = knights_profile();
     }
+    if (s_current->id == GAME_AITD3 && !file_present("SAL00.PAK") && file_present("ETAGE00.PAK")) {
+        /* The DOS release (AITD3.EXE) keeps its floors in ETAGE blobs like
+         * AITD2; the Windows one has SAL and CAM files. */
+        static struct game_profile dos;
+
+        dos = *s_current;
+        dos.name = "Alone in the Dark 3 (DOS)";
+        dos.floor_layout = FLOOR_ETAGE_BLOB;
+        dos.room_prefix = "ETAGE";
+        dos.background_header = 0;          /* 64000 pixels, 6 bit palette */
+        dos.palette_source = PALETTE_CAMERA_6BIT;
+        s_current = &dos;
+    }
     if (s_current->id == GAME_AITD1 && file_present("000000.VOC")) {
         /* The CD release (speech in VOC files): INDARK.EXE PlayMusic
          * (0x6c2b) only plays CD audio, track = the MUSIC number, and its
