@@ -19,6 +19,7 @@
 
 #import <AppKit/AppKit.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <QuartzCore/QuartzCore.h>
 #include <pthread.h>
 #include <stdlib.h>
 
@@ -607,6 +608,10 @@ void platform_video_present(const u8 *indexed_pixels, int width, int height)
     @autoreleasepool {
         [s_view setNeedsDisplay:YES];
         [s_view displayIfNeeded];
+        /* The view's layer reaches the screen when the run loop commits;
+         * loops that present without polling events (the palette fades)
+         * commit here, or only their last step would ever show. */
+        [CATransaction flush];
     }
 }
 

@@ -53,9 +53,7 @@ static void fade_present(void)
 {
     u32 start = platform_get_ticks();
 
-    if (getenv("AITD_TRACE") != NULL) {
-        fprintf(stderr, "%6u fade step\n", start);
-    }
+
     platform_video_present(g_present_buffer != NULL ? g_present_buffer : g_blit_source,
                            g_blit_width, g_blit_height);
     while (platform_get_ticks() - start < 17) {
@@ -116,6 +114,9 @@ void palette_fade(s16 step_request, s16 first_index)
     int level;
     int step = fade_step(step_request);
 
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u fade %s, step %d\n", platform_get_ticks(), g_fade_state == 2 ? "out" : "in", step);
+    }
     ticks_freeze();  /* 0x40af7b */
 
     if (g_fade_state == 2) {
@@ -152,6 +153,9 @@ void palette_fade_out(s16 step_request, s16 first_index)
     int level;
     int step = fade_step(step_request);
 
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "%6u fade out, step %d\n", platform_get_ticks(), step);
+    }
     ticks_freeze();
 
     for (level = FADE_FULL; level > -step; level -= step) {

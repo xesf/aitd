@@ -26,7 +26,7 @@ OBJ      := $(CORE_OBJ) $(MAC_OBJ)
 CC       := clang
 CFLAGS   := -std=c99 -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
 OBJCFLAGS := -fobjc-arc -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
-LDFLAGS  := -lz -framework AppKit -framework CoreGraphics -framework AudioToolbox
+LDFLAGS  := -lz -framework AppKit -framework CoreGraphics -framework AudioToolbox -framework QuartzCore
 
 .PHONY: all clean run
 
