@@ -411,6 +411,17 @@ static void make_dirs(const char *path)
     }
 }
 
+/* A disc path inside the game folder, as it is laid out on disk. */
+static const char *local_path(const char *path)
+{
+    size_t n = strlen(s_root);
+
+    if (n > 0 && strncasecmp(path, s_root, n) == 0 && path[n] == '/') {
+        return path + n + 1;
+    }
+    return path;
+}
+
 int cdimage_resolve(const char *name, char *out, size_t out_size)
 {
     char path[512];
@@ -431,7 +442,7 @@ int cdimage_resolve(const char *name, char *out, size_t out_size)
         /* A folder (Time Gate's 320/ and 640/): made in the cache. */
         for (i = 0; i < s_entry_count; i++) {
             if (s_entries[i].dir && strcasecmp(s_entries[i].path, path) == 0) {
-                snprintf(out, out_size, "%s/%s/", s_cache, s_entries[i].path);
+                snprintf(out, out_size, "%s/%s/", s_cache, local_path(s_entries[i].path));
                 make_dirs(out);
                 out[strlen(out) - 1] = '\0';
                 return 1;
@@ -439,7 +450,7 @@ int cdimage_resolve(const char *name, char *out, size_t out_size)
         }
         return 0;
     }
-    if (snprintf(out, out_size, "%s/%s", s_cache, e->path) >= (int)out_size) {
+    if (snprintf(out, out_size, "%s/%s", s_cache, local_path(e->path)) >= (int)out_size) {
         return 0;
     }
     if (stat(out, &st) == 0 && (u32)st.st_size == e->size) {

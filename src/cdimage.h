@@ -16,7 +16,8 @@
 
 /* Opens a CUE sheet and indexes the file system of its first data track.
  * Returns 1 on success. Files found in the image are copied on first use
- * to `cache_dir`, which must exist. */
+ * into `cache_dir` (the data folder), laid out as in the game folder on
+ * the disc. */
 int cdimage_open(const char *cue_path, const char *cache_dir);
 void cdimage_close(void);
 int cdimage_is_open(void);

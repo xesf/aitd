@@ -58,12 +58,11 @@ If you have the Windows Alone in the Dark 3, also copy `WAITD3.EXE` into
 file. Without it, the engine uses its own noise and the pattern differs.
 
 Instead of the files, you can give the engine a BIN/CUE image of the
-game CD. Point `AITD_DATA_DIR` at the `.cue` file, or put the `.cue` and
-its `.bin` files in the game's data folder. The engine copies each game
-file out of the image the first time it needs it, into
-`~/Library/Caches/aitd/<image name>/`, and plays the CD music straight
-from the audio tracks. When you point at the `.cue` file, saves go to
-that cache folder too.
+game CD. Put the `.cue` and its `.bin` files in the game's data folder,
+or point `AITD_DATA_DIR` at the `.cue` file. The folder that holds the
+image is the data folder: the engine copies each game file out of the
+image into that folder the first time it needs it, and the saves go
+there too. It plays the CD music straight from the audio tracks.
 
 ```sh
 AITD_DATA_DIR=~/Games/ALONE.cue ./aitd3
@@ -71,8 +70,8 @@ AITD_DATA_DIR=~/Games/ALONE.cue ./aitd3
 
 The image works as the installation. The game's own installer copied
 part of the CD to the hard disk and read the rest, with the music and
-speech, from the CD. Here the engine copies each file the first time it
-is needed, and keeps reading audio from the image. To copy every game
+speech, from the CD. Here the engine copies each file next to the image
+the first time it is needed, and keeps reading audio from the image. To copy every game
 file at once, run the `install` stage:
 
 ```sh

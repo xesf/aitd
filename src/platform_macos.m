@@ -277,33 +277,11 @@ static aitd_window_delegate *s_delegate;
  */
 /* ---- disc images ------------------------------------------------------- */
 
-static char s_image_cache[1024];
-
-/* ~/Library/Caches/aitd/<image name>, created. */
-static int open_disc_image(const char *cue)
+/* Files come out of the image into `dir`, the data folder, so they stay
+ * next to the image where the user put it. */
+static int open_disc_image(const char *cue, const char *dir)
 {
-    const char *home = getenv("HOME");
-    const char *base = strrchr(cue, '/');
-    char name[256];
-    size_t len;
-
-    base = base != NULL ? base + 1 : cue;
-    snprintf(name, sizeof(name), "%s", base);
-    len = strlen(name);
-    if (len > 4) {
-        name[len - 4] = '\0';
-    }
-    snprintf(s_image_cache, sizeof(s_image_cache), "%s/Library/Caches/aitd/%s/",
-             home != NULL ? home : "/tmp", name);
-    for (char *p = s_image_cache + 1; *p != '\0'; p++) {
-        if (*p == '/') {
-            *p = '\0';
-            mkdir(s_image_cache, 0755);
-            *p = '/';
-        }
-    }
-    s_image_cache[strlen(s_image_cache) - 1] = '\0';
-    return cdimage_open(cue, s_image_cache);
+    return cdimage_open(cue, dir);
 }
 
 /* A .cue sheet in the data folder is the game CD in the drive: installed
@@ -322,7 +300,7 @@ static void open_disc_in_folder(const char *dir)
         size_t len = strlen(entry->d_name);
         if (len > 4 && strcasecmp(entry->d_name + len - 4, ".cue") == 0) {
             snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name);
-            open_disc_image(path);
+            open_disc_image(path, dir);
             break;
         }
     }
@@ -343,11 +321,17 @@ static const char *data_dir(void)
 
         snprintf(cached, sizeof(cached), "%s", env);
         if (len > 4 && strcasecmp(env + len - 4, ".cue") == 0) {
-            /* A disc image: files come out of it into a cache folder,
-             * which also holds the saves. */
-            if (open_disc_image(env)) {
-                snprintf(cached, sizeof(cached), "%s", s_image_cache);
+            /* A disc image: the folder that holds it is the data folder,
+             * and the files copied out of the image and the saves go
+             * there. */
+            char *slash = strrchr(cached, '/');
+
+            if (slash != NULL) {
+                *slash = '\0';
+            } else {
+                snprintf(cached, sizeof(cached), ".");
             }
+            open_disc_image(env, cached);
         } else {
             open_disc_in_folder(cached);
         }
