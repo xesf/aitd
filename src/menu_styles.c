@@ -71,7 +71,7 @@ static void framed_draw(int selected)
     raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
     for (i = 0; i < 3; i++, y = (s16)(y + 16)) {
         if (i == selected) {
-            raster_rect(10, 309, y, (s16)(y + 16), 100);
+            raster_rect((s16)(g_window[0] + 2), (s16)(g_window[2] - 2), y, (s16)(y + 16), 100);
             text_draw_centered_shadowed(160, y, (s16)(11 + i), 15, 4);
         } else {
             text_draw_centered(160, y, (s16)(11 + i), 4);

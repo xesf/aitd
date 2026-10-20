@@ -154,7 +154,7 @@ static s16 inventory_draw_list(s16 first, s16 selected, u8 colour)
         if (first == selected) {
             if (s_style == INVENTORY_FRAMED) {
                 if (colour == 15) {
-                    raster_rect(10, 309, y, (s16)(y + 16), 100);
+                    raster_rect((s16)(g_window[0] + 2), (s16)(g_window[2] - 2), y, (s16)(y + 16), 100);
                 }
                 text_draw_centered_shadowed(160, y, o->found_name, colour, 4);
             } else {
