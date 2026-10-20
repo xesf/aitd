@@ -57,9 +57,12 @@ If you have the Windows Alone in the Dark 3, also copy `WAITD3.EXE` into
 `data/INDARK3`. The patterned polygon fill reads its noise from that
 file. Without it, the engine uses its own noise and the pattern differs.
 
-For the Alone in the Dark 3 music, put the CD audio tracks next to the
-data as `track02.m4a`, `track03.m4a` and so on. The engine also accepts
-`.mp3`, `.wav` and `.aiff` files.
+Alone in the Dark 3 and the CD release of Alone in the Dark play their
+music from the CD. Rip the audio tracks into the data folder as
+`track02.m4a`, `track03.m4a` and so on, numbered as on the CD. The engine
+also accepts `.mp3`, `.wav` and `.aiff` files. Without the tracks these
+games play no music. The floppy release of Alone in the Dark plays its
+AdLib music from `LISTMUS.PAK`.
 
 ## Run
 

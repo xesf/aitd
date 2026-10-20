@@ -203,6 +203,18 @@ const struct game_profile *game_detect(void)
     if (s_current->id == GAME_TIMEGATE && folder_present("640")) {
         s_current = knights_profile();
     }
+    if (s_current->id == GAME_AITD1 && file_present("000000.VOC")) {
+        /* The CD release (speech in VOC files): INDARK.EXE PlayMusic
+         * (0x6c2b) only plays CD audio, track = the MUSIC number, and its
+         * scripts number the music that way; LISTMUS.PAK is a leftover
+         * of the floppy release that this build never opens. */
+        static struct game_profile cd;
+
+        cd = *s_current;
+        cd.name = "Alone in the Dark (CD)";
+        cd.music_source = MUSIC_CD;
+        s_current = &cd;
+    }
     platform_set_overlay_dir(s_current->resolution_dir);
     return s_current;
 }

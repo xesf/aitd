@@ -265,10 +265,14 @@ void music_play(s16 music)
     }
     g_music_pending = music;
     if (music >= 0) {
-        if (music == 21) {
-            track = (s16)(g_voice_cfg_value + 21);
+        if (game_id() == GAME_AITD1) {
+            platform_cdaudio_play_track(track);   /* INDARK.EXE 0x6e67 */
+        } else {
+            if (music == 21) {
+                track = (s16)(g_voice_cfg_value + 21);
+            }
+            platform_cdaudio_play_track(track + 1);
         }
-        platform_cdaudio_play_track(track + 1);
         s_music_length = 0xffffffffu;   /* the host reports no length */
         timer_reset_u32(&s_music_timer);
     }
@@ -321,7 +325,10 @@ void audio_frame(void)
             if (timer_elapsed_u32(&s_music_wait) >= 180) {
                 music_play(g_music_next);
             }
-        } else if (timer_elapsed_u32(&s_music_timer) >= s_music_length) {
+        } else if (timer_elapsed_u32(&s_music_timer) >= s_music_length
+                   || (timer_elapsed_u32(&s_music_timer) >= 60 && !platform_cdaudio_playing())) {
+            /* The host gives no track length; a track that stopped has
+             * ended. */
             g_music_pending = -1;
             if (g_music_next != -1) {
                 music_play(g_music_next);

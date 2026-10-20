@@ -176,8 +176,8 @@ mixes them into a 16 bit, 44.1 kHz stream. Music depends on the game:
 
 | Game | Source | Code |
 |---|---|---|
-| Alone in the Dark 1, 2 and Jack | AdLib songs | `music.c` plays them on an OPL2 synthesizer in `opl.c` |
-| Alone in the Dark 3 | CD audio | ripped tracks from the data folder |
+| Alone in the Dark 1 (floppy), 2 and Jack | AdLib songs | `music.c` plays them on an OPL2 synthesizer in `opl.c` |
+| Alone in the Dark 1 (CD), 3 | CD audio | ripped tracks from the data folder |
 | Time Gate, DOS | HMP songs | `hmp.c` converts them to MIDI |
 | Time Gate, Windows | MIDI | played through the system synthesizer |
 
