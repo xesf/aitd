@@ -511,6 +511,9 @@ void game_scene_loop(s16 flag)
             if (g_frame_dump_path != NULL) {
                 dump_screen(g_frame_dump_path);
             }
+            if (getenv("AITD_CAPTURE") != NULL) {     /* the screen as shown */
+                platform_video_capture(getenv("AITD_CAPTURE"));
+            }
             g_quit_requested = 1;
         }
 

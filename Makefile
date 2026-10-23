@@ -121,6 +121,25 @@ $(W9X_BUILD)/%.obj: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
 	@mkdir -p $(dir $@)
 	$(WCC) -bt=nt -DAITD_WIN9X -i=$(WATCOM)/h/nt $(WCC_FLAGS) $< -fo=$@
 
+# MS-DOS: a DOS/4G-style LE program with the DOS/32A stub, which loads
+# dos32a.exe from the program's folder.
+DOS_BUILD  := $(BUILD)/dos
+DOS_SRC    := $(ENGINE_SRC) src/platforms/dos.c
+DOS_OBJ    := $(patsubst src/%.c,$(DOS_BUILD)/%.obj,$(DOS_SRC))
+DOS_EXE    := $(DOS_BUILD)/aitd.exe
+
+.PHONY: dos
+dos: $(DOS_EXE)
+
+$(DOS_EXE): $(DOS_OBJ)
+	$(WLINK) option quiet system dos4g option stub=$(WATCOM)/binw/stub32a.exe \
+	    option stack=256k name $@ $(foreach o,$(DOS_OBJ),file $(o))
+	cp $(WATCOM)/binw/dos32a.exe $(DOS_BUILD)/
+
+$(DOS_BUILD)/%.obj: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
+	@mkdir -p $(dir $@)
+	$(WCC) -bt=dos -DAITD_NO_THREADS $(WCC_FLAGS) $< -fo=$@
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 
