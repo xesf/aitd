@@ -33,8 +33,8 @@
 #include <stdlib.h>
 
 #include "aitd.h"
-#include "cdimage.h"
 #include "platform.h"
+#include "platforms/backend.h"
 
 /* ---- state ------------------------------------------------------------- */
 
@@ -84,6 +84,41 @@ static int event_pop(struct platform_event *out)
     *out = s_events[s_event_head];
     s_event_head = (s_event_head + 1) % EVENT_QUEUE_SIZE;
     return 1;
+}
+
+/* macOS kVK_* code -> PC set 1 scancode. Zero means unmapped. */
+static const u8 s_mac_to_scancode[128] = {
+    [0x00] = 0x1e, /* A */  [0x01] = 0x1f, /* S */  [0x02] = 0x20, /* D */
+    [0x03] = 0x21, /* F */  [0x04] = 0x23, /* H */  [0x05] = 0x22, /* G */
+    [0x06] = 0x2c, /* Z */  [0x07] = 0x2d, /* X */  [0x08] = 0x2e, /* C */
+    [0x09] = 0x2f, /* V */  [0x0b] = 0x30, /* B */  [0x0c] = 0x10, /* Q */
+    [0x0d] = 0x11, /* W */  [0x0e] = 0x12, /* E */  [0x0f] = 0x13, /* R */
+    [0x10] = 0x15, /* Y */  [0x11] = 0x14, /* T */  [0x12] = 0x02, /* 1 */
+    [0x13] = 0x03, /* 2 */  [0x14] = 0x04, /* 3 */  [0x15] = 0x05, /* 4 */
+    [0x16] = 0x07, /* 6 */  [0x17] = 0x06, /* 5 */  [0x18] = 0x0d, /* = */
+    [0x19] = 0x0a, /* 9 */  [0x1a] = 0x08, /* 7 */  [0x1b] = 0x0c, /* - */
+    [0x1c] = 0x09, /* 8 */  [0x1d] = 0x0b, /* 0 */  [0x1e] = 0x1b, /* ] */
+    [0x1f] = 0x18, /* O */  [0x20] = 0x16, /* U */  [0x21] = 0x1a, /* [ */
+    [0x22] = 0x17, /* I */  [0x23] = 0x19, /* P */  [0x24] = 0x1c, /* Return */
+    [0x25] = 0x26, /* L */  [0x26] = 0x24, /* J */  [0x27] = 0x28, /* ' */
+    [0x28] = 0x25, /* K */  [0x29] = 0x27, /* ; */  [0x2a] = 0x2b, /* \ */
+    [0x2b] = 0x33, /* , */  [0x2c] = 0x35, /* / */  [0x2d] = 0x31, /* N */
+    [0x2e] = 0x32, /* M */  [0x2f] = 0x34, /* . */  [0x30] = 0x0f, /* Tab */
+    [0x31] = 0x39, /* Space */ [0x32] = 0x29, /* ` */ [0x33] = 0x0e, /* Backspace */
+    [0x35] = 0x01, /* Escape */ [0x38] = 0x2a, /* Shift */ [0x39] = 0x3a, /* Caps */
+    [0x3a] = 0x38, /* Option = Alt */ [0x3b] = 0x1d, /* Control */
+    [0x3c] = 0x36, /* right Shift */ [0x3d] = 0x38, [0x3e] = 0x9d, /* right Control */
+    [0x60] = 0x3f, /* F5 */ [0x61] = 0x40, /* F6 */ [0x62] = 0x41, /* F7 */
+    [0x63] = 0x3d, /* F3 */ [0x64] = 0x42, /* F8 */ [0x65] = 0x43, /* F9 */
+    [0x67] = 0x57, /* F11 */ [0x6d] = 0x44, /* F10 */ [0x6f] = 0x58, /* F12 */
+    [0x76] = 0x3e, /* F4 */ [0x78] = 0x3c, /* F2 */ [0x7a] = 0x3b, /* F1 */
+    [0x7b] = 0xcb, /* Left */ [0x7c] = 0xcd, /* Right */
+    [0x7d] = 0xd0, /* Down */ [0x7e] = 0xc8, /* Up */
+};
+
+static int mac_scancode(unsigned short key)
+{
+    return key < 128 ? s_mac_to_scancode[key] : 0;
 }
 
 /* ---- view -------------------------------------------------------------- */
@@ -171,7 +206,7 @@ static NSRect picture_rect(NSRect bounds)
     if (event.isARepeat) {
         return;
     }
-    event_push(PLATFORM_EVENT_KEY_DOWN, (int)event.keyCode, 0, 0);
+    event_push(PLATFORM_EVENT_KEY_DOWN, mac_scancode(event.keyCode), 0, 0);
 }
 
 /* Modifier keys only arrive as flag changes. Control is the game's second
@@ -189,12 +224,12 @@ static NSRect picture_rect(NSRect bounds)
 
     event_push((event.modifierFlags & mask) ? PLATFORM_EVENT_KEY_DOWN
                                             : PLATFORM_EVENT_KEY_UP,
-               (int)event.keyCode, 0, 0);
+               mac_scancode(event.keyCode), 0, 0);
 }
 
 - (void)keyUp:(NSEvent *)event
 {
-    event_push(PLATFORM_EVENT_KEY_UP, (int)event.keyCode, 0, 0);
+    event_push(PLATFORM_EVENT_KEY_UP, mac_scancode(event.keyCode), 0, 0);
 }
 
 /* Mouse coordinates are reported in the engine's own 320x200 space so the
@@ -272,181 +307,15 @@ static aitd_window_delegate *s_delegate;
 
 /* ---- data directory ---------------------------------------------------- */
 
-/*
- * Assets sit next to the executable by default, or inside Contents/Resources
- * when the binary is bundled. AITD_DATA_DIR overrides both.
- */
-/* ---- disc images ------------------------------------------------------- */
-
-/* Files come out of the image into `dir`, the data folder, so they stay
- * next to the image where the user put it. */
-static int open_disc_image(const char *cue, const char *dir)
+/* Assets sit inside Contents/Resources when the binary is bundled, or next
+ * to it. AITD_DATA_DIR overrides both (common.c). */
+void backend_default_data_dir(char *out, size_t out_size)
 {
-    return cdimage_open(cue, dir);
-}
+    @autoreleasepool {
+        NSString *resources = [[NSBundle mainBundle] resourcePath];
 
-/* A .cue sheet in the data folder is the game CD in the drive: installed
- * files are read from the folder, files only on the disc come out of the
- * image, and CD audio plays from its tracks. */
-static void open_disc_in_folder(const char *dir)
-{
-    char path[1024];
-    DIR *handle;
-    struct dirent *entry;
-
-    if ((handle = opendir(dir)) == NULL) {
-        return;
+        snprintf(out, out_size, "%s", resources != nil ? resources.UTF8String : ".");
     }
-    while ((entry = readdir(handle)) != NULL) {
-        size_t len = strlen(entry->d_name);
-        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".cue") == 0) {
-            snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name);
-            open_disc_image(path, dir);
-            break;
-        }
-    }
-    closedir(handle);
-}
-
-static const char *data_dir(void)
-{
-    static char cached[1024];
-
-    if (cached[0] != '\0') {
-        return cached;
-    }
-
-    const char *env = getenv("AITD_DATA_DIR");
-    if (env != NULL && env[0] != '\0') {
-        size_t len = strlen(env);
-
-        snprintf(cached, sizeof(cached), "%s", env);
-        if (len > 4 && strcasecmp(env + len - 4, ".cue") == 0) {
-            /* A disc image: the folder that holds it is the data folder,
-             * and the files copied out of the image and the saves go
-             * there. */
-            char *slash = strrchr(cached, '/');
-
-            if (slash != NULL) {
-                *slash = '\0';
-            } else {
-                snprintf(cached, sizeof(cached), ".");
-            }
-            open_disc_image(env, cached);
-        } else {
-            open_disc_in_folder(cached);
-        }
-        return cached;
-    }
-
-    NSString *resources = [[NSBundle mainBundle] resourcePath];
-    if (resources != nil) {
-        snprintf(cached, sizeof(cached), "%s", resources.UTF8String);
-    } else {
-        snprintf(cached, sizeof(cached), ".");
-    }
-
-    return cached;
-}
-
-/*
- * The original opened "itd_ress.pak" and "DEFINES.ITD" with the casing baked
- * into the binary, which DOS and Windows resolve case insensitively. APFS is
- * usually case insensitive too, but case sensitive volumes exist, so fall back
- * to a directory scan.
- */
-/* Save games live in <data>/SAVE0<n>/, the directory layout of the original. */
-int platform_save_path(const char *dir_name, const char *file_name, char *out,
-                       size_t out_size, int create)
-{
-    if (snprintf(out, out_size, "%s/%s", data_dir(), dir_name) >= (int)out_size) {
-        return 0;
-    }
-    if (create) {
-        mkdir(out, 0755);
-    }
-    if (file_name != NULL) {
-        size_t len = strlen(out);
-        if (snprintf(out + len, out_size - len, "/%s", file_name) >= (int)(out_size - len)) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-static char s_overlay_dir[64];
-
-/* A folder under the data directory searched before the data directory
- * itself (Time Gate for Windows keeps its per-resolution files apart). */
-void platform_set_overlay_dir(const char *name)
-{
-    snprintf(s_overlay_dir, sizeof(s_overlay_dir), "%s", name != NULL ? name : "");
-}
-
-int platform_is_directory(const char *path)
-{
-    struct stat st;
-
-    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
-}
-
-static int resolve_in(const char *dir, const char *name, char *out, size_t out_size);
-
-int platform_resolve_path(const char *name, char *out, size_t out_size)
-{
-    if (s_overlay_dir[0] != '\0') {
-        char dir[1024];
-
-        snprintf(dir, sizeof(dir), "%s/%s", data_dir(), s_overlay_dir);
-        if (resolve_in(dir, name, out, out_size)) {
-            return 1;
-        }
-    }
-    if (resolve_in(data_dir(), name, out, out_size)) {
-        return 1;
-    }
-    if (cdimage_is_open()) {
-        if (s_overlay_dir[0] != '\0') {
-            char inner[256];
-
-            snprintf(inner, sizeof(inner), "%s/%s", s_overlay_dir, name);
-            if (cdimage_resolve(inner, out, out_size)) {
-                return 1;
-            }
-        }
-        return cdimage_resolve(name, out, out_size);
-    }
-    return 0;
-}
-
-static int resolve_in(const char *dir, const char *name, char *out, size_t out_size)
-{
-    DIR *handle;
-    struct dirent *entry;
-
-    if (snprintf(out, out_size, "%s/%s", dir, name) >= (int)out_size) {
-        return 0;
-    }
-
-    if (access(out, R_OK) == 0) {
-        return 1;
-    }
-
-    handle = opendir(dir);
-    if (handle == NULL) {
-        return 0;
-    }
-
-    while ((entry = readdir(handle)) != NULL) {
-        if (strcasecmp(entry->d_name, name) == 0) {
-            snprintf(out, out_size, "%s/%s", dir, entry->d_name);
-            closedir(handle);
-            return 1;
-        }
-    }
-
-    closedir(handle);
-    return 0;
 }
 
 /* ---- video ------------------------------------------------------------- */
@@ -686,84 +555,28 @@ void platform_delay(u32 milliseconds)
 
 /* ---- audio ------------------------------------------------------------- */
 
-/*
- * AudioQueue stands in for the waveOut device the original drove. The game
- * plays one sample at a time (0x402ec7 stops the current one first), so the
- * backend is a single voice: an 8 bit unsigned buffer at its own rate,
- * resampled to the output rate in the callback.
- */
+/* AudioQueue stands in for the waveOut device the original drove; the
+ * mixer (mixer.c) fills each buffer. */
 #define AUDIO_BUFFER_COUNT 3
 #define AUDIO_FRAMES 1024
-#define AUDIO_SAMPLE_RATE 44100
 
 static AudioQueueRef s_queue;
 static AudioQueueBufferRef s_buffers[AUDIO_BUFFER_COUNT];
-static pthread_mutex_t s_voice_lock = PTHREAD_MUTEX_INITIALIZER;
-static u8 *s_voice;
-static u32 s_voice_size;
-static u32 s_voice_step;    /* 16.16 source samples per output sample */
-static u64 s_voice_pos;     /* 16.16 */
-static int s_voice_loops;   /* plays left, 0 = forever */
-static int s_voice_active;
-static void (*s_music_render)(short *out, int frames, int rate);
 
-void platform_set_music_render(void (*render)(short *out, int frames, int rate))
-{
-    pthread_mutex_lock(&s_voice_lock);
-    s_music_render = render;
-    pthread_mutex_unlock(&s_voice_lock);
-}
-
-/* 16 bit mono: the sample voice (8 bit unsigned, resampled) over the
- * music, when a renderer is installed. */
 static void audio_callback(void *user, AudioQueueRef queue, AudioQueueBufferRef buffer)
 {
-    short *out = buffer->mAudioData;
-    u32 i;
-
     (void)user;
-
-    pthread_mutex_lock(&s_voice_lock);
-    if (s_music_render != NULL) {
-        s_music_render(out, AUDIO_FRAMES, AUDIO_SAMPLE_RATE);
-    } else {
-        memset(out, 0, AUDIO_FRAMES * sizeof(short));
-    }
-    for (i = 0; i < AUDIO_FRAMES; i++) {
-        u32 index;
-        int mixed;
-
-        if (!s_voice_active) {
-            break;
-        }
-        index = (u32)(s_voice_pos >> 16);
-        if (index >= s_voice_size) {
-            if (s_voice_loops == 1) {
-                s_voice_active = 0;
-                break;
-            }
-            if (s_voice_loops > 1) {
-                s_voice_loops--;
-            }
-            s_voice_pos = 0;
-            index = 0;
-        }
-        mixed = out[i] + ((int)s_voice[index] - 128) * 192;
-        out[i] = (short)(mixed > 32767 ? 32767 : mixed < -32768 ? -32768 : mixed);
-        s_voice_pos += s_voice_step;
-    }
-    pthread_mutex_unlock(&s_voice_lock);
-
+    mixer_render(buffer->mAudioData, AUDIO_FRAMES);
     buffer->mAudioDataByteSize = AUDIO_FRAMES * sizeof(short);
     AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
 }
 
-int platform_sound_init(void)
+int backend_audio_open(void)
 {
     AudioStreamBasicDescription format;
 
     memset(&format, 0, sizeof(format));
-    format.mSampleRate = AUDIO_SAMPLE_RATE;
+    format.mSampleRate = MIXER_RATE;
     format.mFormatID = kAudioFormatLinearPCM;
     format.mFormatFlags = kLinearPCMFormatFlagIsPacked | kLinearPCMFormatFlagIsSignedInteger;
     format.mChannelsPerFrame = 1;
@@ -787,167 +600,39 @@ int platform_sound_init(void)
         AudioQueueEnqueueBuffer(s_queue, s_buffers[i], 0, NULL);
     }
 
-    if (AudioQueueStart(s_queue, NULL) != noErr) {
-        return 0;
-    }
-
-    return 1;
+    return AudioQueueStart(s_queue, NULL) == noErr;
 }
 
-void platform_sound_shutdown(void)
+void backend_audio_close(void)
 {
     if (s_queue != NULL) {
         AudioQueueStop(s_queue, true);
         AudioQueueDispose(s_queue, true);
         s_queue = NULL;
     }
-    platform_sound_stop();
 }
 
-void platform_sound_play(const void *sample, u32 size, u32 rate, int loops)
-{
-    u8 *copy;
-
-    if (sample == NULL || size == 0 || rate == 0) {
-        return;
-    }
-    copy = malloc(size);
-    if (copy == NULL) {
-        return;
-    }
-    memcpy(copy, sample, size);
-
-    pthread_mutex_lock(&s_voice_lock);
-    free(s_voice);
-    s_voice = copy;
-    s_voice_size = size;
-    s_voice_step = (u32)(((u64)rate << 16) / AUDIO_SAMPLE_RATE);
-    s_voice_pos = 0;
-    s_voice_loops = loops;
-    s_voice_active = 1;
-    pthread_mutex_unlock(&s_voice_lock);
-}
-
-void platform_sound_stop(void)
-{
-    pthread_mutex_lock(&s_voice_lock);
-    s_voice_active = 0;
-    free(s_voice);
-    s_voice = NULL;
-    s_voice_size = 0;
-    pthread_mutex_unlock(&s_voice_lock);
-}
-
-int platform_sound_playing(void)
-{
-    int active;
-
-    pthread_mutex_lock(&s_voice_lock);
-    active = s_voice_active;
-    pthread_mutex_unlock(&s_voice_lock);
-    return active;
-}
-
-/* ---- CD audio ---------------------------------------------------------- */
-
-/*
- * The original drove a physical drive through mciSendStringA and treated a
- * failure as fatal after five retries (0x407326..0x407389). macOS exposes no
- * redbook playback, so tracks are expected as ripped files beside the game
- * data and a missing set degrades to silence rather than aborting startup.
- */
-int platform_cdaudio_init(void)
-{
-    return 1;
-}
-
-void platform_cdaudio_shutdown(void)
-{
-    platform_cdaudio_stop();
-}
-
-/* CD tracks are not shipped with the data; a ripped track in the data
- * folder (track02.m4a, .mp3, .wav or .aiff) is played when present. */
+/* Ripped tracks in formats the mixer does not read (m4a, mp3, aiff). */
 static NSSound *s_cd_sound;
 
-/* An audio track of the disc image, mixed in by the audio callback. */
-static short *s_cd_pcm;          /* 16 bit stereo, 44.1 kHz */
-static u32 s_cd_frames, s_cd_pos;
-
-static void cd_render(short *out, int frames, int rate)
+int backend_cd_file_play(const char *path)
 {
-    int i;
+    NSString *file = [NSString stringWithUTF8String:path];
 
-    (void)rate;     /* the mixer runs at the CD rate */
-    for (i = 0; i < frames; i++) {
-        if (s_cd_pcm == NULL || s_cd_pos >= s_cd_frames) {
-            out[i] = 0;
-            continue;
-        }
-        out[i] = (short)(((int)s_cd_pcm[s_cd_pos * 2] + s_cd_pcm[s_cd_pos * 2 + 1]) / 2);
-        s_cd_pos++;
-    }
+    s_cd_sound = [[NSSound alloc] initWithContentsOfFile:file byReference:YES];
+    return s_cd_sound != nil && [s_cd_sound play];
 }
 
-void platform_cdaudio_play_track(int track)
+void backend_cd_file_stop(void)
 {
-    static const char *const ext[] = { "m4a", "mp3", "wav", "aiff", "aif" };
-    char path[1024];
-    char name[64];
-    size_t i;
-
-    platform_cdaudio_stop();
-    if (cdimage_is_open()) {
-        u32 frames = 0;
-        short *pcm = cdimage_read_audio(track, &frames);
-
-        if (getenv("AITD_TRACE") != NULL) {
-            fprintf(stderr, "cd track %d from the disc image: %u frames\n", track, frames);
-        }
-        if (pcm != NULL) {
-            pthread_mutex_lock(&s_voice_lock);
-            s_cd_pcm = pcm;
-            s_cd_frames = frames;
-            s_cd_pos = 0;
-            s_music_render = cd_render;
-            pthread_mutex_unlock(&s_voice_lock);
-            return;
-        }
-    }
-    for (i = 0; i < sizeof(ext) / sizeof(ext[0]); i++) {
-        snprintf(name, sizeof(name), "track%02d.%s", track, ext[i]);
-        if (platform_resolve_path(name, path, sizeof(path))) {
-            NSString *file = [NSString stringWithUTF8String:path];
-            s_cd_sound = [[NSSound alloc] initWithContentsOfFile:file byReference:YES];
-            [s_cd_sound play];
-            return;
-        }
-    }
-}
-
-void platform_cdaudio_stop(void)
-{
-    if (s_cd_pcm != NULL) {
-        pthread_mutex_lock(&s_voice_lock);
-        if (s_music_render == cd_render) {
-            s_music_render = NULL;
-        }
-        free(s_cd_pcm);
-        s_cd_pcm = NULL;
-        s_cd_frames = s_cd_pos = 0;
-        pthread_mutex_unlock(&s_voice_lock);
-    }
     if (s_cd_sound != nil) {
         [s_cd_sound stop];
         s_cd_sound = nil;
     }
 }
 
-int platform_cdaudio_playing(void)
+int backend_cd_file_playing(void)
 {
-    if (s_cd_pcm != NULL) {
-        return s_cd_pos < s_cd_frames;
-    }
     return s_cd_sound != nil && [s_cd_sound isPlaying];
 }
 

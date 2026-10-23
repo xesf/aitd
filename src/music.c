@@ -19,13 +19,13 @@
  * The driver is stepped about 59 times a second.
  */
 
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "aitd.h"
 #include "music.h"
 #include "opl.h"
+#include "platforms/mutex.h"
 
 enum {
     VOICES = 11,
@@ -55,7 +55,7 @@ struct shadow {
     u8 instrument, level, bend;
 };
 
-static pthread_mutex_t s_lock = PTHREAD_MUTEX_INITIALIZER;
+static aitd_mutex s_lock = AITD_MUTEX_INIT;
 static u8 *s_tune;
 static u32 s_tune_size;
 static s32 s_bank;              /* instrument bank offset */
@@ -418,11 +418,11 @@ void music_adlib_play(const u8 *data, u32 size)
     if (data == NULL || size < 0x40 || memcmp(data, "ADLM", 4) != 0) {
         return;
     }
-    pthread_mutex_lock(&s_lock);
+    aitd_mutex_lock(&s_lock);
     free(s_tune);
     s_tune = malloc(size);
     if (s_tune == NULL) {
-        pthread_mutex_unlock(&s_lock);
+        aitd_mutex_unlock(&s_lock);
         return;
     }
     memcpy(s_tune, data, size);
@@ -456,25 +456,25 @@ void music_adlib_play(const u8 *data, u32 size)
         v->flags = FLAG_RESTART;
     }
     s_paused = 0;
-    pthread_mutex_unlock(&s_lock);
+    aitd_mutex_unlock(&s_lock);
 }
 
 void music_adlib_stop(void)
 {
     int i;
 
-    pthread_mutex_lock(&s_lock);
+    aitd_mutex_lock(&s_lock);
     for (i = 0; i < VOICES; i++) {
         s_voices[i].flags |= FLAG_MUTED;
         apply(&s_voices[i]);
     }
     s_paused = 1;
-    pthread_mutex_unlock(&s_lock);
+    aitd_mutex_unlock(&s_lock);
 }
 
 void music_adlib_render(short *out, int frames, int rate)
 {
-    pthread_mutex_lock(&s_lock);
+    aitd_mutex_lock(&s_lock);
     if (rate != s_rate) {
         s_rate = rate;
         opl_init(rate);
@@ -493,5 +493,5 @@ void music_adlib_render(short *out, int frames, int rate)
         frames -= n;
         s_until_update -= (u32)n;
     }
-    pthread_mutex_unlock(&s_lock);
+    aitd_mutex_unlock(&s_lock);
 }

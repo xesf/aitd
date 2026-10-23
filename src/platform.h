@@ -3,8 +3,10 @@
  *
  * The 1996 build talks to Win32 directly (USER32/GDI32/KERNEL32 plus
  * mciSendStringA for CD audio). Every one of those touch points is isolated
- * here so the engine core stays platform agnostic. The macOS backend lives
- * in platform_macos.m.
+ * here so the engine core stays platform agnostic. Each host has a backend
+ * in src/platforms/ (macos.m, linux.c, windows.c, ...). common.c and
+ * mixer.c there implement the file paths, the disc image and the audio
+ * mixing for all of them; see platforms/backend.h.
  *
  * IDA addresses name the original routine that each entry point replaces.
  */
@@ -26,7 +28,7 @@ enum platform_event_kind {
 
 struct platform_event {
     enum platform_event_kind kind;
-    int code;   /* scancode, or button index */
+    int code;   /* PC set 1 scancode (extended keys | 0x80), or button index */
     int x, y;   /* mouse position, native 320x200 space */
 };
 
