@@ -26,7 +26,6 @@ You need your own copy of each game.
 
 - macOS with the Xcode command line tools (`clang`, AppKit, CoreGraphics,
   AudioToolbox).
-- zlib, which ships with macOS.
 
 Only `src/platform_macos.m` is specific to macOS. The rest is plain C99.
 

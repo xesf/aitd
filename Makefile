@@ -9,7 +9,7 @@ SRCDIR  := src
 BUILD   := build
 
 CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
-            $(SRCDIR)/pak.c $(SRCDIR)/explode.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
+            $(SRCDIR)/pak.c $(SRCDIR)/inflate.c $(SRCDIR)/explode.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
             $(SRCDIR)/palette.c $(SRCDIR)/game.c $(SRCDIR)/harness.c \
             $(SRCDIR)/menu.c $(SRCDIR)/menu_backend.c $(SRCDIR)/menu_styles.c $(SRCDIR)/frame.c $(SRCDIR)/boot.c $(SRCDIR)/input.c \
             $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c $(SRCDIR)/texture.c \
@@ -26,7 +26,7 @@ OBJ      := $(CORE_OBJ) $(MAC_OBJ)
 CC       := clang
 CFLAGS   := -std=c99 -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
 OBJCFLAGS := -fobjc-arc -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
-LDFLAGS  := -lz -framework AppKit -framework CoreGraphics -framework AudioToolbox -framework QuartzCore
+LDFLAGS  := -framework AppKit -framework CoreGraphics -framework AudioToolbox -framework QuartzCore
 
 .PHONY: all clean run
 

@@ -15,16 +15,16 @@
  * entry of every container shipped with the game with a stock raw inflate
  * confirms it: 11296 of 11296 entries expand to their recorded size.
  *
- * zlib is used rather than a hand rolled inflate because it ships with macOS
- * and every other target platform, so this stays dependency free.
+ * inflate.c decodes it; the result matches zlib byte for byte on every
+ * method 4 entry of the six data sets.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zlib.h>
 
 #include "aitd.h"
+#include "inflate.h"
 #include "pak.h"
 #include "platform.h"
 
@@ -147,26 +147,10 @@ int pak_unpack(int method, int flags, const u8 *src, u32 src_size, u8 *dst,
         return 1;
 
     case PAK_METHOD_DEFLATE: {
-        z_stream stream;
-        int status;
+        u32 written = 0;
+        int done = inflate_raw(src, src_size, dst, dst_size, &written);
 
-        memset(&stream, 0, sizeof(stream));
-
-        /* Negative window bits selects raw deflate with no zlib wrapper,
-         * which is what inflate_raw (0x42bb75) consumes. */
-        if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) {
-            return 0;
-        }
-
-        stream.next_in = (Bytef *)(uintptr_t)src;
-        stream.avail_in = src_size;
-        stream.next_out = dst;
-        stream.avail_out = dst_size;
-
-        status = inflate(&stream, Z_FINISH);
-        inflateEnd(&stream);
-
-        return (status == Z_STREAM_END || stream.total_out == dst_size);
+        return done || written == dst_size;
     }
 
     case PAK_METHOD_LEGACY_LZ_2:
