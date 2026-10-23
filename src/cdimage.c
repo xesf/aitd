@@ -493,6 +493,29 @@ int cdimage_resolve(const char *name, char *out, size_t out_size)
     return 1;
 }
 
+int cdimage_audio_location(int track, char *path, size_t path_size, long *offset,
+                           u32 *frames, int *big_endian)
+{
+    const struct cue_track *t = NULL;
+    const struct cue_file *f;
+    int i;
+
+    for (i = 0; s_open && i < s_track_count; i++) {
+        if (s_tracks[i].number == track && s_tracks[i].audio) {
+            t = &s_tracks[i];
+        }
+    }
+    if (t == NULL || t->length <= 0) {
+        return 0;
+    }
+    f = &s_files[t->file];
+    snprintf(path, path_size, "%s", f->path);
+    *offset = f->data_start + t->start * SECTOR_RAW;
+    *frames = (u32)t->length * (SECTOR_RAW / 4);
+    *big_endian = f->big_endian;
+    return 1;
+}
+
 short *cdimage_read_audio(int track, u32 *frames)
 {
     const struct cue_track *t = NULL;

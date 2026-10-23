@@ -40,4 +40,11 @@ int cdimage_extract_all(void);
  * the track is missing or not audio. `frames` receives the frame count. */
 short *cdimage_read_audio(int track, u32 *frames);
 
+/* Where audio track `track` lies, for reading it a piece at a time: the
+ * file, the byte offset of its first sample and its length in stereo
+ * frames. `big_endian` is set for MOTOROLA files. Returns 0 when the track
+ * is missing or not audio. */
+int cdimage_audio_location(int track, char *path, size_t path_size, long *offset,
+                           u32 *frames, int *big_endian);
+
 #endif /* AITD_CDIMAGE_H */
