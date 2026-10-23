@@ -31,6 +31,7 @@ static u64 s_voice_pos;      /* 16.16 */
 static int s_voice_loops;    /* plays left, 0 = forever */
 static int s_voice_active;
 static void (*s_music_render)(short *out, int frames, int rate);
+static void (*s_midi_render)(short *out, int frames);
 
 /* CD audio: a disc image track or a ripped WAV file, 16 bit stereo at
  * 44.1 kHz. */
@@ -48,6 +49,9 @@ void mixer_render(short *out, int frames)
         s_music_render(out, frames, MIXER_RATE);
     } else {
         memset(out, 0, (size_t)frames * sizeof(short));
+    }
+    if (s_midi_render != NULL) {
+        s_midi_render(out, frames);
     }
     for (i = 0; i < frames && s_voice_active; i++) {
         u32 index = (u32)(s_voice_pos >> 16);
@@ -75,6 +79,13 @@ void platform_set_music_render(void (*render)(short *out, int frames, int rate))
 {
     aitd_mutex_lock(&s_lock);
     s_music_render = render;
+    aitd_mutex_unlock(&s_lock);
+}
+
+void mixer_set_midi_render(void (*render)(short *out, int frames))
+{
+    aitd_mutex_lock(&s_lock);
+    s_midi_render = render;
     aitd_mutex_unlock(&s_lock);
 }
 

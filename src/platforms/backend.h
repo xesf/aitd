@@ -40,6 +40,10 @@ int backend_cd_file_playing(void);
  * audio thread. */
 void mixer_render(short *out, int frames);
 
+/* A second generator added over the music: the soundfont MIDI player
+ * (midi_tsf.c) on hosts with no system synthesizer. */
+void mixer_set_midi_render(void (*render)(short *out, int frames));
+
 /* Opens a .cue image named by AITD_DATA_DIR, or the one in the data folder
  * (common.c). */
 const char *common_data_dir(void);
