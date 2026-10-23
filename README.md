@@ -35,7 +35,7 @@ Only `src/platform_macos.m` is specific to macOS. The rest is plain C99.
 make
 ```
 
-The build writes the `aitd3` executable to the repository root.
+The build writes the `aitd` executable to the repository root.
 
 ## Add the game data
 
@@ -64,7 +64,7 @@ image into that folder the first time it needs it, and the saves go
 there too. It plays the CD music straight from the audio tracks.
 
 ```sh
-AITD_DATA_DIR=~/Games/ALONE.cue ./aitd3
+AITD_DATA_DIR=~/Games/ALONE.cue ./aitd
 ```
 
 The image works as the installation. The game's own installer copied
@@ -74,7 +74,7 @@ the first time it is needed, and keeps reading audio from the image. To copy eve
 file at once, run the `install` stage:
 
 ```sh
-AITD_DATA_DIR=~/Games/AITD3.cue ./aitd3 --stage=install
+AITD_DATA_DIR=~/Games/AITD3.cue ./aitd --stage=install
 ```
 
 When a data folder holds both the installed files and a `.cue`, the

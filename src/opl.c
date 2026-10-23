@@ -15,6 +15,11 @@
 
 #include "opl.h"
 
+/* M_PI is POSIX, not C99. */
+#ifndef PI
+#define PI 3.14159265358979323846
+#endif
+
 #define CHIP_RATE 49716.0       /* 3.579545 MHz / 72 */
 #define MAX_ATT 96.0            /* dB, silence */
 
@@ -244,7 +249,7 @@ void opl_write(int reg, int value)
 static double waveform(int wave, double phase)
 {
     double p = phase - floor(phase);
-    double s = sin(p * 2.0 * M_PI);
+    double s = sin(p * 2.0 * PI);
 
     switch (s_wave_enable ? wave : 0) {
     case 1: return s > 0.0 ? s : 0.0;
@@ -377,7 +382,7 @@ void opl_generate(short *out, int frames)
             s_clock -= 1000.0;
         }
         s_lfo_am = fabs(fmod(s_clock * 3.7 * 2.0, 2.0) - 1.0);
-        s_lfo_vib = sin(2.0 * M_PI * 6.1 * s_clock);
+        s_lfo_vib = sin(2.0 * PI * 6.1 * s_clock);
         for (ch = 0; ch < melodic; ch++) {
             sum += channel_output(ch);
         }

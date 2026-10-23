@@ -28,6 +28,11 @@
 #include "exe_tables.h"
 #include "platform.h"
 
+/* M_PI is POSIX, not C99. */
+#ifndef PI
+#define PI 3.14159265358979323846
+#endif
+
 s16 g_sin_table[1024];
 u8 g_poly_noise[0x10800];
 u8 g_poly_ramp[16 * 321];
@@ -39,7 +44,7 @@ static void build_sine(void)
     int i;
 
     for (i = 0; i < 1024; i++) {
-        g_sin_table[i] = (s16)(32767.0 * sin((double)i * 2.0 * M_PI / 1024.0));
+        g_sin_table[i] = (s16)(32767.0 * sin((double)i * 2.0 * PI / 1024.0));
     }
     g_sin_table[0] = 4;
 }

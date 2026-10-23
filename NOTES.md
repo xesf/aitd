@@ -194,7 +194,7 @@ behaviour otherwise.
 
 `make run-<game>` (aitd1, jack, aitd2, aitd3, timegate, knights; `ARGS=`,
 `RES=320|640`) runs one title from its `data/` folder and `make check` runs
-all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_FLOOR`, `AITD_ROOM`,
+all of them unattended. `./aitd --stage=game` enters the world directly (`AITD_FLOOR`, `AITD_ROOM`,
 `AITD_FRAMES` frame budget). Scripted input and capture:
 
 | Variable | Effect |

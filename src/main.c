@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "version.h"
 #include "life.h"
 #include "raster.h"
 #include "savegame.h"
@@ -226,6 +227,11 @@ void game_main(int argc, char **argv)
  */
 int main(int argc, char **argv)
 {
+    if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+        printf("aitd %s\n", AITD_VERSION);
+        return 0;
+    }
+
     /* Staged bring-up driver; a plain run falls through to game_main. */
     if (harness_run(argc, argv)) {
         return 0;

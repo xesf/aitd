@@ -7,6 +7,10 @@
  * Other hosts fall back to a directory scan.
  */
 
+#if !defined(_WIN32) && !defined(__WATCOMC__)
+#define _POSIX_C_SOURCE 200809L    /* S_ISDIR, opendir under -std=c99 */
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -162,7 +166,7 @@ int platform_is_directory(const char *path)
 {
     struct stat st;
 
-    return stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 static int resolve_in(const char *dir, const char *name, char *out, size_t out_size)

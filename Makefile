@@ -1,48 +1,81 @@
-# Alone in the Dark 3 - reconstructed engine
+# aitd - a reimplementation of the Alone in the Dark engine
 #
-# Native macOS build: AppKit + CoreGraphics + AudioToolbox, no third party
-# dependencies. The engine core (main.c, engine.c, resource.c, stubs.c) is
-# plain C99 and platform agnostic; only src/platform_macos.m is host specific.
+# The engine is plain C99. Each host has a backend in src/platforms/ and a
+# target here; every target builds the same sources (sources.mk).
+#
+#   make               the host's own build: macOS or Linux (./aitd)
+#   make linux         Linux, X11 and ALSA (also the Steam Deck)
+#   make windows       Windows, 64 bit, with MinGW-w64
+#   make web           the browser, with Emscripten
+#   make dos           MS-DOS, 32 bit protected mode, with Open Watcom
+#   make win9x         Windows 95 and 98, with Open Watcom
+#   make psp           PlayStation Portable, with the pspdev toolchain
+#   make vita          PlayStation Vita, with VitaSDK
+#   make dist          every target that builds here, packaged in dist/
+#
+# The version comes from the VERSION file; CHANGELOG.md lists the changes.
 
-TARGET  := aitd3
-SRCDIR  := src
-BUILD   := build
+include sources.mk
 
-CORE_SRC := $(SRCDIR)/main.c $(SRCDIR)/engine.c $(SRCDIR)/resource.c \
-            $(SRCDIR)/pak.c $(SRCDIR)/inflate.c $(SRCDIR)/explode.c $(SRCDIR)/body.c $(SRCDIR)/font.c $(SRCDIR)/text.c \
-            $(SRCDIR)/palette.c $(SRCDIR)/game.c $(SRCDIR)/harness.c \
-            $(SRCDIR)/menu.c $(SRCDIR)/menu_backend.c $(SRCDIR)/menu_styles.c $(SRCDIR)/frame.c $(SRCDIR)/boot.c $(SRCDIR)/input.c \
-            $(SRCDIR)/exe_tables.c $(SRCDIR)/raster.c $(SRCDIR)/r3d.c $(SRCDIR)/texture.c \
-            $(SRCDIR)/anim.c $(SRCDIR)/hyb.c $(SRCDIR)/world.c $(SRCDIR)/draw.c \
-            $(SRCDIR)/actor.c $(SRCDIR)/life.c $(SRCDIR)/lifemap.c $(SRCDIR)/ui.c $(SRCDIR)/inventory.c \
-            $(SRCDIR)/action.c $(SRCDIR)/special.c $(SRCDIR)/sound.c $(SRCDIR)/music.c $(SRCDIR)/opl.c $(SRCDIR)/hmp.c \
-            $(SRCDIR)/loop.c $(SRCDIR)/savegame.c $(SRCDIR)/escape.c $(SRCDIR)/cutscene.c $(SRCDIR)/reader.c $(SRCDIR)/map.c $(SRCDIR)/picture.c $(SRCDIR)/smacker.c $(SRCDIR)/mux.c $(SRCDIR)/cdimage.c $(SRCDIR)/stubs.c \
-            $(SRCDIR)/platforms/common.c $(SRCDIR)/platforms/mixer.c
-MAC_SRC  := $(SRCDIR)/platforms/macos.m
+VERSION  := $(shell cat VERSION 2>/dev/null || echo dev)
+TARGET   := aitd
+SRCDIR   := src
+BUILD    := build
+DIST     := dist
 
-CORE_OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILD)/%.o,$(CORE_SRC))
-MAC_OBJ  := $(patsubst $(SRCDIR)/%.m,$(BUILD)/%.o,$(MAC_SRC))
-OBJ      := $(CORE_OBJ) $(MAC_OBJ)
+HOST := $(shell uname -s)
+ifeq ($(HOST),Darwin)
+PLATFORM ?= macos
+else
+PLATFORM ?= linux
+endif
 
-CC       := clang
-CFLAGS   := -std=c99 -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
-OBJCFLAGS := -fobjc-arc -Wall -Wextra -Wno-unused-parameter -g -O1 -I$(SRCDIR)
-LDFLAGS  := -framework AppKit -framework CoreGraphics -framework AudioToolbox -framework QuartzCore
+WARN     := -Wall -Wextra -Wno-unused-parameter
+DEFS     := -DAITD_VERSION='"$(VERSION)"'
 
-.PHONY: all clean run
+ifeq ($(PLATFORM),macos)
+CC        := clang
+CFLAGS    := $(DEFS) -std=c99 $(WARN) -g -O1 -I$(SRCDIR)
+OBJCFLAGS := $(DEFS) -fobjc-arc $(WARN) -g -O1 -I$(SRCDIR)
+HOST_SRC  := src/platforms/macos.m
+LDFLAGS   := -framework AppKit -framework CoreGraphics -framework AudioToolbox -framework QuartzCore
+else
+CC        ?= cc
+CFLAGS    := $(DEFS) -std=c99 $(WARN) -g -O2 -I$(SRCDIR)
+HOST_SRC  := src/platforms/linux.c $(SOUNDFONT_SRC) $(PAD_SRC)
+LDFLAGS   := -lX11 -lasound -lpthread -lm
+endif
+
+OBJ := $(patsubst src/%.c,$(BUILD)/%.o,$(patsubst src/%.m,$(BUILD)/%.o,$(ENGINE_SRC) $(HOST_SRC)))
+
+.PHONY: all clean run linux
 
 all: $(TARGET)
+
+# Linux builds natively on Linux, and in a Docker container elsewhere.
+LINUX_OUT := $(BUILD)/linux/$(TARGET)
+linux:
+ifeq ($(HOST),Linux)
+	$(MAKE) PLATFORM=linux BUILD=$(BUILD)/linux TARGET=$(LINUX_OUT)
+else
+	docker build -q -t aitd-linux platforms/linux
+	docker run --rm -v "$(CURDIR)":/src -w /src aitd-linux \
+	    make PLATFORM=linux BUILD=$(BUILD)/linux TARGET=$(LINUX_OUT)
+endif
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $@
 
-$(BUILD)/%.o: $(SRCDIR)/%.c $(wildcard $(SRCDIR)/*.h) | $(BUILD)
+$(BUILD)/%.o: $(SRCDIR)/%.c $(wildcard $(SRCDIR)/*.h $(SRCDIR)/platforms/*.h) | $(BUILD)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: $(SRCDIR)/%.m | $(BUILD)
 	@mkdir -p $(dir $@)
 	$(CC) $(OBJCFLAGS) -c $< -o $@
+
+# The version is compiled into main.c.
+$(BUILD)/main.o: VERSION
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -88,7 +121,7 @@ check: $(TARGET)
 	done
 
 clean:
-	rm -rf $(BUILD) $(TARGET) pak_dump music_render cd_dump
+	rm -rf $(BUILD) $(DIST) $(TARGET) pak_dump music_render cd_dump
 
 # Offline tool: exercises the reconstructed .PAK reader against real data.
 TOOL_OBJ := $(filter-out $(BUILD)/main.o,$(OBJ))

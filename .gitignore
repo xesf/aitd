@@ -2,7 +2,9 @@
 build/
 data/
 ida/WAITD3.EXE
+aitd
 aitd3
+dist/
 pak_dump
 .DS_Store
 ida/*.id0

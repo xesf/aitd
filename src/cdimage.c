@@ -23,6 +23,24 @@
 
 #include "cdimage.h"
 
+/* Case-insensitive compares: strcasecmp is POSIX, not C99. */
+static int name_ncmp(const char *a, const char *b, size_t n)
+{
+    for (; n > 0; a++, b++, n--) {
+        int ca = tolower((unsigned char)*a), cb = tolower((unsigned char)*b);
+
+        if (ca != cb || ca == '\0') {
+            return ca - cb;
+        }
+    }
+    return 0;
+}
+
+static int name_cmp(const char *a, const char *b)
+{
+    return name_ncmp(a, b, (size_t)-1);
+}
+
 enum {
     MAX_FILES = 99,
     MAX_TRACKS = 99,
@@ -122,8 +140,8 @@ static int add_file(const char *cue_dir, const char *name, const char *type)
     f = &s_files[s_file_count];
     memset(f, 0, sizeof(*f));
     snprintf(f->path, sizeof(f->path), "%s/%s", cue_dir, name);
-    f->wave = strcasecmp(type, "WAVE") == 0;
-    f->big_endian = strcasecmp(type, "MOTOROLA") == 0;
+    f->wave = name_cmp(type, "WAVE") == 0;
+    f->big_endian = name_cmp(type, "MOTOROLA") == 0;
     fp = fopen(f->path, "rb");
     if (fp == NULL) {
         fprintf(stderr, "cdimage: %s is missing\n", f->path);
@@ -162,7 +180,7 @@ static int parse_cue(const char *cue_path)
         if (sscanf(p, "%31s", word) != 1) {
             continue;
         }
-        if (strcasecmp(word, "FILE") == 0) {
+        if (name_cmp(word, "FILE") == 0) {
             char name[512], type[32] = "BINARY";
             char *q = p + 4;
 
@@ -183,7 +201,7 @@ static int parse_cue(const char *cue_path)
                 fclose(fp);
                 return 0;
             }
-        } else if (strcasecmp(word, "TRACK") == 0 && s_file_count > 0
+        } else if (name_cmp(word, "TRACK") == 0 && s_file_count > 0
                    && s_track_count < MAX_TRACKS) {
             struct cue_track *t = &s_tracks[s_track_count];
             char mode[32] = "";
@@ -193,12 +211,12 @@ static int parse_cue(const char *cue_path)
             t->file = s_file_count - 1;
             t->index0 = -1;
             t->start = -1;
-            t->audio = strcasecmp(mode, "AUDIO") == 0;
+            t->audio = name_cmp(mode, "AUDIO") == 0;
             t->sector_size = strstr(mode, "2048") != NULL ? SECTOR_DATA : SECTOR_RAW;
             t->user_offset = t->sector_size == SECTOR_DATA ? 0
-                           : strncasecmp(mode, "MODE2", 5) == 0 ? 24 : 16;
+                           : name_ncmp(mode, "MODE2", 5) == 0 ? 24 : 16;
             s_track_count++;
-        } else if (strcasecmp(word, "INDEX") == 0 && s_track_count > 0) {
+        } else if (name_cmp(word, "INDEX") == 0 && s_track_count > 0) {
             struct cue_track *t = &s_tracks[s_track_count - 1];
             int index = -1;
             char msf[32] = "";
@@ -316,7 +334,7 @@ static const struct iso_entry *find_entry(const char *path)
     int i;
 
     for (i = 0; i < s_entry_count; i++) {
-        if (!s_entries[i].dir && strcasecmp(s_entries[i].path, path) == 0) {
+        if (!s_entries[i].dir && name_cmp(s_entries[i].path, path) == 0) {
             return &s_entries[i];
         }
     }
@@ -334,13 +352,13 @@ static void find_root(void)
         const char *slash = strrchr(s_entries[i].path, '/');
         const char *base = slash != NULL ? slash + 1 : s_entries[i].path;
 
-        if (!s_entries[i].dir && strcasecmp(base, "ITD_RESS.PAK") == 0) {
+        if (!s_entries[i].dir && name_cmp(base, "ITD_RESS.PAK") == 0) {
             snprintf(s_root, sizeof(s_root), "%.*s",
                      slash != NULL ? (int)(slash - s_entries[i].path) : 0, s_entries[i].path);
             /* Time Gate for Windows keeps one under 320/ and 640/. */
             if (slash != NULL && slash - s_entries[i].path >= 3
-                && (strcasecmp(slash - 3, "320/ITD_RESS.PAK") == 0
-                    || strcasecmp(slash - 3, "640/ITD_RESS.PAK") == 0)) {
+                && (name_cmp(slash - 3, "320/ITD_RESS.PAK") == 0
+                    || name_cmp(slash - 3, "640/ITD_RESS.PAK") == 0)) {
                 s_root[strlen(s_root) >= 4 ? strlen(s_root) - 4 : 0] = '\0';
             }
             return;
@@ -416,7 +434,7 @@ static const char *local_path(const char *path)
 {
     size_t n = strlen(s_root);
 
-    if (n > 0 && strncasecmp(path, s_root, n) == 0 && path[n] == '/') {
+    if (n > 0 && name_ncmp(path, s_root, n) == 0 && path[n] == '/') {
         return path + n + 1;
     }
     return path;
@@ -441,7 +459,7 @@ int cdimage_resolve(const char *name, char *out, size_t out_size)
 
         /* A folder (Time Gate's 320/ and 640/): made in the cache. */
         for (i = 0; i < s_entry_count; i++) {
-            if (s_entries[i].dir && strcasecmp(s_entries[i].path, path) == 0) {
+            if (s_entries[i].dir && name_cmp(s_entries[i].path, path) == 0) {
                 snprintf(out, out_size, "%s/%s/", s_cache, local_path(s_entries[i].path));
                 make_dirs(out);
                 out[strlen(out) - 1] = '\0';
@@ -531,7 +549,7 @@ int cdimage_extract_all(void)
             continue;
         }
         if (root_len > 0) {
-            if (strncasecmp(path, s_root, root_len) != 0 || path[root_len] != '/') {
+            if (name_ncmp(path, s_root, root_len) != 0 || path[root_len] != '/') {
                 continue;
             }
             path += root_len + 1;
