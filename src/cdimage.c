@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 
 #include "cdimage.h"
+#include "platform.h"
 
 /* Case-insensitive compares: strcasecmp is POSIX, not C99. */
 static int name_ncmp(const char *a, const char *b, size_t n)
@@ -423,7 +424,7 @@ static void make_dirs(const char *path)
     for (p = tmp + 1; *p != '\0'; p++) {
         if (*p == '/') {
             *p = '\0';
-            mkdir(tmp, 0755);
+            platform_make_dir(tmp);
             *p = '/';
         }
     }

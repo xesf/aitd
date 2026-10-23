@@ -59,7 +59,7 @@ static int file_readable(const char *path)
     return 1;
 }
 
-static void make_dir(const char *path)
+void platform_make_dir(const char *path)
 {
 #if defined(_WIN32) || defined(__WATCOMC__)
     _mkdir(path);
@@ -142,7 +142,7 @@ int platform_save_path(const char *dir_name, const char *file_name, char *out,
         return 0;
     }
     if (create) {
-        make_dir(out);
+        platform_make_dir(out);
     }
     if (file_name != NULL) {
         size_t len = strlen(out);

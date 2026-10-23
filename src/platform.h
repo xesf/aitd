@@ -100,6 +100,7 @@ void platform_error_box(const char *caption, const char *message);
 int platform_resolve_path(const char *name, char *out, size_t out_size);
 void platform_set_overlay_dir(const char *name);
 int platform_is_directory(const char *path);
+void platform_make_dir(const char *path);
 int platform_save_path(const char *dir_name, const char *file_name, char *out,
                        size_t out_size, int create);
 

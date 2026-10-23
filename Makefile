@@ -74,6 +74,24 @@ $(BUILD)/%.o: $(SRCDIR)/%.m | $(BUILD)
 	@mkdir -p $(dir $@)
 	$(CC) $(OBJCFLAGS) -c $< -o $@
 
+# Windows, 64 bit, cross-compiled with MinGW-w64.
+MINGW      ?= x86_64-w64-mingw32-gcc
+WINDRES    ?= x86_64-w64-mingw32-windres
+WIN_BUILD  := $(BUILD)/windows
+WIN_SRC    := $(ENGINE_SRC) src/platforms/windows.c $(PAD_SRC)
+WIN_OBJ    := $(patsubst src/%.c,$(WIN_BUILD)/%.o,$(WIN_SRC))
+WIN_EXE    := $(WIN_BUILD)/aitd.exe
+
+.PHONY: windows
+windows: $(WIN_EXE)
+
+$(WIN_EXE): $(WIN_OBJ)
+	$(MINGW) $(WIN_OBJ) -mwindows -static -lwinmm -o $@
+
+$(WIN_BUILD)/%.o: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
+	@mkdir -p $(dir $@)
+	$(MINGW) $(DEFS) -std=c99 $(WARN) -O2 -Isrc -c $< -o $@
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 
