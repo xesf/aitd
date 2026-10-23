@@ -194,6 +194,14 @@ static void init_cdaudio(void)
 {
     int attempts;
 
+    /* -c and -s as settings, for hosts without a command line. */
+    if (getenv("AITD_NO_CD") != NULL) {
+        g_opt_cdaudio_enabled = 0;
+    }
+    if (getenv("AITD_NO_SOUND") != NULL) {
+        g_opt_sound_enabled = 0;
+    }
+
     if (!g_opt_cdaudio_enabled) {  /* 0x407319 */
         return;
     }

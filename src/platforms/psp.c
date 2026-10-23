@@ -110,6 +110,10 @@ int platform_video_init(const char *title, int width, int height)
     (void)title;
     s_width = width;
     s_height = height;
+    if (getenv("AITD_LOG") != NULL) {   /* the console has nowhere else to print */
+        freopen(getenv("AITD_LOG"), "w", stderr);
+        setvbuf(stderr, NULL, _IONBF, 0);
+    }
     /* The engine renders in software; it needs the full clock. */
     scePowerSetClockFrequency(333, 333, 166);
 

@@ -18,7 +18,7 @@ INCDIR  = $(ROOT)/src
 # -G0: the SDK's objects and ours do not share a small-data area.
 # -fsigned-char: the engine was written for x86, where char is signed.
 CFLAGS  = -O2 -G0 -std=gnu99 -Wall -fsigned-char -fwrapv -Wno-unused-parameter \
-          -DAITD_VERSION='"$(VERSION)"'
+          -DMIXER_MUSIC_DIVISOR=4 -DAITD_VERSION='"$(VERSION)"'
 ASFLAGS = $(CFLAGS)
 LIBS    = -lpspgu -lpspge -lpspdisplay -lpspctrl -lpspaudio -lpsppower -lpsprtc \
           -lpthread -lm

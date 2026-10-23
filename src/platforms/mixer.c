@@ -47,13 +47,41 @@ static u32 s_cd_block_at, s_cd_block_len;   /* frames held in s_cd_block */
 
 static int s_audio_open;
 
+static void cd_render(short *out, int frames, int rate);
+
+/* Slow hosts (the PSP) render the music generator at a fraction of the
+ * output rate and repeat each sample; an emulated OPL at 44.1 kHz takes
+ * more CPU than they have. CD audio always plays at its own rate. */
+#ifndef MIXER_MUSIC_DIVISOR
+#define MIXER_MUSIC_DIVISOR 1
+#endif
+
+static void music_render(short *out, int frames)
+{
+#if MIXER_MUSIC_DIVISOR > 1
+    if (s_music_render != cd_render) {
+        static short low[4096];
+        int n = frames / MIXER_MUSIC_DIVISOR, i;
+
+        if (n <= (int)(sizeof(low) / sizeof(low[0])) && n * MIXER_MUSIC_DIVISOR == frames) {
+            s_music_render(low, n, MIXER_RATE / MIXER_MUSIC_DIVISOR);
+            for (i = frames - 1; i >= 0; i--) {
+                out[i] = low[i / MIXER_MUSIC_DIVISOR];
+            }
+            return;
+        }
+    }
+#endif
+    s_music_render(out, frames, MIXER_RATE);
+}
+
 void mixer_render(short *out, int frames)
 {
     int i;
 
     aitd_mutex_lock(&s_lock);
     if (s_music_render != NULL) {
-        s_music_render(out, frames, MIXER_RATE);
+        music_render(out, frames);
     } else {
         memset(out, 0, (size_t)frames * sizeof(short));
     }

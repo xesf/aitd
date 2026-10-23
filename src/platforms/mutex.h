@@ -3,7 +3,8 @@
  * own thread on most hosts and shares the music and voice state with the
  * game thread.
  *
- * POSIX hosts use pthreads, Windows a critical section, and the hosts with
+ * POSIX hosts use pthreads, Windows a critical section, the PSP a kernel
+ * semaphore, and the hosts with
  * no audio thread (DOS, where the mixer runs from the frame loop, and the
  * single threaded web worker) an empty lock.
  */
@@ -17,6 +18,27 @@ typedef struct { int unused; } aitd_mutex;
 #define AITD_MUTEX_INIT { 0 }
 static inline void aitd_mutex_lock(aitd_mutex *m) { (void)m; }
 static inline void aitd_mutex_unlock(aitd_mutex *m) { (void)m; }
+
+#elif defined(__PSP__)
+
+#include <pspkernel.h>
+
+/* A kernel semaphore: the audio thread is a native PSP thread, which the
+ * toolchain's pthread mutexes do not expect. Created on the first lock,
+ * which comes from the game thread before the audio thread starts. */
+typedef struct { SceUID sema; } aitd_mutex;
+#define AITD_MUTEX_INIT { -1 }
+static inline void aitd_mutex_lock(aitd_mutex *m)
+{
+    if (m->sema < 0) {
+        m->sema = sceKernelCreateSema("aitd lock", 0, 1, 1, NULL);
+    }
+    sceKernelWaitSema(m->sema, 1, NULL);
+}
+static inline void aitd_mutex_unlock(aitd_mutex *m)
+{
+    sceKernelSignalSema(m->sema, 1);
+}
 
 #elif defined(_WIN32)
 
