@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alone in the Dark</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #000; color: #ddd; font: 15px/1.5 system-ui, sans-serif; }
+  #library { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-weight: 600; font-size: 22px; margin: 0 0 4px; }
+  p { color: #aaa; margin: 8px 0 16px; }
+  ul { list-style: none; padding: 0; margin: 0 0 16px; }
+  li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #222; }
+  li span { flex: 1; }
+  button, label.button { background: #333; color: #eee; border: 1px solid #555; border-radius: 4px;
+    padding: 6px 14px; font: inherit; cursor: pointer; }
+  button:hover, label.button:hover { background: #444; }
+  #status { color: #8ac; min-height: 1.5em; }
+  #screen { display: none; position: fixed; inset: 0; background: #000; }
+  /* The 320 x 200 (or 640 x 400) frame stretched to 4:3, as on a DOS screen. */
+  #canvas { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(100vw, 133.333vh); height: min(75vw, 100vh); image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<div id="library">
+  <h1>Alone in the Dark</h1>
+  <p>Import the folder of an installed game: Alone in the Dark 1, 2 or 3, Jack in the Dark,
+  or Time Gate. The files stay in this browser and are not uploaded. Saves are kept with them.</p>
+  <ul id="games"></ul>
+  <label class="button">Import game folder…
+    <input id="import" type="file" webkitdirectory multiple hidden>
+  </label>
+  <p id="status"></p>
+  <p>Keys: arrows walk, Space acts, Enter opens the inventory, Esc opens the menu,
+  1 to 0 and - choose an action. A gamepad works too. Time Gate's music needs a General MIDI
+  soundfont (.sf2) in the game folder.</p>
+</div>
+<div id="screen"><canvas id="canvas" width="320" height="200"></canvas></div>
+
+<script>
+'use strict';
+const statusLine = document.getElementById('status');
+const say = (text) => { statusLine.textContent = text; };
+
+/* KeyboardEvent.code -> PC set 1 scancode, extended keys with 0x80. */
+const SCANCODES = {
+  Escape: 0x01, Digit1: 0x02, Digit2: 0x03, Digit3: 0x04, Digit4: 0x05, Digit5: 0x06,
+  Digit6: 0x07, Digit7: 0x08, Digit8: 0x09, Digit9: 0x0a, Digit0: 0x0b, Minus: 0x0c,
+  Equal: 0x0d, Backspace: 0x0e, Tab: 0x0f, KeyQ: 0x10, KeyW: 0x11, KeyE: 0x12, KeyR: 0x13,
+  KeyT: 0x14, KeyY: 0x15, KeyU: 0x16, KeyI: 0x17, KeyO: 0x18, KeyP: 0x19, Enter: 0x1c,
+  ControlLeft: 0x1d, KeyA: 0x1e, KeyS: 0x1f, KeyD: 0x20, KeyF: 0x21, KeyG: 0x22, KeyH: 0x23,
+  KeyJ: 0x24, KeyK: 0x25, KeyL: 0x26, Semicolon: 0x27, ShiftLeft: 0x2a, KeyZ: 0x2c,
+  KeyX: 0x2d, KeyC: 0x2e, KeyV: 0x2f, KeyB: 0x30, KeyN: 0x31, KeyM: 0x32, Comma: 0x33,
+  Period: 0x34, Slash: 0x35, ShiftRight: 0x36, AltLeft: 0x38, Space: 0x39,
+  F1: 0x3b, F2: 0x3c, F3: 0x3d, F4: 0x3e, F5: 0x3f, F6: 0x40, F7: 0x41, F8: 0x42, F9: 0x43,
+  F10: 0x44, F11: 0x57, F12: 0x58, NumpadEnter: 0x9c, ControlRight: 0x9d,
+  Home: 0xc7, ArrowUp: 0xc8, PageUp: 0xc9, ArrowLeft: 0xcb, ArrowRight: 0xcd, End: 0xcf,
+  ArrowDown: 0xd0, PageDown: 0xd1,
+};
+const EVENT = { QUIT: 1, KEY_DOWN: 2, KEY_UP: 3, MOUSE_MOVE: 4, MOUSE_BUTTON: 5 };
+
+var Module = {
+  canvas: document.getElementById('canvas'),
+  noInitialRun: true,
+  print: (t) => console.log(t),
+  printErr: (t) => console.warn(t),
+  aitdError: (caption, message) => say(caption + ': ' + message),
+  onRuntimeInitialized: () => {
+    FS.mkdir('/data');
+    FS.mount(IDBFS, {}, '/data');
+    FS.syncfs(true, () => listGames());
+  },
+  aitdStartAudio: (rate) => {
+    try {
+      const context = new AudioContext({ sampleRate: rate });
+      const node = context.createScriptProcessor(2048, 0, 1);
+      const frames = 2048;
+      const buffer = Module._malloc(frames * 2);
+      node.onaudioprocess = (e) => {
+        Module._web_audio_render(buffer, frames);
+        const samples = new Int16Array(HEAPU8.buffer, buffer, frames);
+        const out = e.outputBuffer.getChannelData(0);
+        for (let i = 0; i < frames; i++) out[i] = samples[i] / 32768;
+      };
+      node.connect(context.destination);
+      context.resume();
+      Module.aitdAudio = { context, node };
+      return 1;
+    } catch (err) {
+      console.warn('no audio', err);
+      return 0;
+    }
+  },
+  aitdStopAudio: () => {
+    if (Module.aitdAudio) { Module.aitdAudio.node.disconnect(); Module.aitdAudio.context.close(); }
+  },
+};
+
+/* A folder holds a game when it has one of the files only that game ships. */
+const MARKERS = ['LISTBOD2.PAK', 'PERE.PAK', 'MER.PAK', 'AN1.PAK', 'PURSUIT.PAK', 'ITD_RESS.PAK'];
+
+function listGames() {
+  const list = document.getElementById('games');
+  list.innerHTML = '';
+  for (const name of FS.readdir('/data')) {
+    if (name === '.' || name === '..') continue;
+    const files = FS.readdir('/data/' + name).map((f) => f.toUpperCase());
+    if (!MARKERS.some((m) => files.includes(m))) continue;
+    const item = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = name;
+    const play = document.createElement('button');
+    play.textContent = 'Play';
+    play.onclick = () => start(name);
+    const remove = document.createElement('button');
+    remove.textContent = 'Remove';
+    remove.onclick = () => { removeTree('/data/' + name); FS.syncfs(false, listGames); };
+    item.append(label, play, remove);
+    list.append(item);
+  }
+  if (!list.children.length) say('No game imported yet.');
+}
+
+function removeTree(path) {
+  for (const name of FS.readdir(path)) {
+    if (name === '.' || name === '..') continue;
+    const full = path + '/' + name;
+    if (FS.isDir(FS.stat(full).mode)) removeTree(full); else FS.unlink(full);
+  }
+  FS.rmdir(path);
+}
+
+function makeDirs(path) {
+  let at = '';
+  for (const part of path.split('/').filter(Boolean)) {
+    at += '/' + part;
+    try { FS.mkdir(at); } catch (e) { /* exists */ }
+  }
+}
+
+/* Copies the chosen folder into /data. Disc images, installers and
+ * programs are left out: the game needs only its data files. */
+document.getElementById('import').onchange = async (e) => {
+  const files = [...e.target.files];
+  const skip = /\.(bin|cue|img|iso|exe|com|dll|bat|pif|ico)$/i;
+  let done = 0;
+  for (const file of files) {
+    if (skip.test(file.name)) continue;
+    const path = '/data/' + file.webkitRelativePath;
+    makeDirs(path.slice(0, path.lastIndexOf('/')));
+    FS.writeFile(path, new Uint8Array(await file.arrayBuffer()));
+    if (++done % 50 === 0) say(`Importing… ${done} files`);
+  }
+  say(`Imported ${done} files. Saving them in the browser…`);
+  FS.syncfs(false, (err) => { say(err ? 'Could not save: ' + err : 'Imported.'); listGames(); });
+};
+
+function setenv(name, value) {
+  Module.ccall('web_setenv', null, ['string', 'string'], [name, value]);
+}
+
+function start(name, options = {}, args = []) {
+  setenv('AITD_DATA_DIR', '/data/' + name);
+  for (const [key, value] of Object.entries(options)) setenv(key, value);
+  document.getElementById('library').style.display = 'none';
+  document.getElementById('screen').style.display = 'block';
+  /* Saves are written into the game folder; keep IndexedDB in step. */
+  setInterval(() => FS.syncfs(false, () => {}), 5000);
+  Module.callMain(args);
+}
+
+/* ---- input ---- */
+function key(e, kind) {
+  const code = SCANCODES[e.code];
+  if (code === undefined || document.getElementById('screen').style.display !== 'block') return;
+  e.preventDefault();
+  if (kind === EVENT.KEY_DOWN && e.repeat) return;
+  Module._web_event(kind, code, 0, 0);
+}
+addEventListener('keydown', (e) => key(e, EVENT.KEY_DOWN));
+addEventListener('keyup', (e) => key(e, EVENT.KEY_UP));
+
+const canvas = document.getElementById('canvas');
+function mouse(e, kind, button) {
+  const r = canvas.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left) * 640 / r.width);
+  const y = Math.round((e.clientY - r.top) * 480 / r.height);
+  Module._web_event(kind, button, Math.max(0, Math.min(639, x)), Math.max(0, Math.min(479, y)));
+}
+canvas.addEventListener('mousemove', (e) => mouse(e, EVENT.MOUSE_MOVE, 0));
+canvas.addEventListener('mousedown', (e) => mouse(e, EVENT.MOUSE_BUTTON, e.button === 2 ? 2 : 1));
+canvas.addEventListener('mouseup', (e) => mouse(e, EVENT.MOUSE_BUTTON, e.button === 2 ? 2 : 1));
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* Standard gamepad mapping -> pad.h bits. */
+const PAD = { up: 1, down: 2, left: 4, right: 8, a: 16, b: 32, x: 64, y: 128,
+              l: 256, r: 512, start: 1024, select: 2048 };
+const BUTTONS = [[0, PAD.a], [1, PAD.b], [2, PAD.x], [3, PAD.y], [4, PAD.l], [5, PAD.r],
+                 [8, PAD.select], [9, PAD.start], [12, PAD.up], [13, PAD.down],
+                 [14, PAD.left], [15, PAD.right]];
+function pollPad() {
+  const pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find((p) => p);
+  if (pad && Module._web_pad) {
+    let mask = 0;
+    for (const [index, bit] of BUTTONS) if (pad.buttons[index] && pad.buttons[index].pressed) mask |= bit;
+    Module._web_pad(mask, Math.round((pad.axes[0] || 0) * 32767), Math.round((pad.axes[1] || 0) * 32767));
+  }
+  requestAnimationFrame(pollPad);
+}
+requestAnimationFrame(pollPad);
+</script>
+<script src="aitd.js"></script>
+</body>
+</html>

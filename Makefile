@@ -140,6 +140,38 @@ $(DOS_BUILD)/%.obj: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
 	@mkdir -p $(dir $@)
 	$(WCC) -bt=dos -DAITD_NO_THREADS $(WCC_FLAGS) $< -fo=$@
 
+# The browser, with Emscripten: a static site in build/web/.
+EMCC       ?= emcc
+WEB_BUILD  := $(BUILD)/web
+WEB_SRC    := $(ENGINE_SRC) src/platforms/web.c $(SOUNDFONT_SRC) $(PAD_SRC)
+WEB_OBJ    := $(patsubst src/%.c,$(WEB_BUILD)/obj/%.o,$(WEB_SRC))
+WEB_JS     := $(WEB_BUILD)/aitd.js
+
+.PHONY: web web-serve
+web: $(WEB_JS) $(WEB_BUILD)/index.html
+
+$(WEB_JS): $(WEB_OBJ)
+	$(EMCC) $(WEB_OBJ) -O2 -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sALLOW_MEMORY_GROWTH \
+	    -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=1048576 -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 \
+	    -sEXPORTED_FUNCTIONS=_main,_web_event,_web_pad,_web_audio_render,_web_setenv,_malloc,_free \
+	    -sEXPORTED_RUNTIME_METHODS=callMain,ccall,FS,IDBFS -lidbfs.js -o $@
+
+$(WEB_BUILD)/index.html: platforms/web/index.html
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+$(WEB_BUILD)/obj/%.o: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
+	@mkdir -p $(dir $@)
+	$(EMCC) $(DEFS) -DAITD_NO_THREADS -std=c99 $(WARN) -O2 -Isrc -c $< -o $@
+
+# EM_ASM needs the GNU dialect.
+$(WEB_BUILD)/obj/platforms/web.o: src/platforms/web.c $(wildcard src/*.h src/platforms/*.h) VERSION
+	@mkdir -p $(dir $@)
+	$(EMCC) $(DEFS) -DAITD_NO_THREADS -std=gnu99 $(WARN) -O2 -Isrc -c $< -o $@
+
+web-serve: web
+	cd $(WEB_BUILD) && python3 -m http.server 8080
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 
