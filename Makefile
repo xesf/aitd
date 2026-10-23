@@ -178,6 +178,14 @@ PSPDEV ?= $(HOME)/Developer/pspdev
 psp:
 	PATH="$(PSPDEV)/bin:$$PATH" $(MAKE) -C platforms/psp
 
+# PlayStation Vita: platforms/vita/CMakeLists.txt, one VPK per game.
+VITASDK ?= $(HOME)/vitasdk
+.PHONY: vita
+vita:
+	VITASDK=$(VITASDK) PATH="$(VITASDK)/bin:$$PATH" cmake -S platforms/vita -B $(BUILD)/vita \
+	    -DCMAKE_BUILD_TYPE=Release
+	VITASDK=$(VITASDK) PATH="$(VITASDK)/bin:$$PATH" cmake --build $(BUILD)/vita --parallel
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 

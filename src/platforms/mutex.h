@@ -4,7 +4,7 @@
  * game thread.
  *
  * POSIX hosts use pthreads, Windows a critical section, the PSP a kernel
- * semaphore, and the hosts with
+ * semaphore, the Vita a kernel mutex, and the hosts with
  * no audio thread (DOS, where the mixer runs from the frame loop, and the
  * single threaded web worker) an empty lock.
  */
@@ -38,6 +38,25 @@ static inline void aitd_mutex_lock(aitd_mutex *m)
 static inline void aitd_mutex_unlock(aitd_mutex *m)
 {
     sceKernelSignalSema(m->sema, 1);
+}
+
+#elif defined(__vita__)
+
+#include <psp2/kernel/threadmgr.h>
+
+/* A kernel mutex, for the same reason as on the PSP. */
+typedef struct { SceUID mutex; } aitd_mutex;
+#define AITD_MUTEX_INIT { -1 }
+static inline void aitd_mutex_lock(aitd_mutex *m)
+{
+    if (m->mutex < 0) {
+        m->mutex = sceKernelCreateMutex("aitd lock", 0, 0, NULL);
+    }
+    sceKernelLockMutex(m->mutex, 1, NULL);
+}
+static inline void aitd_mutex_unlock(aitd_mutex *m)
+{
+    sceKernelUnlockMutex(m->mutex, 1);
 }
 
 #elif defined(_WIN32)

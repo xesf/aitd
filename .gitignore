@@ -23,3 +23,4 @@ platforms/psp/obj/
 platforms/psp/*.elf
 platforms/psp/*.PBP
 platforms/psp/PARAM.SFO
+platforms/vita/build/
