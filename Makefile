@@ -172,6 +172,12 @@ $(WEB_BUILD)/obj/platforms/web.o: src/platforms/web.c $(wildcard src/*.h src/pla
 web-serve: web
 	cd $(WEB_BUILD) && python3 -m http.server 8080
 
+# PlayStation Portable: platforms/psp/Makefile, on the PSP SDK's build.mak.
+PSPDEV ?= $(HOME)/Developer/pspdev
+.PHONY: psp
+psp:
+	PATH="$(PSPDEV)/bin:$$PATH" $(MAKE) -C platforms/psp
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 
@@ -220,6 +226,7 @@ check: $(TARGET)
 
 clean:
 	rm -rf $(BUILD) $(DIST) $(TARGET) pak_dump music_render cd_dump
+	-$(MAKE) -C platforms/psp clean
 
 # Offline tool: exercises the reconstructed .PAK reader against real data.
 TOOL_OBJ := $(filter-out $(BUILD)/main.o,$(OBJ))

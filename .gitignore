@@ -19,3 +19,7 @@ music_render
 cd_dump
 cd_dump/
 cd_dump.dSYM/
+platforms/psp/obj/
+platforms/psp/*.elf
+platforms/psp/*.PBP
+platforms/psp/PARAM.SFO

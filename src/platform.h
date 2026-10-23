@@ -32,6 +32,10 @@ struct platform_event {
     int x, y;   /* mouse position, native 320x200 space */
 };
 
+/* Reads aitd.env from the program's folder into the environment, for hosts
+ * that have no other way to set the AITD_* variables. Called first. */
+void platform_early_init(void);
+
 /* Window and framebuffer.
  * Replaces video_create_window (0x41e338), which wrapped RegisterClassA +
  * CreateWindowExA and installed the paint callback set at 0x41e64e. */

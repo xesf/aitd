@@ -228,3 +228,43 @@ int platform_resolve_path(const char *name, char *out, size_t out_size)
     }
     return 0;
 }
+
+/* ---- settings file ----------------------------------------------------- */
+
+/* Hosts without environment variables (the consoles) read the AITD_*
+ * settings from aitd.env in the program's folder: one NAME=VALUE per line,
+ * # starts a comment. Variables already set win. */
+void platform_early_init(void)
+{
+    char dir[1024], path[1100], line[512];
+    FILE *f;
+
+    backend_default_data_dir(dir, sizeof(dir));
+    snprintf(path, sizeof(path), "%s/aitd.env", dir[0] != '\0' ? dir : ".");
+    if ((f = fopen(path, "r")) == NULL) {
+        return;
+    }
+    while (fgets(line, sizeof(line), f) != NULL) {
+        char *eq = strchr(line, '=');
+        char *end = line + strlen(line);
+
+        while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) {
+            *--end = '\0';
+        }
+        if (line[0] == '#' || eq == NULL) {
+            continue;
+        }
+        *eq = '\0';
+        if (getenv(line) == NULL) {
+#if defined(_WIN32) || defined(__WATCOMC__)
+            char entry[512];
+
+            snprintf(entry, sizeof(entry), "%s=%s", line, eq + 1);
+            _putenv(entry);
+#else
+            setenv(line, eq + 1, 0);
+#endif
+        }
+    }
+    fclose(f);
+}

@@ -232,6 +232,8 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    platform_early_init();
+
     /* Staged bring-up driver; a plain run falls through to game_main. */
     if (harness_run(argc, argv)) {
         return 0;
