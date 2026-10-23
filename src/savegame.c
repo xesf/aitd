@@ -153,7 +153,12 @@ static void *save_block(int index, u32 *size)
 /* 0x420934 */
 static void file_write_be32(FILE *fp, u32 v)
 {
-    u8 b[4] = { (u8)(v >> 24), (u8)(v >> 16), (u8)(v >> 8), (u8)v };
+    u8 b[4];
+
+    b[0] = (u8)(v >> 24);
+    b[1] = (u8)(v >> 16);
+    b[2] = (u8)(v >> 8);
+    b[3] = (u8)v;
 
     fwrite(b, 1, 4, fp);
 }
@@ -434,7 +439,7 @@ static void save_screen_draw(struct save_screen *s)
         return;
     }
     {
-    struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_save_picture };
+    struct raster_image picture = raster_image_make(g_screen_width, g_screen_height, g_save_picture);
     int i;
 
     raster_blit(0, 0, &picture);
@@ -470,7 +475,7 @@ static void save_screen_draw(struct save_screen *s)
 
     /* 0x417743 / 0x417a5f - the preview of the selected slot. */
     if (s->on_slots && (s->exists[s->slot] || s->saving)) {
-        struct raster_image thumb = { THUMB_W, THUMB_H, s->thumb };
+        struct raster_image thumb = raster_image_make(THUMB_W, THUMB_H, s->thumb);
         const s16 *diff = s->difficulty;
 
         if (s->exists[s->slot]) {

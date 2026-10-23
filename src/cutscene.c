@@ -104,7 +104,7 @@ static u32 read_u32(const u8 *p)
 
 static void blit_frame(u8 *pixels)
 {
-    struct raster_image frame = { (u16)g_screen_width, (u16)g_screen_height, pixels };
+    struct raster_image frame = raster_image_make(g_screen_width, g_screen_height, pixels);
 
     raster_blit(0, 0, &frame);
 }
@@ -279,7 +279,7 @@ void show_picture(s16 entry, s16 time, s16 sample)
         screen_present();
         has_palette = picture_load(entry, g_back_buffer, palette);
         if (has_palette >= 0) {
-            struct raster_image frame = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+            struct raster_image frame = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
 
             if (has_palette == 1) {
                 memcpy(g_palette_buffer, palette, sizeof(palette));

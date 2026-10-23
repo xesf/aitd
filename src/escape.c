@@ -108,7 +108,7 @@ static void escape_draw_entry(s16 index, s16 text, s16 selected)
 /* 0x40844b */
 static void escape_draw(s16 selected)
 {
-    struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_escape_picture };
+    struct raster_image picture = raster_image_make(g_screen_width, g_screen_height, g_escape_picture);
 
     if (escape_framed()) {
         escape_draw_framed(selected);

@@ -92,6 +92,35 @@ $(WIN_BUILD)/%.o: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
 	@mkdir -p $(dir $@)
 	$(MINGW) $(DEFS) -std=c99 $(WARN) -O2 -Isrc -c $< -o $@
 
+# Windows 95 and 98, and DOS, with Open Watcom (32 bit, flat model).
+WATCOM     ?= $(HOME)/watcom
+ifeq ($(HOST),Darwin)
+WATCOM_BIN := $(WATCOM)/bino64
+else
+WATCOM_BIN := $(WATCOM)/binl64
+endif
+WCC        := WATCOM=$(WATCOM) $(WATCOM_BIN)/wcc386
+WLINK      := WATCOM=$(WATCOM) $(WATCOM_BIN)/wlink
+WCC_FLAGS  := -za99 -6s -otexan -zp4 -zq -wcd=201 -DAITD_VERSION='"$(VERSION)"' -i=src -i=$(WATCOM)/h
+
+W9X_BUILD  := $(BUILD)/win9x
+W9X_SRC    := $(ENGINE_SRC) src/platforms/windows.c $(PAD_SRC)
+W9X_OBJ    := $(patsubst src/%.c,$(W9X_BUILD)/%.obj,$(W9X_SRC))
+W9X_EXE    := $(W9X_BUILD)/aitd.exe
+
+.PHONY: win9x
+win9x: $(W9X_EXE)
+
+$(W9X_EXE): $(W9X_OBJ)
+	$(WLINK) option quiet system nt_win name $@ \
+	    libpath $(WATCOM)/lib386 libpath $(WATCOM)/lib386/nt \
+	    library user32.lib,gdi32.lib,winmm.lib \
+	    $(foreach o,$(W9X_OBJ),file $(o))
+
+$(W9X_BUILD)/%.obj: src/%.c $(wildcard src/*.h src/platforms/*.h) VERSION
+	@mkdir -p $(dir $@)
+	$(WCC) -bt=nt -DAITD_WIN9X -i=$(WATCOM)/h/nt $(WCC_FLAGS) $< -fo=$@
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 

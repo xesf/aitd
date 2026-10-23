@@ -178,34 +178,34 @@ struct actor {
 
 #pragma pack(pop)
 
-_Static_assert(sizeof(struct world_object) == 0x36, "world_object size");
-_Static_assert(offsetof(struct world_object, x) == 0x10, "world_object.x");
-_Static_assert(offsetof(struct world_object, stage) == 0x1c, "world_object.stage");
-_Static_assert(offsetof(struct world_object, anim) == 0x26, "world_object.anim");
-_Static_assert(offsetof(struct world_object, mark) == 0x34, "world_object.mark");
+STATIC_ASSERT(sizeof(struct world_object) == 0x36, "world_object size");
+STATIC_ASSERT(offsetof(struct world_object, x) == 0x10, "world_object.x");
+STATIC_ASSERT(offsetof(struct world_object, stage) == 0x1c, "world_object.stage");
+STATIC_ASSERT(offsetof(struct world_object, anim) == 0x26, "world_object.anim");
+STATIC_ASSERT(offsetof(struct world_object, mark) == 0x34, "world_object.mark");
 
-_Static_assert(sizeof(struct actor) == 0xb6, "actor size");
-_Static_assert(offsetof(struct actor, zv) == 0x08, "actor.zv");
-_Static_assert(offsetof(struct actor, screen) == 0x14, "actor.screen");
-_Static_assert(offsetof(struct actor, room_x) == 0x1c, "actor.room_x");
-_Static_assert(offsetof(struct actor, world_x) == 0x22, "actor.world_x");
-_Static_assert(offsetof(struct actor, alpha) == 0x28, "actor.alpha");
-_Static_assert(offsetof(struct actor, stage) == 0x2e, "actor.stage");
-_Static_assert(offsetof(struct actor, life_mode) == 0x32, "actor.life_mode");
-_Static_assert(offsetof(struct actor, chrono) == 0x36, "actor.chrono");
-_Static_assert(offsetof(struct actor, anim) == 0x3e, "actor.anim");
-_Static_assert(offsetof(struct actor, frame) == 0x4e, "actor.frame");
-_Static_assert(offsetof(struct actor, track_mode) == 0x5a, "actor.track_mode");
-_Static_assert(offsetof(struct actor, fall) == 0x6e, "actor.fall");
-_Static_assert(offsetof(struct actor, rot) == 0x78, "actor.rot");
-_Static_assert(offsetof(struct actor, speed) == 0x82, "actor.speed");
-_Static_assert(offsetof(struct actor, hard_col) == 0x96, "actor.hard_col");
-_Static_assert(offsetof(struct actor, step_x) == 0x62, "actor.step_x");
-_Static_assert(offsetof(struct actor, col) == 0x8c, "actor.col");
-_Static_assert(offsetof(struct actor, anim_action_type) == 0x9c, "actor.anim_action_type");
-_Static_assert(offsetof(struct actor, hot_point_id) == 0xa6, "actor.hot_point_id");
-_Static_assert(offsetof(struct actor, hot_point) == 0xaa, "actor.hot_point");
-_Static_assert(offsetof(struct actor, visible) == 0xb2, "actor.visible");
+STATIC_ASSERT(sizeof(struct actor) == 0xb6, "actor size");
+STATIC_ASSERT(offsetof(struct actor, zv) == 0x08, "actor.zv");
+STATIC_ASSERT(offsetof(struct actor, screen) == 0x14, "actor.screen");
+STATIC_ASSERT(offsetof(struct actor, room_x) == 0x1c, "actor.room_x");
+STATIC_ASSERT(offsetof(struct actor, world_x) == 0x22, "actor.world_x");
+STATIC_ASSERT(offsetof(struct actor, alpha) == 0x28, "actor.alpha");
+STATIC_ASSERT(offsetof(struct actor, stage) == 0x2e, "actor.stage");
+STATIC_ASSERT(offsetof(struct actor, life_mode) == 0x32, "actor.life_mode");
+STATIC_ASSERT(offsetof(struct actor, chrono) == 0x36, "actor.chrono");
+STATIC_ASSERT(offsetof(struct actor, anim) == 0x3e, "actor.anim");
+STATIC_ASSERT(offsetof(struct actor, frame) == 0x4e, "actor.frame");
+STATIC_ASSERT(offsetof(struct actor, track_mode) == 0x5a, "actor.track_mode");
+STATIC_ASSERT(offsetof(struct actor, fall) == 0x6e, "actor.fall");
+STATIC_ASSERT(offsetof(struct actor, rot) == 0x78, "actor.rot");
+STATIC_ASSERT(offsetof(struct actor, speed) == 0x82, "actor.speed");
+STATIC_ASSERT(offsetof(struct actor, hard_col) == 0x96, "actor.hard_col");
+STATIC_ASSERT(offsetof(struct actor, step_x) == 0x62, "actor.step_x");
+STATIC_ASSERT(offsetof(struct actor, col) == 0x8c, "actor.col");
+STATIC_ASSERT(offsetof(struct actor, anim_action_type) == 0x9c, "actor.anim_action_type");
+STATIC_ASSERT(offsetof(struct actor, hot_point_id) == 0xa6, "actor.hot_point_id");
+STATIC_ASSERT(offsetof(struct actor, hot_point) == 0xaa, "actor.hot_point");
+STATIC_ASSERT(offsetof(struct actor, visible) == 0xb2, "actor.visible");
 
 /* ---- loaded data ------------------------------------------------------- */
 

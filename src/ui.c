@@ -201,7 +201,7 @@ static void object_found_draw(s16 choice, s16 name, s16 distance)
     u8 normal = tg ? 0xff : 64, hi = tg ? 0xf3 : 1, shadow = tg ? 0xff : 4;
 
     if (tg) {
-        struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+        struct raster_image back = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
 
         raster_blit(0, 0, &back);
         r3d_set_camera_position(0, 0, (s16)-distance);
@@ -279,7 +279,7 @@ void object_found(s16 object, int mode)
     }
 
     {
-        struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+        struct raster_image back = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
         raster_blit(0, 0, &back);
     }
     object_found_draw(choice, o->found_name, distance);

@@ -276,6 +276,18 @@ static void tg_icon(int entry, s16 x, s16 y)
     }
 }
 
+/* The position of the single set bit in `bit`. */
+static int bit_index(u16 bit)
+{
+    int n = 0;
+
+    while (bit > 1) {
+        bit >>= 1;
+        n++;
+    }
+    return n;
+}
+
 static void tg_draw(const u8 *frame, int cursor, int action, u16 actions)
 {
     const s16 *list = g_inventory[g_inventory_index];
@@ -293,7 +305,7 @@ static void tg_draw(const u8 *frame, int cursor, int action, u16 actions)
         int entry = s_tg_actions[i].absent;
 
         if ((bit & column) && (actions & bit)) {
-            entry = (s_actions[action] == 23 + __builtin_ctz(bit)) ? s_tg_actions[i].selected
+            entry = (s_actions[action] == 23 + bit_index(bit)) ? s_tg_actions[i].selected
                                                                     : s_tg_actions[i].available;
         }
         tg_icon(entry, s_tg_actions[i].x, s_tg_actions[i].y);

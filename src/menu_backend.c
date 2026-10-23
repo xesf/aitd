@@ -102,7 +102,7 @@ static void menu_target_begin(void)
  */
 void menu_draw_entry(s16 index)
 {
-    struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_menu_picture };
+    struct raster_image picture = raster_image_make(g_screen_width, g_screen_height, g_menu_picture);
     int i;
 
     menu_target_begin();
@@ -132,7 +132,7 @@ void menu_entry_feedback(void)
  * 93 + level), then the presets 83..85 and "previous menu" 86. */
 static void difficulty_draw(s16 selected)
 {
-    struct raster_image picture = { (u16)g_screen_width, (u16)g_screen_height, g_menu_picture };
+    struct raster_image picture = raster_image_make(g_screen_width, g_screen_height, g_menu_picture);
     s16 y = 48;
     s16 i;
 

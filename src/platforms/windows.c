@@ -566,7 +566,11 @@ int platform_video_capture(const char *path)
     for (y = 0; y < s_height; y++) {
         for (x = 0; x < s_width; x++) {
             const RGBQUAD *c = &s_bitmap.colours[s_frame[y * s_width + x]];
-            u8 rgb[3] = { c->rgbRed, c->rgbGreen, c->rgbBlue };
+            u8 rgb[3];
+
+            rgb[0] = c->rgbRed;
+            rgb[1] = c->rgbGreen;
+            rgb[2] = c->rgbBlue;
 
             fwrite(rgb, 1, 3, f);
         }

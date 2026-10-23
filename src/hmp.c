@@ -43,7 +43,12 @@ static int put(struct out *o, const void *p, u32 n)
 
 static int put_be32(struct out *o, u32 v)
 {
-    u8 b[4] = { (u8)(v >> 24), (u8)(v >> 16), (u8)(v >> 8), (u8)v };
+    u8 b[4];
+
+    b[0] = (u8)(v >> 24);
+    b[1] = (u8)(v >> 16);
+    b[2] = (u8)(v >> 8);
+    b[3] = (u8)v;
     return put(o, b, 4);
 }
 
@@ -125,8 +130,11 @@ static int convert_track(struct out *o, const u8 *p, const u8 *end, int first)
             break;
         }
         {
-            u8 event[3] = { status, 0, 0 };
+            u8 event[3];
             int data = ((status & 0xf0) == 0xc0 || (status & 0xf0) == 0xd0) ? 1 : 2;
+
+            event[0] = status;
+            event[1] = event[2] = 0;
 
             if (p + data > end) {
                 break;
@@ -145,7 +153,12 @@ static int convert_track(struct out *o, const u8 *p, const u8 *end, int first)
     }
     {
         u32 len = o->size - length_at - 4;
-        u8 b[4] = { (u8)(len >> 24), (u8)(len >> 16), (u8)(len >> 8), (u8)len };
+        u8 b[4];
+
+        b[0] = (u8)(len >> 24);
+        b[1] = (u8)(len >> 16);
+        b[2] = (u8)(len >> 8);
+        b[3] = (u8)len;
         memcpy(o->data + length_at, b, 4);
     }
     return 1;

@@ -36,6 +36,18 @@ struct raster_image {
     u8 *pixels;
 };
 
+/* A raster_image value; some compilers (Open Watcom) take no run-time
+ * values in a structure initialiser. */
+static inline struct raster_image raster_image_make(int width, int height, u8 *pixels)
+{
+    struct raster_image image;
+
+    image.width = (u16)width;
+    image.height = (u16)height;
+    image.pixels = pixels;
+    return image;
+}
+
 void raster_init(u8 *screen, int width, int height);
 void screen_clear(void);    /* 0x4201ec */
 void screen_present(void);  /* 0x41c7cf */

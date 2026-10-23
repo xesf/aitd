@@ -118,12 +118,16 @@ static int decode(struct bit_reader *br, const struct sf_tree *t)
 
 int pak_explode(const u8 *src, u32 src_size, u8 *dst, u32 dst_size, int flags)
 {
-    struct bit_reader br = { src, src_size, 0, 0, 0 };
+    struct bit_reader br;
     static struct sf_tree literal, length, distance;
     int has_literal = (flags & EXPLODE_LITERAL_TREE) != 0;
     int low_bits = (flags & EXPLODE_8K_WINDOW) ? 7 : 6;
     int min_match = has_literal ? 3 : 2;
     u32 out = 0;
+
+    memset(&br, 0, sizeof(br));
+    br.src = src;
+    br.size = src_size;
 
     if ((has_literal && !read_tree(&br, &literal, 256))
         || !read_tree(&br, &length, 64) || !read_tree(&br, &distance, 64)) {

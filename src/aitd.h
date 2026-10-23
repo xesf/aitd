@@ -24,6 +24,19 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 typedef uint8_t u8;
 
+/* Compile-time checks of the original's structure layouts. _Static_assert
+ * is C11; GCC and Clang take it in C99 mode, and other compilers (Open
+ * Watcom) get an array type whose size goes negative when the check
+ * fails. */
+#if defined(__GNUC__) || defined(__clang__) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L)
+#define STATIC_ASSERT(cond, message) _Static_assert(cond, message)
+#else
+#define STATIC_ASSERT_JOIN2(a, b) a##b
+#define STATIC_ASSERT_JOIN(a, b) STATIC_ASSERT_JOIN2(a, b)
+#define STATIC_ASSERT(cond, message) \
+    typedef char STATIC_ASSERT_JOIN(static_assert_line_, __LINE__)[(cond) ? 1 : -1]
+#endif
+
 /* Native screen geometry. engine_init reads these from g_video_mode_info
  * (0x435160): word[0] -> width, word[1] -> height. The window is created
  * 0x140 x 0xC8, so both are 320x200 in practice. */

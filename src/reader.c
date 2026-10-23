@@ -206,7 +206,7 @@ static void page_sound(void)
 s16 text_reader(s16 text, s16 xmin, s16 ymin, s16 xmax, s16 ymax, s16 mode,
                 s16 colour, s16 shadow)
 {
-    struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+    struct raster_image back = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
     struct word words[WORD_MAX];
     char *pages[PAGE_MAX];
     char *buffer;
@@ -594,7 +594,7 @@ void read_document(s16 text, s16 type)
  * shadow. */
 void read_book(const s16 *args)
 {
-    struct raster_image back = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+    struct raster_image back = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
 
     ticks_freeze();
     memcpy(g_back_buffer, g_screen, SCREEN_PIXELS);   /* 0x402c8b */

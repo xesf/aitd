@@ -40,7 +40,7 @@ static void wait_blink(struct game_timer *timer)
 /* 0x4013de - an arrow pointing down at (x, y). */
 static void map_marker(s16 x, s16 y)
 {
-    struct raster_image map = { (u16)g_screen_width, (u16)g_screen_height, g_back_buffer };
+    struct raster_image map = raster_image_make(g_screen_width, g_screen_height, g_back_buffer);
     struct game_timer total;
     struct game_timer blink;
 

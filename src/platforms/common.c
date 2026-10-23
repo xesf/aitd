@@ -18,10 +18,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#if defined(_WIN32) || defined(__WATCOMC__) || defined(__DJGPP__)
+#if defined(__WATCOMC__)
+#include <direct.h>         /* opendir and readdir in Open Watcom */
+#else
+#if defined(_WIN32)
 #include <direct.h>
 #endif
 #include <dirent.h>
+#endif
 #if !defined(_WIN32) && !defined(__WATCOMC__)
 #include <unistd.h>
 #endif

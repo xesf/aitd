@@ -201,9 +201,12 @@ static void walk_edge(const struct tex_vertex *a, const struct tex_vertex *b,
         seen[row] = 1;
         if (dy == 0) {
             /* A flat edge spans from one end to the other. */
-            const struct edge_row end = {
-                (s32)b->x << 16, (s32)b->u << 16, (s32)b->v << 16, (s32)b->level << 16
-            };
+            struct edge_row end;
+
+            end.x = (s32)b->x << 16;
+            end.u = (s32)b->u << 16;
+            end.v = (s32)b->v << 16;
+            end.l = (s32)b->level << 16;
             if (end.x < s_left[row].x) s_left[row] = end;
             if (end.x > s_right[row].x) s_right[row] = end;
             break;

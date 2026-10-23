@@ -173,16 +173,24 @@ static void decode_picture(const u8 *data, u32 size, u8 *screen, u8 *scratch)
     }
 
     if (flags & 4) {
-        struct cursor in = { data + 13, data + size };
-        u32 got = unpack_bits(&in, scratch, control + literals);
+        struct cursor in;
+        u32 got;
+
+        in.p = data + 13;
+        in.end = data + size;
+        got = unpack_bits(&in, scratch, control + literals);
 
         ctl.p = scratch;
         ctl.end = scratch + PIXELS * 4;   /* reads run on, as the original's */
         lit.p = scratch + control;
         lit.end = scratch + (got < control + literals ? got : control + literals);
     } else if (flags & 1) {
-        struct cursor in = { data + 13, data + size };
-        u32 got = unpack_bytes(&in, scratch, literals);
+        struct cursor in;
+        u32 got;
+
+        in.p = data + 13;
+        in.end = data + size;
+        got = unpack_bytes(&in, scratch, literals);
 
         lit.p = scratch;
         lit.end = scratch + got;
@@ -313,7 +321,7 @@ int mux_play(const char *name)
     for (i = 0; i < entries && !skipped; i++) {
         u32 p = rd32(file + HEADER + i * 4) & 0xffffff;
         u32 end = i + 1 < entries ? rd32(file + HEADER + (i + 1) * 4) & 0xffffff : (u32)size;
-        struct raster_image image = { 320, 200, screen };
+        struct raster_image image = raster_image_make(320, 200, screen);
 
         while (p + 6 <= end && end <= (u32)size) {
             u32 len = rd32(file + p + 2);

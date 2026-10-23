@@ -41,6 +41,16 @@ struct bits {
     u32 size, pos;   /* pos in bits */
 };
 
+static struct bits bits_make(const u8 *data, u32 size)
+{
+    struct bits b;
+
+    b.data = data;
+    b.size = size;
+    b.pos = 0;
+    return b;
+}
+
 static int bit1(struct bits *b)
 {
     int v;
@@ -361,9 +371,11 @@ static const int s_block_runs[64] = {
 
 static void smk_video(struct smk *s, const u8 *data, u32 size)
 {
-    struct bits b = { data, size, 0 };
+    struct bits b;
     int bw = (int)s->width / 4, blocks = bw * ((int)s->height / 4);
     int blk = 0;
+
+    b = bits_make(data, size);
 
     big_reset(&s->mmap);
     big_reset(&s->mclr);
@@ -560,7 +572,7 @@ int smacker_play(const char *name)
     for (frame = 0, p = s.frame_data; frame < s.frames && !skipped; p += s.frame_size[frame], frame++) {
         const u8 *video, *pal;
         u32 video_size;
-        struct raster_image image = { 320, 200, s.pixels };
+        struct raster_image image = raster_image_make(320, 200, s.pixels);
 
         if (p + s.frame_size[frame] > s.file + s.file_size) {
             break;
