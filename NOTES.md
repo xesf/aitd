@@ -162,7 +162,7 @@ accessors over `0x435220` and `0x435226`.
 | `src/reader.c` | documents and books (0x4156a6, 0x4160b6, opcode 98) |
 | `src/map.c` | the Tab map (0x4019ff) |
 | `src/stubs.c` | engine bring-up helpers with no behaviour on a host |
-| `src/platform_macos.m` | AppKit + CoreGraphics + AudioToolbox backend |
+| `src/platforms/` | host backends and the code they share (see docs/engine.md) |
 | `tools/pak_dump.c` | offline container inspector, `--verify` decodes everything |
 | `src/exe_tables.c` | rebuilds the sine and ramp tables; reads the noise bytes from a local WAITD3.EXE |
 | `tools/sync_ida_names.py` | renames the IDA database after the C sources |

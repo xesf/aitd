@@ -184,14 +184,29 @@ mixes them into a 16 bit, 44.1 kHz stream. Music depends on the game:
 ## Platform layer
 
 `platform.h` is the only interface to the host: window and palette,
-input events, ticks, sound output, CD audio, MIDI and file paths.
-`platform_macos.m` implements it with AppKit, CoreGraphics and
-AudioToolbox. The engine draws at the game's own resolution (320 x 200,
-or 640 x 400 for the Windows Time Gate build), and the platform layer
-stretches the picture to a 4:3 window.
+input events, ticks, sound output, CD audio, MIDI and file paths. The
+engine draws at the game's own resolution (320 x 200, or 640 x 400 for
+the Windows Time Gate build), and the backend stretches the picture to a
+4:3 screen.
 
-A port to another system needs a new `platform_*.c` file and no change
-to the engine.
+`src/platforms/` holds the backends and the code they share:
+
+| File | Role |
+|---|---|
+| `common.c` | the data folder, case-insensitive names, saves, the disc image, `aitd.env` |
+| `mixer.c` | one sample voice over the music, CD audio streamed from disk, 16 bit mono at 44.1 kHz |
+| `midi_tsf.c` | MIDI from a soundfont, for hosts with no system synthesizer |
+| `pad.c` | one gamepad layout, turned into keys |
+| `mutex.h` | the audio lock: pthreads, Windows, PSP, Vita, or none |
+| `macos.m`, `linux.c`, `windows.c`, `dos.c`, `web.c`, `psp.c`, `vita.c`, `ios.m` | the hosts |
+
+A backend reports keys as PC set 1 scancodes, so the engine sees the same
+keyboard everywhere. It implements the window, event, timer, MIDI and
+dialog entry points of `platform.h` and the hooks in
+`src/platforms/backend.h`: the default data folder, the audio device that
+pulls samples from `mixer_render`, and optional playback of ripped CD
+tracks in formats the mixer does not read. A port to another system needs
+one new backend file and no change to the engine.
 
 ## Testing without playing
 

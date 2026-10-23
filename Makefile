@@ -214,6 +214,11 @@ ios:
 	cd $(BUILD)/ios && rm -rf Payload && mkdir Payload && cp -R AITD.app Payload/ \
 	    && zip -qr aitd.ipa Payload
 
+# Every platform whose toolchain is installed, packaged in dist/.
+.PHONY: dist
+dist:
+	platforms/dist.sh
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 

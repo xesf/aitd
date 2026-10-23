@@ -22,14 +22,32 @@ covers. No code from other projects is used.
 The repository has no game data and no part of the original programs.
 You need your own copy of each game.
 
-## Requirements
+## Platforms
 
-- macOS with the Xcode command line tools (`clang`, AppKit, CoreGraphics,
-  AudioToolbox).
+The engine is plain C99. Each platform has a small backend in
+`src/platforms/` and its own notes:
 
-Only `src/platform_macos.m` is specific to macOS. The rest is plain C99.
+| Platform | Build | Notes | Tested |
+|---|---|---|---|
+| macOS | `make` | AppKit, CoreGraphics, AudioToolbox | yes |
+| Linux, Steam Deck | `make linux` | [platforms/linux](platforms/linux/README.md) | under Xvfb |
+| Windows 7 and later | `make windows` | [platforms/windows](platforms/windows/README.md) | under Wine |
+| Windows 95 and 98 | `make win9x` | [platforms/win9x](platforms/win9x/README.md) | under Wine |
+| MS-DOS | `make dos` | [platforms/dos](platforms/dos/README.md) | in DOSBox-X |
+| Web browsers | `make web` | [platforms/web](platforms/web/README.md) | in Chrome |
+| PlayStation Portable | `make psp` | [platforms/psp](platforms/psp/README.md) | in PPSSPP |
+| PlayStation Vita | `make vita` | [platforms/vita](platforms/vita/README.md) | builds only |
+| iOS, iPadOS | `make ios` | [platforms/ios](platforms/ios/README.md) | builds only |
 
-## Build
+`make dist` builds every platform whose toolchain is installed and puts
+one zip per platform in `dist/`, named `aitd-<platform>-<version>.zip`.
+The version is in the `VERSION` file, and [CHANGELOG.md](CHANGELOG.md)
+lists the changes of each version. A tag `v<version>` on GitHub builds
+all platforms and publishes them as a release.
+
+## Build on macOS
+
+You need the Xcode command line tools.
 
 ```sh
 make
