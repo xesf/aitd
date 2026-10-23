@@ -186,6 +186,34 @@ vita:
 	    -DCMAKE_BUILD_TYPE=Release
 	VITASDK=$(VITASDK) PATH="$(VITASDK)/bin:$$PATH" cmake --build $(BUILD)/vita --parallel
 
+# iOS and iPadOS: an app bundle for the simulator (ios-sim) or an unsigned
+# IPA for devices (ios), sideloaded and signed by the installer.
+IOS_MIN    := 15.0
+IOS_SRC    := $(ENGINE_SRC) $(SOUNDFONT_SRC) $(PAD_SRC)
+IOS_FRAMEWORKS := -framework UIKit -framework AVFoundation -framework AudioToolbox \
+                  -framework GameController -framework QuartzCore -framework CoreGraphics
+define ios_build
+	@mkdir -p $(BUILD)/$(1)/AITD.app
+	xcrun --sdk $(2) clang -target $(3) -isysroot $$(xcrun --sdk $(2) --show-sdk-path) \
+	    $(DEFS) -std=gnu99 -O2 -Isrc -fobjc-arc -Dmain=aitd_main -w \
+	    -c src/main.c -o $(BUILD)/$(1)/main.o
+	xcrun --sdk $(2) clang -target $(3) -isysroot $$(xcrun --sdk $(2) --show-sdk-path) \
+	    $(DEFS) -std=gnu99 -O2 -Isrc -fobjc-arc -w \
+	    $(filter-out src/main.c,$(IOS_SRC)) src/platforms/ios.m $(BUILD)/$(1)/main.o \
+	    $(IOS_FRAMEWORKS) -o $(BUILD)/$(1)/AITD.app/aitd
+	sed 's/@VERSION@/$(VERSION)/' platforms/ios/Info.plist > $(BUILD)/$(1)/AITD.app/Info.plist
+endef
+
+.PHONY: ios ios-sim
+ios-sim:
+	$(call ios_build,ios-sim,iphonesimulator,$(shell uname -m)-apple-ios$(IOS_MIN)-simulator)
+	codesign -s - --force $(BUILD)/ios-sim/AITD.app
+
+ios:
+	$(call ios_build,ios,iphoneos,arm64-apple-ios$(IOS_MIN))
+	cd $(BUILD)/ios && rm -rf Payload && mkdir Payload && cp -R AITD.app Payload/ \
+	    && zip -qr aitd.ipa Payload
+
 # The version is compiled into main.c.
 $(BUILD)/main.o: VERSION
 
