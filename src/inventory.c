@@ -338,6 +338,12 @@ static void inventory_open_icons(void)
     shaking_save();
     r3d_set_projection(SCALED(159), SCALED(102), 128, SCALED(300), SCALED(300));
 
+    /* The key that opened the inventory is still down; it would close
+     * the inventory on the first poll. */
+    while (g_key_confirm || (g_last_scancode & 0xff) || g_key_dir_flags) {
+        input_poll();
+    }
+
     for (;;) {
         input_poll();
         if ((g_last_scancode & 0xff) == SC_ESC) {
@@ -392,6 +398,7 @@ static void inventory_open_icons(void)
         input_poll();
     }
     memcpy(g_palette_buffer, saved, sizeof(saved));
+    palette_set_range(g_palette_buffer, 0, 256);
     ticks_unfreeze();
     g_init_view = 1;
     free(frame);
