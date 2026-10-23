@@ -8,6 +8,10 @@
  * envelope and modulation depths follow the documented timings and
  * levels; the arithmetic is floating point rather than the chip's log
  * and exponent tables, so the sound is close, not bit exact.
+ *
+ * Everything per sample is single precision and table driven (sine,
+ * decibels to amplitude, envelope rates), as the PSP and the Vita have no
+ * double precision hardware and DOS machines no time for libm calls.
  */
 
 #include <math.h>
@@ -20,8 +24,12 @@
 #define PI 3.14159265358979323846
 #endif
 
-#define CHIP_RATE 49716.0       /* 3.579545 MHz / 72 */
-#define MAX_ATT 96.0            /* dB, silence */
+#define CHIP_RATE 49716.0f      /* 3.579545 MHz / 72 */
+#define MAX_ATT 96.0f           /* dB, silence */
+
+#define SINE_SIZE 1024
+#define DB_STEPS 32             /* table steps per dB */
+#define DB_SIZE (96 * DB_STEPS + 1)
 
 enum eg_state { EG_OFF, EG_ATTACK, EG_DECAY, EG_SUSTAIN, EG_RELEASE };
 
@@ -32,11 +40,11 @@ struct op {
     int ar, dr, sl, rr;
     int wave;
     /* state */
-    double phase;               /* in periods */
-    double att;                 /* envelope attenuation, dB */
+    float phase;                /* in periods, 0..1 */
+    float att;                  /* envelope attenuation, dB */
     enum eg_state eg;
     int key;                    /* bit 0 melodic key, bit 1 rhythm key */
-    double out[2];              /* last outputs, for feedback */
+    float out[2];               /* last outputs, for feedback */
 };
 
 struct channel {
@@ -48,8 +56,14 @@ static struct op s_ops[18];
 static struct channel s_ch[9];
 static int s_wave_enable;
 static int s_bd;                /* register 0xbd */
-static double s_rate = 44100.0;
-static double s_lfo_am, s_lfo_vib, s_clock;
+static float s_rate = 44100.0f;
+static float s_lfo_am, s_vib_factor[2];
+static unsigned s_clock;            /* samples since the LFOs started */
+
+static float s_sine[SINE_SIZE];
+static float s_amplitude[DB_SIZE];  /* 10^(-dB/20), in 1/32 dB steps */
+static float s_decay[64];           /* dB per sample, by effective rate */
+static float s_attack[64];          /* attack coefficient, by effective rate */
 static unsigned s_noise = 1;
 
 /* Register offsets 0x00..0x15 to operator numbers; -1 for the holes. */
@@ -62,12 +76,12 @@ static const int s_ch_op[9][2] = {
     { 0, 3 }, { 1, 4 }, { 2, 5 }, { 6, 9 }, { 7, 10 }, { 8, 11 }, { 12, 15 }, { 13, 16 }, { 14, 17 }
 };
 
-static const double s_mult[16] = { 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15 };
+static const float s_mult[16] = { 0.5f, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15 };
 
 /* Key scale level for block 7, in dB, by the top four bits of fnum. */
-static const double s_ksl[16] = {
-    0.0, 9.0, 12.0, 13.875, 15.0, 16.125, 16.875, 17.625,
-    18.0, 18.75, 19.125, 19.5, 19.875, 20.25, 20.625, 21.0
+static const float s_ksl[16] = {
+    0.0f, 9.0f, 12.0f, 13.875f, 15.0f, 16.125f, 16.875f, 17.625f,
+    18.0f, 18.75f, 19.125f, 19.5f, 19.875f, 20.25f, 20.625f, 21.0f
 };
 
 static int eff_rate(const struct op *o, int rate, int ch)
@@ -110,10 +124,27 @@ static double attack_coef(int r)
     return 1.0 - exp(-6.87 / (seconds * s_rate));
 }
 
+/* The tables depend on the output rate; built by opl_init. */
+static void build_tables(void)
+{
+    int i;
+
+    for (i = 0; i < SINE_SIZE; i++) {
+        s_sine[i] = (float)sin(i * 2.0 * PI / SINE_SIZE);
+    }
+    for (i = 0; i < DB_SIZE; i++) {
+        s_amplitude[i] = (float)pow(10.0, -(double)i / DB_STEPS / 20.0);
+    }
+    for (i = 0; i < 64; i++) {
+        s_decay[i] = (float)decay_step(i);
+        s_attack[i] = (float)attack_coef(i);
+    }
+}
+
 static void key_on(struct op *o, int which)
 {
     if (!o->key) {
-        o->phase = 0.0;
+        o->phase = 0.0f;
         o->eg = EG_ATTACK;
     }
     o->key |= which;
@@ -141,8 +172,10 @@ void opl_init(int sample_rate)
     }
     s_wave_enable = 0;
     s_bd = 0;
-    s_rate = sample_rate;
-    s_lfo_am = s_lfo_vib = 0.0;
+    s_rate = (float)sample_rate;
+    s_lfo_am = 0.0f;
+    s_vib_factor[0] = s_vib_factor[1] = 1.0f;
+    build_tables();
 }
 
 void opl_write(int reg, int value)
@@ -246,35 +279,41 @@ void opl_write(int reg, int value)
     }
 }
 
-static double waveform(int wave, double phase)
+static float waveform(int wave, float phase)
 {
-    double p = phase - floor(phase);
-    double s = sin(p * 2.0 * PI);
+    float p = phase - (float)(int)phase;
+    int index;
+    float v;
 
+    if (p < 0.0f) {
+        p += 1.0f;
+    }
+    index = (int)(p * SINE_SIZE) & (SINE_SIZE - 1);
+    v = s_sine[index];
     switch (s_wave_enable ? wave : 0) {
-    case 1: return s > 0.0 ? s : 0.0;
-    case 2: return fabs(s);
-    case 3: return fmod(p, 0.5) < 0.25 ? fabs(s) : 0.0;
-    default: return s;
+    case 1: return v > 0.0f ? v : 0.0f;
+    case 2: return v < 0.0f ? -v : v;
+    case 3: return (index & (SINE_SIZE / 2 - 1)) < SINE_SIZE / 4 ? (v < 0.0f ? -v : v) : 0.0f;
+    default: return v;
     }
 }
 
 static void envelope(struct op *o, int ch)
 {
-    double sustain = o->sl == 15 ? MAX_ATT : o->sl * 3.0;
+    float sustain = o->sl == 15 ? MAX_ATT : o->sl * 3.0f;
 
     switch (o->eg) {
     case EG_ATTACK: {
-        double k = attack_coef(eff_rate(o, o->ar, ch));
+        float k = s_attack[eff_rate(o, o->ar, ch)];
         o->att -= o->att * k;
-        if (o->att < 0.05) {
-            o->att = 0.0;
+        if (o->att < 0.05f) {
+            o->att = 0.0f;
             o->eg = EG_DECAY;
         }
         break;
     }
     case EG_DECAY:
-        o->att += decay_step(eff_rate(o, o->dr, ch));
+        o->att += s_decay[eff_rate(o, o->dr, ch)];
         if (o->att >= sustain) {
             o->att = sustain;
             o->eg = EG_SUSTAIN;
@@ -282,11 +321,11 @@ static void envelope(struct op *o, int ch)
         break;
     case EG_SUSTAIN:
         if (!o->egt) {
-            o->att += decay_step(eff_rate(o, o->rr, ch));
+            o->att += s_decay[eff_rate(o, o->rr, ch)];
         }
         break;
     case EG_RELEASE:
-        o->att += decay_step(eff_rate(o, o->rr, ch));
+        o->att += s_decay[eff_rate(o, o->rr, ch)];
         break;
     default:
         break;
@@ -300,96 +339,110 @@ static void envelope(struct op *o, int ch)
 }
 
 /* Output of an operator, -1..1, with its phase advanced. */
-static double op_output(struct op *o, int ch, double modulation)
+static float op_output(struct op *o, int ch, float modulation)
 {
     const struct channel *c = &s_ch[ch];
-    double freq = c->fnum * CHIP_RATE / (double)(1 << (20 - c->block)) * s_mult[o->mult];
-    double att, ksl;
+    float freq = (float)c->fnum * (CHIP_RATE / (float)(1 << (20 - c->block))) * s_mult[o->mult];
+    float att, ksl;
+    int index;
 
     if (o->vib) {
-        freq *= pow(2.0, s_lfo_vib * ((s_bd & 0x40) ? 14.0 : 7.0) / 1200.0);
+        freq *= s_vib_factor[(s_bd & 0x40) ? 1 : 0];
     }
     envelope(o, ch);
-    ksl = s_ksl[c->fnum >> 6] - 6.0 * (7 - c->block);
-    if (ksl < 0.0) {
-        ksl = 0.0;
+    ksl = s_ksl[c->fnum >> 6] - 6.0f * (float)(7 - c->block);
+    if (ksl < 0.0f) {
+        ksl = 0.0f;
     }
-    att = o->att + o->tl * 0.75;
+    att = o->att + (float)o->tl * 0.75f;
     switch (o->ksl) {
-    case 1: att += ksl * 0.5; break;
-    case 2: att += ksl * 0.25; break;
+    case 1: att += ksl * 0.5f; break;
+    case 2: att += ksl * 0.25f; break;
     case 3: att += ksl; break;
     default: break;
     }
     if (o->am) {
-        att += s_lfo_am * ((s_bd & 0x80) ? 4.8 : 1.0);
+        att += s_lfo_am * ((s_bd & 0x80) ? 4.8f : 1.0f);
     }
     o->phase += freq / s_rate;
-    if (o->phase >= 1024.0) {
-        o->phase -= floor(o->phase);
+    if (o->phase >= 1.0f) {
+        o->phase -= (float)(int)o->phase;
     }
     if (o->eg == EG_OFF || att >= MAX_ATT) {
-        return 0.0;
+        return 0.0f;
     }
-    return waveform(o->wave, o->phase + modulation) * pow(10.0, -att / 20.0);
+    index = (int)(att * DB_STEPS + 0.5f);
+    return waveform(o->wave, o->phase + modulation) * s_amplitude[index < DB_SIZE ? index : DB_SIZE - 1];
 }
 
-static double channel_output(int ch)
+static float channel_output(int ch)
 {
+    static const float feedback[8] = {
+        0.0f, 1.0f / 256 * 4, 1.0f / 128 * 4, 1.0f / 64 * 4,
+        1.0f / 32 * 4, 1.0f / 16 * 4, 1.0f / 8 * 4, 1.0f / 4 * 4
+    };
     struct channel *c = &s_ch[ch];
     struct op *m = &s_ops[s_ch_op[ch][0]];
     struct op *car = &s_ops[s_ch_op[ch][1]];
-    double fb = c->fb ? (m->out[0] + m->out[1]) * pow(2.0, c->fb - 9) * 4.0 : 0.0;
-    double mo = op_output(m, ch, fb);
+    float fb = c->fb ? (m->out[0] + m->out[1]) * feedback[c->fb] : 0.0f;
+    float mo = op_output(m, ch, fb);
 
     m->out[1] = m->out[0];
     m->out[0] = mo;
     if (c->cnt) {
-        return mo + op_output(car, ch, 0.0);
+        return mo + op_output(car, ch, 0.0f);
     }
-    return op_output(car, ch, mo * 4.0);
+    return op_output(car, ch, mo * 4.0f);
 }
 
 /* Rhythm instruments, approximated: the bass drum as channel 6, the tom
  * as a plain operator, snare, cymbal and hi-hat from noise shaped by
  * their operators' envelopes. */
-static double rhythm_output(void)
+static float rhythm_output(void)
 {
-    double noise, sum;
+    float noise, sum, v;
 
     s_noise = s_noise * 1103515245u + 12345u;
-    noise = ((s_noise >> 16) & 1) ? 1.0 : -1.0;
-    sum = channel_output(6) * 2.0;
-    sum += op_output(&s_ops[14], 8, 0.0) * 2.0;                     /* TT */
-    sum += op_output(&s_ops[16], 7, 0.0) * (0.5 + 0.5 * noise) * 2.0; /* SD */
-    sum += fabs(op_output(&s_ops[13], 7, 0.0)) * noise * 2.0;        /* HH */
-    sum += fabs(op_output(&s_ops[17], 8, 0.0)) * noise * 2.0;        /* CY */
+    noise = ((s_noise >> 16) & 1) ? 1.0f : -1.0f;
+    sum = channel_output(6) * 2.0f;
+    sum += op_output(&s_ops[14], 8, 0.0f) * 2.0f;                       /* TT */
+    sum += op_output(&s_ops[16], 7, 0.0f) * (0.5f + 0.5f * noise) * 2.0f; /* SD */
+    v = op_output(&s_ops[13], 7, 0.0f);                                 /* HH */
+    sum += (v < 0.0f ? -v : v) * noise * 2.0f;
+    v = op_output(&s_ops[17], 8, 0.0f);                                 /* CY */
+    sum += (v < 0.0f ? -v : v) * noise * 2.0f;
     return sum;
 }
 
 void opl_generate(short *out, int frames)
 {
+    /* The LFO periods in samples. */
+    const unsigned am_period = (unsigned)(s_rate / 3.7f);
+    const unsigned vib_period = (unsigned)(s_rate / 6.1f);
     int i, ch;
 
     for (i = 0; i < frames; i++) {
-        double sum = 0.0;
+        float sum = 0.0f, vib;
         int melodic = (s_bd & 0x20) ? 6 : 9;
         long v;
+        unsigned at;
 
-        /* Tremolo 3.7 Hz triangle 0..1, vibrato 6.1 Hz -1..1. */
-        s_clock += 1.0 / s_rate;
-        if (s_clock > 1000.0) {
-            s_clock -= 1000.0;
-        }
-        s_lfo_am = fabs(fmod(s_clock * 3.7 * 2.0, 2.0) - 1.0);
-        s_lfo_vib = sin(2.0 * PI * 6.1 * s_clock);
+        /* Tremolo 3.7 Hz triangle 0..1, vibrato 6.1 Hz sine of 7 or 14
+         * cents; once a sample, not once an operator. */
+        s_clock++;
+        at = s_clock % am_period;
+        s_lfo_am = (float)at / (float)am_period * 2.0f;
+        s_lfo_am = s_lfo_am > 1.0f ? 2.0f - s_lfo_am : s_lfo_am;
+        vib = s_sine[(s_clock % vib_period) * SINE_SIZE / vib_period];
+        s_vib_factor[0] = 1.0f + vib * (7.0f * 0.000577623f);     /* ln 2 / 1200 */
+        s_vib_factor[1] = 1.0f + vib * (14.0f * 0.000577623f);
         for (ch = 0; ch < melodic; ch++) {
             sum += channel_output(ch);
         }
         if (melodic == 6) {
             sum += rhythm_output();
         }
-        v = (long)(sum * 4096.0);
+        v = (long)(sum * 4096.0f);
         out[i] = (short)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
     }
 }
