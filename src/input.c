@@ -97,7 +97,8 @@ static void run_bindings(u8 scancode, int down)
 
 /*
  * Scripted input for unattended runs: AITD_INPUT="from-to:keys,..." where
- * keys are any of u d l r (arrows), s (space), c (ctrl), e (enter), x (esc).
+ * keys are any of u d l r (arrows), s (space), c (ctrl), e (enter), x (esc),
+ * t (tab) and the digits 0..9.
  * Counts are input_poll calls: one per frame in the scene loop.
  */
 static int s_poll_number;
@@ -152,6 +153,10 @@ static void harness_input(void)
                 case 'e': scancode = 0x1c; break;
                 case 'x': scancode = 0x01; break;
                 case 't': scancode = 0x0f; break;
+                case '1': case '2': case '3': case '4': case '5':
+                case '6': case '7': case '8': case '9':
+                    scancode = 0x02 + (*k - '1'); break;
+                case '0': scancode = 0x0b; break;
                 default: break;
                 }
             }

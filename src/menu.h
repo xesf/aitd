@@ -19,6 +19,8 @@ u32 timer_elapsed(struct game_timer *timer);   /* 0x402945 */
 /* PC set 1 scancodes as left in g_last_scancode by input_poll. */
 enum scancode {
     SC_ESC = 0x01,
+    SC_1 = 0x02,        /* 1..9, 0, - follow on to 0x0c */
+    SC_MINUS = 0x0c,
     SC_TAB = 0x0f,
     SC_I = 0x17,
     SC_P = 0x19,

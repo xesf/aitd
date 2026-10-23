@@ -137,6 +137,32 @@ AITD_LANG=FRANCAIS make run-aitd1
 | S | Sound on or off |
 | ; | Music on or off |
 
+The number row chooses an action without opening the inventory. This is
+an addition: the original games have no such keys. The keys follow the
+order of the action list in the inventory:
+
+| Key | Action |
+|---|---|
+| 1 | Use |
+| 2 | Eat/Drink |
+| 3 | Read |
+| 4 | Reload |
+| 5 | Fight |
+| 6 | Jump (Tear in Alone in the Dark 2) |
+| 7 | Open/Search |
+| 8 | Close |
+| 9 | Push |
+| 0 | Throw |
+| - | Drop/Put |
+
+The object in your hand takes the action if it offers it. If it does
+not, the first object in the inventory that offers it takes it. The
+action's name shows at the foot of the screen. The result is the same as
+a choice in the inventory: some actions happen at once, such as drinking
+a flask, and others, such as Fight, Open/Search and Push, become the
+action that Space does. A key does nothing when no object you carry
+offers that action.
+
 ## Check every game
 
 ```sh

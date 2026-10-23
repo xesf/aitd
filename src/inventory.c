@@ -409,6 +409,44 @@ static void inventory_open_icons(void)
     shaking_restore();
 }
 
+/*
+ * Not in the original games: picks action `bit` (0 Use .. 10 Drop/Put) as
+ * choosing it in the inventory would, so the player does not have to open
+ * the inventory to change between fighting, searching and pushing. The
+ * object in hand takes it first, then the first carried object that offers
+ * it. Returns 1 when an object took the action.
+ */
+int inventory_quick_action(int bit)
+{
+    const s16 *list = g_inventory[g_inventory_index];
+    s16 in_hand = g_in_hand[g_inventory_index];
+    s16 object = -1;
+    int i;
+
+    if (bit < 0 || bit > 10) {
+        return 0;
+    }
+    if (in_hand >= 0 && (object_get(in_hand)->flags2 & (1 << bit))) {
+        object = in_hand;
+    }
+    for (i = 0; object == -1 && i < g_inventory_count[g_inventory_index]; i++) {
+        if (object_get(list[i])->flags2 & (1 << bit)) {
+            object = list[i];
+        }
+    }
+    if (object == -1) {
+        return 0;
+    }
+
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "quick action %d: object %d\n", bit, object);
+    }
+    message_show(23 + bit);   /* the action's name, as listed in the inventory */
+    g_action = (s16)(1 << bit);
+    life_run_global(object);
+    return 1;
+}
+
 /* 0x40f1c3 */
 void inventory_open(void)
 {

@@ -199,7 +199,7 @@ all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_
 
 | Variable | Effect |
 |---|---|
-| `AITD_INPUT="a-b:keys,..."` | hold keys during input polls a..b: `u d l r` arrows, `s` space, `c` ctrl, `e` enter, `x` esc, `t` tab |
+| `AITD_INPUT="a-b:keys,..."` | hold keys during input polls a..b: `u d l r` arrows, `s` space, `c` ctrl, `e` enter, `x` esc, `t` tab, `0`..`9` number row |
 | `AITD_DUMP_EVERY=n` + `AITD_DUMP_FRAME=prefix` | PPM of the presented screen every n polls |
 | `AITD_TRACE=1` | per-frame player state on stderr |
 | `AITD_TELEPORT=f,room,x,y,z[,beta]` | put the player there at frame f |

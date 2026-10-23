@@ -165,6 +165,14 @@ static int handle_input(s16 flag, int *hold_count, u32 *hold_start, int *hold_do
                 message_show(g_sound_ready2 + TEXT_ID_SOUND_OFF);
                 g_message_shown = 1;
             }
+            /* Action hotkeys (not in the original): 1..9, 0 and - choose the
+             * actions in the order the inventory lists them, Use to Drop/Put. */
+            if (g_inventory_enabled
+                && g_scene_scancode >= SC_1 && g_scene_scancode <= SC_MINUS) {
+                if (inventory_quick_action(g_scene_scancode - SC_1)) {
+                    g_message_shown = 1;    /* once per key press */
+                }
+            }
         }
 
         if ((g_scene_scancode == SC_ENTER || g_scene_scancode == SC_I)

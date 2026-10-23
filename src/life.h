@@ -299,6 +299,7 @@ void text_draw_centered_shadowed(s16 x, s16 y, s16 id, u8 colour, u8 shadow);
 int scene_escape_menu(void);        /* 0x408545 */
 void music_toggle(void);            /* 0x40b3f6 */
 void inventory_open(void);          /* 0x40f1c3 */
+int inventory_quick_action(int bit); /* action hotkeys, not in the original */
 void scene_tab_action(void);        /* 0x4019ff */
 
 extern s16 g_scene_scancode;   /* 0x445026 */
