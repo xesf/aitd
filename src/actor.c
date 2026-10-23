@@ -700,7 +700,10 @@ void actor_process(int flag)
                 o->col_by = index;
 
                 if (o->flags & 0x80) {
-                    if (a->track_mode == TRACK_MANUAL && !g_tab_locked) {
+                    /* Alone in the Dark 1 keeps other data in DEFINES
+                     * word 4 and has no lock to test. */
+                    if (a->track_mode == TRACK_MANUAL
+                        && (game_id() == GAME_AITD1 || !g_tab_locked)) {
                         object_found(o->object, 0);   /* 0x40dc7d */
                     }
                     continue;

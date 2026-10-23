@@ -203,6 +203,7 @@ all of them unattended. `./aitd3 --stage=game` enters the world directly (`AITD_
 | `AITD_DUMP_EVERY=n` + `AITD_DUMP_FRAME=prefix` | PPM of the presented screen every n polls |
 | `AITD_TRACE=1` | per-frame player state on stderr |
 | `AITD_TELEPORT=f,room,x,y,z[,beta]` | put the player there at frame f |
+| `AITD_TELEPORT_FLOOR=n` | make `AITD_TELEPORT` change to floor n as well |
 | `AITD_SET_VAR=i=v` | set game variable i (DEFINES word) at the start |
 | `AITD_SET_GVAR=f,i,v` | set VARS.ITD entry i to v at frame f |
 | `AITD_ACTORS=f` | list every live actor at frame f |

@@ -463,7 +463,7 @@ void game_scene_loop(s16 flag)
 
                 g_cur_actor = &g_actors[g_player_actor];
                 g_cur_actor_index = g_player_actor;
-                actor_teleport(g_cur_floor, (s16)room, (s16)x, (s16)y, (s16)z);
+                actor_teleport(getenv("AITD_TELEPORT_FLOOR") != NULL ? (s16)atoi(getenv("AITD_TELEPORT_FLOOR")) : g_cur_floor, (s16)room, (s16)x, (s16)y, (s16)z);
                 if (beta >= 0) {
                     g_cur_actor->beta = (s16)beta;
                 }
