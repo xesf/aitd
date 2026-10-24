@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "aitd.h"
+#include "picture.h"
 #include "cdimage.h"
 #include "game.h"
 #include "harness.h"
@@ -251,6 +252,47 @@ int harness_run(int argc, char **argv)
         platform_resolve_path("ITD_RESS.PAK", path, sizeof(path));
         count = cdimage_extract_all();
         printf("installed %d files from the disc image\n", count);
+        return 1;
+    }
+
+    if (strcmp(stage, "pictures") == 0) {
+        /* Every full screen picture of ITD_RESS.PAK as <prefix>_<entry>.ppm
+         * (AITD_DUMP_FRAME is the prefix); the packaging art comes from
+         * these. */
+        const char *prefix = getenv("AITD_DUMP_FRAME") != NULL ? getenv("AITD_DUMP_FRAME") : "picture";
+        static u8 pixels[640 * 400];
+        u8 palette[AITD_PALETTE_BYTES];
+        int entry, count = 0;
+
+        engine_init();
+        for (entry = 0; entry < 256; entry++) {
+            char path[1024];
+            FILE *fp;
+            int i;
+
+            memcpy(palette, g_palette_buffer, sizeof(palette));
+            memset(pixels, 0, sizeof(pixels));
+            if (picture_load(entry, pixels, palette) < 0) {
+                continue;
+            }
+            for (i = 0; i < g_screen_width * g_screen_height && pixels[i] == 0; i++) {
+            }
+            if (i == g_screen_width * g_screen_height) {
+                continue;       /* not a picture */
+            }
+            snprintf(path, sizeof(path), "%s_%03d.ppm", prefix, entry);
+            if ((fp = fopen(path, "wb")) == NULL) {
+                continue;
+            }
+            fprintf(fp, "P6\n%d %d\n255\n", g_screen_width, g_screen_height);
+            for (i = 0; i < g_screen_width * g_screen_height; i++) {
+                fwrite(palette + pixels[i] * 3, 1, 3, fp);
+            }
+            fclose(fp);
+            count++;
+        }
+        printf("stage pictures: %d written\n", count);
+        engine_shutdown();
         return 1;
     }
 

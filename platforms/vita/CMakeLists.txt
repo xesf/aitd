@@ -62,8 +62,21 @@ function(aitd_vpk folder title_id name)
     target_link_libraries(${exe} SceDisplay_stub SceCtrl_stub SceAudio_stub
                           ScePower_stub SceSysmem_stub pthread m)
     vita_create_self(${exe}.self ${exe})
-    vita_create_vpk(aitd-${folder}.vpk ${title_id} ${exe}.self
-                    VERSION ${VITA_VERSION} NAME "${name}")
+    # LiveArea art made from the player's own data by `make art`, when it
+    # is there; without it the package has the system's default look.
+    set(art ${ROOT}/build/art/${folder}/vita)
+    if(EXISTS ${art}/icon0.png)
+        vita_create_vpk(aitd-${folder}.vpk ${title_id} ${exe}.self
+                        VERSION ${VITA_VERSION} NAME "${name}"
+                        FILE ${art}/icon0.png sce_sys/icon0.png
+                             ${art}/bg.png sce_sys/livearea/contents/bg.png
+                             ${art}/startup.png sce_sys/livearea/contents/startup.png
+                             ${CMAKE_CURRENT_SOURCE_DIR}/template.xml
+                             sce_sys/livearea/contents/template.xml)
+    else()
+        vita_create_vpk(aitd-${folder}.vpk ${title_id} ${exe}.self
+                        VERSION ${VITA_VERSION} NAME "${name}")
+    endif()
 endfunction()
 
 aitd_vpk(INDARK   AITD00001 "Alone in the Dark")

@@ -11,16 +11,21 @@ Install the [pspdev toolchain](https://pspdev.github.io) and put its `bin`
 folder on `PATH`, or set `PSPDEV`, then:
 
 ```sh
+make art          # optional: icons and backgrounds from your game data
 make psp
 ```
 
-This writes `platforms/psp/EBOOT.PBP`.
+This writes one EBOOT per game, each with its own name in the XMB:
+`build/psp/<GAME>/EBOOT.PBP` for INDARK, JACK, INDARK2, INDARK3,
+TIMEGATE and KNIGHTS. `make art` takes the icon (ICON0) and the
+background (PIC1) from the pictures in each game's `data/<GAME>` folder;
+without it the EBOOTs have no art. The repository holds no game art.
 
 ## Install
 
-Make one folder per game under `PSP/GAME/` on the Memory Stick, for
-example `PSP/GAME/AITD3/`. Copy `EBOOT.PBP` and the installed game files
-into it. Disc images (`.bin`, `.cue`) work too, but the PSP reads its
+Copy each `build/psp/<GAME>/` folder to `PSP/GAME/` on the Memory Stick,
+for example `PSP/GAME/INDARK3/`, and put the installed game files in the
+same folder. Disc images (`.bin`, `.cue`) work too, but the PSP reads its
 Memory Stick slowly, so installed files load faster.
 
 The PSP has no environment variables. Settings that other platforms take

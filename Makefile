@@ -177,6 +177,19 @@ PSPDEV ?= $(HOME)/Developer/pspdev
 .PHONY: psp
 psp:
 	PATH="$(PSPDEV)/bin:$$PATH" $(MAKE) -C platforms/psp
+	PATH="$(PSPDEV)/bin:$$PATH" $(MAKE) -C platforms/psp games
+
+# Icons and backgrounds for the PSP and Vita packages, made from the game
+# data in data/<GAME>/ (the repository holds no game art). Run before
+# make psp and make vita.
+.PHONY: art
+art: $(TARGET)
+	@for g in INDARK JACK INDARK2 INDARK3 TIMEGATE KNIGHTS; do \
+	    if [ -d data/$$g ]; then mkdir -p $(BUILD)/art/pics/$$g; \
+	        AITD_DATA_DIR=data/$$g AITD_NO_DIALOGS=1 AITD_DUMP_FRAME=$(BUILD)/art/pics/$$g/pic \
+	        ./$(TARGET) --stage=pictures > /dev/null; fi; \
+	done
+	python3 platforms/art/make_art.py $(BUILD)/art
 
 # PlayStation Vita: platforms/vita/CMakeLists.txt, one VPK per game.
 VITASDK ?= $(HOME)/vitasdk

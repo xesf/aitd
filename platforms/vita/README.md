@@ -13,8 +13,14 @@ Install [VitaSDK](https://vitasdk.org) in `~/vitasdk`, or set `VITASDK`,
 then:
 
 ```sh
+make art          # optional: LiveArea art from your game data
 make vita
 ```
+
+`make art` makes each package's icon, LiveArea background and start-up
+image from the pictures in the game's `data/<GAME>` folder. Without it
+the packages have the system's default look. The repository holds no
+game art.
 
 This writes one package per game to `build/vita/`:
 

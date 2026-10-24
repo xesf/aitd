@@ -7,6 +7,13 @@ in the `VERSION` file, and `aitd --version` prints it.
 
 ## [Unreleased]
 
+### Added
+- `make art` makes PSP and Vita icons and backgrounds from the pictures in
+  your own game data (`aitd --stage=pictures` dumps them). The Vita
+  packages get an icon, a LiveArea background and a start-up image, and
+  the PSP builds one EBOOT per game with its own title, icon and
+  background.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

@@ -61,7 +61,7 @@ for p in $PLATFORMS; do
     web)
         try web make web && package web build/web/index.html build/web/aitd.js build/web/aitd.wasm ;;
     psp)
-        try psp make psp && package psp platforms/psp/EBOOT.PBP ;;
+        try psp make psp && package psp $(ls -d build/psp/*/) ;;
     vita)
         try vita make vita && package vita build/vita/*.vpk ;;
     ios)
