@@ -7,6 +7,25 @@ in the `VERSION` file, and `aitd --version` prints it.
 
 ## [Unreleased]
 
+### Added
+- Hold Shift with Up to run, as well as pressing Up twice.
+- The harness spawns an effect at the player with `AITD_SPECIAL=frame,type`,
+  and `h` in `AITD_INPUT` holds Shift.
+
+### Fixed
+- Alone in the Dark 1, 2 and Jack in the Dark draw the coloured circles of
+  the dust cloud an actor leaves when it dies.
+- The save and load screens of Alone in the Dark 1, 2 and Jack in the Dark
+  are laid out as in Alone in the Dark 1 and show the picture of the
+  selected save.
+- The car of the Alone in the Dark 1 intro no longer circles for ever when
+  the game runs at a low frame rate (seen on the Vita).
+- Time Gate stops the music for a new game and for the intro films of the
+  menu, plays the menu tune in the game's menu and starts the game's tune
+  again when it closes. Saving from that menu goes back to the game.
+- Time Gate no longer shows the scene in the inventory's colours for a
+  moment when the inventory opens.
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

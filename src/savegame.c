@@ -400,25 +400,95 @@ static void scan_dir(struct save_screen *s)
     }
 }
 
-/* Titles without AITD3's save picture: one column of slots, framed (AITD1,
- * AITD2, Jack) or on black (Time Gate), in the title's text colours. */
+/* Titles without AITD3's save picture: framed (AITD1, AITD2, Jack) or on
+ * black (Time Gate). */
 static int save_screen_plain(void)
 {
     return game_current()->menu_style != MENU_STYLE_PICTURE;
 }
 
-static void save_screen_draw_plain(struct save_screen *s)
+/* The slot's thumbnail in the colours of the palette on screen: AITD1 has
+ * one palette, the later titles save the camera's with the picture. */
+static void thumb_to_screen_palette(u8 *thumb, const u8 *palette)
 {
-    int framed = game_current()->menu_style == MENU_STYLE_FRAMED;
-    u8 normal = framed ? 4 : 0xff, hi = framed ? 15 : 0xf3, shadow = framed ? 4 : 0xff;
+    u8 map[256];
+    int i, j;
+
+    if (memcmp(palette, g_palette_buffer, 0x300) == 0) {
+        return;
+    }
+    for (i = 0; i < 256; i++) {
+        const u8 *c = palette + i * 3;
+        int best = 0;
+        long best_d = 0x7fffffffL;
+
+        for (j = 0; j < 256; j++) {
+            const u8 *o = g_palette_buffer + j * 3;
+            long dr = c[0] - o[0], dg = c[1] - o[1], db = c[2] - o[2];
+            long d = dr * dr + dg * dg + db * db;
+
+            if (d < best_d) {
+                best_d = d;
+                best = j;
+            }
+        }
+        map[i] = (u8)best;
+    }
+    for (i = 0; i < THUMB_W * THUMB_H; i++) {
+        thumb[i] = map[thumb[i]];
+    }
+}
+
+/* INDARK.EXE 0x10ce5: the title on top, a row per save, and on the
+ * selected row a bar, a frame and the save's picture (when saving into an
+ * empty slot, the picture of the game being saved, 0x10f20). */
+static void save_screen_draw_framed(struct save_screen *s)
+{
     int i;
 
     raster_reset_clip();
     memset(g_raster.target, 0, SCREEN_PIXELS);
-    if (framed) {
-        frame_draw(160, 100, 320, 200);
-        raster_reset_clip();
+    text_draw_centered_shadowed(SCALED(160), 0, s->saving ? TEXT_ID_SAVE_GAME : TEXT_ID_LOAD_GAME,
+                                15, 4);
+    for (i = 0; i < SAVE_SLOTS; i++) {
+        s16 y = (s16)(55 + 20 * i);
+
+        if (i == s->slot) {
+            struct raster_image thumb = raster_image_make(THUMB_W, THUMB_H, s->thumb);
+
+            raster_rect(0, (s16)(g_screen_width - 1), (s16)(y - 2), (s16)(y + 18), 100);
+            frame_draw(70, y, 120, 70);
+            raster_reset_clip();
+            if (s->exists[i]) {
+                char path[1024];
+
+                save_path(s->dir, i, path, sizeof(path), 0);
+                save_read_header(path, s->thumb, s->palette, NULL, NULL);
+                thumb_to_screen_palette(s->thumb, s->palette);
+                raster_blit(30, (s16)(y - 20), &thumb);
+            } else if (s->saving) {
+                memcpy(s->thumb, g_save_thumbnail, sizeof(s->thumb));
+                raster_blit(30, (s16)(y - 20), &thumb);
+            }
+        }
+        if (s->exists[i]) {
+            text_draw_string(140, y, s->names[i], 15);
+        }
     }
+    draw_present();
+}
+
+static void save_screen_draw_plain(struct save_screen *s)
+{
+    u8 normal = 0xff, hi = 0xf3, shadow = 0xff;
+    int i;
+
+    if (game_current()->menu_style == MENU_STYLE_FRAMED) {
+        save_screen_draw_framed(s);
+        return;
+    }
+    raster_reset_clip();
+    memset(g_raster.target, 0, SCREEN_PIXELS);
     text_draw_centered_shadowed(SCALED(160), SCALED(12), s->saving ? TEXT_ID_SAVE_GAME : TEXT_ID_LOAD_GAME,
                                 hi, shadow);
     for (i = 0; i < SAVE_SLOTS; i++) {

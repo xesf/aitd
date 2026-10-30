@@ -145,7 +145,7 @@ AITD_LANG=FRANCAIS make run-aitd1
 
 | Key | Action |
 |---|---|
-| Arrow keys | Walk and turn. Press Up twice to run. |
+| Arrow keys | Walk and turn. Press Up twice, or hold Shift with Up, to run. |
 | Space | Use the selected action (fight, open, push, and others) |
 | Enter or I | Inventory |
 | Tab | Map (Alone in the Dark 3) |

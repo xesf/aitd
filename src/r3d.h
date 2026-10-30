@@ -91,6 +91,9 @@ void r3d_rotate_point(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma);
 void r3d_world_to_camera(s16 x, s16 y, s16 z);
 /* 0x424236 - camera space to screen; result in g_r3d_screen_x/y. */
 void r3d_project(s16 x, s16 y, s16 z);
+/* 0x423518 - a filled 32 point ellipse of world radius `size` at a
+ * projected point, polygon fill `type`; grows g_r3d_bbox. */
+void r3d_draw_disc(s16 cx, s16 cy, s16 z, s16 size, int type, int colour);
 /* 0x42428b - 2D rotation; result in g_r3d_x / g_r3d_y. */
 void r3d_rotate_2d(s16 x, s16 y, s16 angle);
 

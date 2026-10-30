@@ -1089,10 +1089,20 @@ static s16 lerp_track(s16 a, s16 b, s16 c, s16 d)
     return (s16)((s16)(dividend / c) + a);
 }
 
+/* A turn that keeps its direction starts its next stretch where the last
+ * one ended, not at the frame that noticed it ended: the original loses
+ * the rest of that frame, which on a slow frame rate is a large part of
+ * every stretch. */
 static void turn_to(struct actor *a, s16 dir, int shift, s16 duration)
 {
     if (!a->rot[2] || dir != a->rot_dir) {
+        s16 finished_at = (s16)(a->rot[3] + duration);
+        int carry = !a->rot[2] && dir == a->rot_dir && dir != 0;
+
         interp_init(a->beta, (s16)(a->beta - (s16)((u16)dir << shift)), duration, a->rot);
+        if (carry && (u16)(a->rot[3] - finished_at) < (u16)duration) {
+            a->rot[3] = finished_at;
+        }
     }
     a->rot_dir = dir;
     if (dir) {
@@ -1160,6 +1170,38 @@ static s16 track_op_map(s16 raw)
     return (raw >= 0 && raw < (s16)(sizeof(aitd1) / sizeof(aitd1[0]))) ? aitd1[raw] : raw;
 }
 
+/*
+ * GOTO_POS turns by a fixed angle per stretch of time but takes its
+ * decision once a frame, so a slow frame rate widens the turn. A point
+ * just beside the path (the car of the AITD1 intro, track 29) then ends up
+ * inside the turning circle and the actor circles it for ever. Close to the
+ * point, moving away from it counts as having reached it; at 60 frames a
+ * second the actor gets within 200 first and nothing changes.
+ */
+#define GOTO_POS_NEAR 400
+
+static struct {
+    s16 track, position, dist;
+} s_goto_pos[ACTOR_MAX];
+
+static int goto_pos_passed(const struct actor *a, s16 dist)
+{
+    int i = (int)(a - g_actors);
+    int passed;
+
+    if (s_goto_pos[i].track != a->track_number
+        || s_goto_pos[i].position != a->position_in_track) {
+        s_goto_pos[i].track = a->track_number;
+        s_goto_pos[i].position = a->position_in_track;
+        s_goto_pos[i].dist = 0x7fff;
+    }
+    passed = dist < GOTO_POS_NEAR && dist > s_goto_pos[i].dist;
+    s_goto_pos[i].dist = dist;
+    return passed;
+}
+
+static int s_shift_run;
+
 void actor_do_move(void)
 {
     struct actor *a = g_cur_actor;
@@ -1175,10 +1217,24 @@ void actor_do_move(void)
             if (a->speed > 0 && a->speed < 10) {
                 a->speed = 16;
             }
-        } else if (a->speed > 0 && a->speed <= 10) {
-            a->speed--;
+            /* Not in the original: Shift and Up run as Up pressed twice
+             * does, and letting go of Shift walks again. */
+            if (g_key_run) {
+                a->speed = 16;
+                s_shift_run = 1;
+            } else if (s_shift_run) {
+                if (a->speed == 16) {
+                    a->speed = 10;
+                }
+                s_shift_run = 0;
+            }
         } else {
-            a->speed = 0;
+            s_shift_run = 0;
+            if (a->speed > 0 && a->speed <= 10) {
+                a->speed--;
+            } else {
+                a->speed = 0;
+            }
         }
         if (g_scene_dir_flags & DIR_DOWN) {
             if (a->speed == 0 || a->speed >= 10) {
@@ -1254,10 +1310,12 @@ void actor_do_move(void)
             /* Walk to a point. */
             s16 tx = blob_s16(p, 4);
             s16 tz = blob_s16(p, 6);
+            s16 dist;
 
             track_point(a, blob_s16(p, 2), &tx, NULL, &tz);
-            if (distance_xz((s16)(a->step_x + a->room_x), (s16)(a->step_z + a->room_z),
-                            tx, tz) >= 200) {
+            dist = distance_xz((s16)(a->step_x + a->room_x), (s16)(a->step_z + a->room_z),
+                               tx, tz);
+            if (dist >= 200 && !goto_pos_passed(a, dist)) {
                 s16 dir = turn_towards((s16)(a->step_x + a->room_x),
                                        (s16)(a->step_z + a->room_z), a->beta, tx, tz);
                 turn_to(a, dir, 6, 15);

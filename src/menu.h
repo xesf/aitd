@@ -68,6 +68,7 @@ extern s16 g_mouse_x;         /* 0x445c7c */
 extern s16 g_mouse_y;         /* 0x445c7e */
 extern s32 g_key_dir_flags;   /* 0x444bc8 */
 extern s32 g_key_confirm;     /* 0x444bc4 */
+extern s32 g_key_run;         /* Shift held: run, not in the original */
 extern s16 g_last_scancode;   /* 0x43516a */
 
 #endif /* AITD_MENU_H */

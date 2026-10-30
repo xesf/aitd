@@ -965,12 +965,8 @@ static void sort_primitives(void)
 }
 
 /* 0x423518 - 32 point circle, then a polygon. */
-static void draw_sphere(const u8 *rec)
+void r3d_draw_disc(s16 cx, s16 cy, s16 z, s16 size, int type, int colour)
 {
-    u8 type = rec[0];
-    u8 colour = rec[1];
-    s16 size = rds16(rec + 2);
-    s16 cx = rds16(rec + 4), cy = rds16(rec + 6), z = rds16(rec + 8);
     s16 rx, ry;
     s16 pts[64];
     int i, angle;
@@ -994,6 +990,12 @@ static void draw_sphere(const u8 *rec)
     }
 
     raster_poly(pts, 32, type, colour);
+}
+
+static void draw_sphere(const u8 *rec)
+{
+    r3d_draw_disc(rds16(rec + 4), rds16(rec + 6), rds16(rec + 8), rds16(rec + 2),
+                  rec[0], rec[1]);
 }
 
 static void draw_primitives(void)

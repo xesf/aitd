@@ -486,6 +486,16 @@ void game_scene_loop(s16 flag)
                 g_vars[index] = (s16)value;
             }
         }
+        if (getenv("AITD_SPECIAL") != NULL) {
+            int frame, type;        /* harness only: frame,type at the player */
+            if (sscanf(getenv("AITD_SPECIAL"), "%d,%d", &frame, &type) == 2
+                && s_frame_number == frame) {
+                struct actor *saved = g_cur_actor;
+                g_cur_actor = &g_actors[g_player_actor];
+                special_spawn((s16)type);
+                g_cur_actor = saved;
+            }
+        }
         if (getenv("AITD_ACTORS") != NULL && (s_frame_number == atoi(getenv("AITD_ACTORS")) || (atoi(getenv("AITD_ACTORS")) < 0 && s_frame_number % -atoi(getenv("AITD_ACTORS")) == 0))) {
             int i;      /* harness only: every live actor at that frame */
             for (i = 0; i < ACTOR_MAX; i++) {

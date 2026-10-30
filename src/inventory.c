@@ -337,6 +337,7 @@ static void inventory_open_icons(void)
     int cursor = 0, action = 0, use = 0, drawn = -1, drawn_action = -1;
     s16 beta = 0, object = -1;
     u16 actions = 0;
+    int first = 1;
 
     if (frame == NULL || count == 0) {
         free(frame);
@@ -344,42 +345,12 @@ static void inventory_open_icons(void)
     }
     memcpy(saved, g_palette_buffer, sizeof(saved));
     picture_load(TG_FRAME, frame, palette);
-    memcpy(g_palette_buffer, palette, sizeof(palette));
-    palette_set_range(g_palette_buffer, 0, 256);
     ticks_freeze();
     shaking_save();
     r3d_set_projection(SCALED(159), SCALED(102), 128, SCALED(300), SCALED(300));
 
-    /* The key that opened the inventory is still down; it would close
-     * the inventory on the first poll. */
-    while (g_key_confirm || (g_last_scancode & 0xff) || g_key_dir_flags) {
-        input_poll();
-    }
-
-    for (;;) {
-        input_poll();
-        if ((g_last_scancode & 0xff) == SC_ESC) {
-            break;
-        }
-        if ((g_last_scancode & 0xff) == SC_ENTER || (g_last_scancode & 0xff) == 0x9c
-            || g_key_confirm) {
-            if (s_action_count > 0) {
-                use = 1;
-            }
-            break;
-        }
-        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
-            cursor += (g_key_dir_flags & DIR_RIGHT) ? 1 : -1;
-            cursor = cursor < 0 ? 0 : cursor >= count ? count - 1 : cursor;
-            action = 0;
-        } else if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
-            action += (g_key_dir_flags & DIR_DOWN) ? 1 : -1;
-            action = action < 0 ? 0 : action >= s_action_count ? s_action_count - 1 : action;
-        }
-        while (g_key_dir_flags) {
-            input_poll();
-        }
-
+    /* Each turn draws the window, then reads the keys. */
+    for (;; first = 0) {
         if (cursor != drawn) {
             int bit;
 
@@ -402,8 +373,44 @@ static void inventory_open_icons(void)
         raster_copy_rect(SCALED(90), SCALED(67), SCALED(229), SCALED(137), frame);
         beta = (s16)(beta - 8);
         tg_turn(beta, object_get(object)->found_body);
+        if (first) {
+            /* Every poll shows the screen: the palette changes only once
+             * the window is on it. */
+            memcpy(g_palette_buffer, palette, sizeof(palette));
+            palette_set_range(g_palette_buffer, 0, 256);
+        }
         draw_present();
+        if (first) {
+            /* The key that opened the inventory is still down; it would
+             * close the inventory on the first poll. */
+            while (g_key_confirm || (g_last_scancode & 0xff) || g_key_dir_flags) {
+                input_poll();
+            }
+        }
         platform_delay(15);
+
+        input_poll();
+        if ((g_last_scancode & 0xff) == SC_ESC) {
+            break;
+        }
+        if ((g_last_scancode & 0xff) == SC_ENTER || (g_last_scancode & 0xff) == 0x9c
+            || g_key_confirm) {
+            if (s_action_count > 0) {
+                use = 1;
+            }
+            break;
+        }
+        if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
+            cursor += (g_key_dir_flags & DIR_RIGHT) ? 1 : -1;
+            cursor = cursor < 0 ? 0 : cursor >= count ? count - 1 : cursor;
+            action = 0;
+        } else if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            action += (g_key_dir_flags & DIR_DOWN) ? 1 : -1;
+            action = action < 0 ? 0 : action >= s_action_count ? s_action_count - 1 : action;
+        }
+        while (g_key_dir_flags) {
+            input_poll();
+        }
     }
 
     while (g_key_confirm || (g_last_scancode & 0xff) || g_key_dir_flags) {

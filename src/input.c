@@ -44,6 +44,8 @@ static const struct key_binding s_bindings[] = {
     { 0x39, 1, &g_key_confirm },
     { 0x9d, 2, &g_key_confirm },
     { 0x1d, 2, &g_key_confirm },
+    { 0x2a, 1, &g_key_run },        /* Shift, not in the original */
+    { 0x36, 1, &g_key_run },
 };
 
 /* Buffer that every poll pushes to the window. The menu draws into the back
@@ -69,7 +71,7 @@ static void run_bindings(u8 scancode, int down)
 /*
  * Scripted input for unattended runs: AITD_INPUT="from-to:keys,..." where
  * keys are any of u d l r (arrows), s (space), c (ctrl), e (enter), x (esc),
- * t (tab) and the digits 0..9.
+ * t (tab), h (shift) and the digits 0..9.
  * Counts are input_poll calls: one per frame in the scene loop.
  */
 static int s_poll_number;
@@ -79,7 +81,7 @@ static void harness_input(void)
     static const char *script;
     static int parsed;
     const char *p;
-    int dir = -1, confirm = -1, scancode = -1;
+    int dir = -1, confirm = -1, scancode = -1, run = 0;
 
     if (!parsed) {
         script = getenv("AITD_INPUT");
@@ -124,6 +126,7 @@ static void harness_input(void)
                 case 'e': scancode = 0x1c; break;
                 case 'x': scancode = 0x01; break;
                 case 't': scancode = 0x0f; break;
+                case 'h': run = 1; break;
                 case '1': case '2': case '3': case '4': case '5':
                 case '6': case '7': case '8': case '9':
                     scancode = 0x02 + (*k - '1'); break;
@@ -146,6 +149,7 @@ static void harness_input(void)
         g_key_confirm = 0;
         g_last_scancode = 0;
     }
+    g_key_run = run;
 }
 
 /* The buffer the poll puts on the window: the game screen while the world

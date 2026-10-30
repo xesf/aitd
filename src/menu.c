@@ -39,6 +39,7 @@ s16 g_mouse_x;            /* 0x445c7c */
 s16 g_mouse_y;            /* 0x445c7e */
 s32 g_key_dir_flags;      /* 0x444bc8, bit 0 = up, bit 1 = down */
 s32 g_key_confirm;        /* 0x444bc4 */
+s32 g_key_run;            /* Shift held, not in the original */
 s16 g_last_scancode;      /* 0x43516a */
 
 /* Spins until the mouse button is released (0x40901e, 0x4090e6). */

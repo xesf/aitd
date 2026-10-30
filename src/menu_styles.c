@@ -248,7 +248,20 @@ static void cards_select(void)
 
 /* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
  * 3 starts Windows' volume control and is left out, 4 replays the second
- * intro film, 5 is the difficulty screen. */
+ * intro film, 5 is the difficulty screen. The menu tune stops for a new
+ * game (0x417aa8) and for the films, and starts again after them
+ * (0x417a3b, 0x417b6e). */
+static void ring_film(void)
+{
+    const char *const *films = game_current()->intro_movies;
+
+    music_play(-1);
+    if (films != NULL && films[0] != NULL && films[1] != NULL) {
+        movie_play(films[1]);
+    }
+    music_play((s16)game_current()->menu_music);
+}
+
 static int ring_menu(void)
 {
     struct game_timer timer;
@@ -261,6 +274,7 @@ static int ring_menu(void)
     wait_released();
     for (;;) {
         if (timer_elapsed(&timer) >= 3000) {
+            music_play(-1);
             return MENU_RESULT_INTRO;
         }
         input_poll();
@@ -275,14 +289,13 @@ static int ring_menu(void)
         } else if (confirm_key()) {
             wait_released();
             switch (selected) {
-            case 0: return MENU_RESULT_NEW_GAME;
+            case 0:
+                music_play(-1);
+                return MENU_RESULT_NEW_GAME;
             case 2: return MENU_RESULT_LOAD_GAME;
             case 6: return MENU_RESULT_QUIT;
             case 4:     /* TG 0x409835(1): the second intro film again */
-                if (game_current()->intro_movies != NULL && game_current()->intro_movies[0] != NULL
-                    && game_current()->intro_movies[1] != NULL) {
-                    movie_play(game_current()->intro_movies[1]);
-                }
+                ring_film();
                 ring_draw(selected);
                 timer_reset(&timer);
                 break;
@@ -302,7 +315,10 @@ static int ring_menu(void)
 
 /* TG 0x409397: the same ring in game, over the scene shrunk to half size
  * (0x4090cd) and remapped into the picture's palette. Returns 1 when a
- * saved game was loaded. */
+ * saved game was loaded. The game's sounds stop and the menu tune plays
+ * (0x4093a5..0x4093ca); a save or a load closes the menu (0x409676,
+ * 0x4096ea), and on the way out the game's tune starts again
+ * (0x41f3e0, 0x41f346). */
 static void ring_scene_draw(int selected, const u8 *scene, const u8 *scene_palette)
 {
     u8 palette[AITD_PALETTE_BYTES], map[256];
@@ -348,6 +364,7 @@ int menu_ring_options(void)
     u8 *scene = malloc(SCREEN_PIXELS);
     u8 scene_palette[AITD_PALETTE_BYTES];
     int selected = 0, loaded = 0;
+    s16 game_music;
 
     if (scene == NULL) {
         return 0;
@@ -355,6 +372,9 @@ int menu_ring_options(void)
     memcpy(scene, g_screen, SCREEN_PIXELS);
     memcpy(scene_palette, g_palette_buffer, sizeof(scene_palette));
     ticks_freeze();
+    game_music = music_current();
+    sound_stop_all();
+    music_play((s16)game_current()->menu_music);
     ring_scene_draw(selected, scene, scene_palette);
     wait_released();
     for (;;) {
@@ -371,17 +391,16 @@ int menu_ring_options(void)
             if (selected == 0) {
                 break;
             } else if (selected == 1) {
-                savegame_save();
+                if (savegame_save()) {
+                    break;
+                }
             } else if (selected == 2) {
                 if (savegame_restore(NULL, 1)) {
                     loaded = 1;
                     break;
                 }
             } else if (selected == 4) {
-                const char *const *films = game_current()->intro_movies;
-                if (films != NULL && films[0] != NULL && films[1] != NULL) {
-                    movie_play(films[1]);
-                }
+                ring_film();
             } else if (selected == 5) {
                 cards_select();
             } else if (selected == 6) {
@@ -389,6 +408,12 @@ int menu_ring_options(void)
                 break;
             }
             ring_scene_draw(selected, scene, scene_palette);
+        }
+    }
+    if (!loaded) {      /* a loaded game has started its own tune */
+        music_play(-1);
+        if (!g_quit_requested) {
+            music_play(game_music);
         }
     }
     memcpy(g_palette_buffer, scene_palette, sizeof(scene_palette));

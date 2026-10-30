@@ -17,6 +17,7 @@
 #include "actor.h"
 #include "aitd.h"
 #include "draw.h"
+#include "game.h"
 #include "life.h"
 #include "r3d.h"
 #include "raster.h"
@@ -208,6 +209,8 @@ static void release(struct actor *a)
 void special_draw(s16 index, s16 visible)
 {
     struct actor *a = &g_actors[index];
+    enum game_id id = game_id();
+    int dust_discs = id == GAME_AITD1 || id == GAME_AITD2 || id == GAME_JACK;
     s16 *data;
     int dead = 1;
     int j;
@@ -222,10 +225,17 @@ void special_draw(s16 index, s16 visible)
         a->beta = (s16)(a->beta + 8);
         if (r3d_transform_points(a->world_x, a->world_y, a->world_z, a->alpha,
                                  a->beta, a->gamma, block_body(data))) {
+            const s16 *proj = r3d_projected_points();
             s16 *pair = &data[2 + PARTICLES * 3];
-            for (j = 0; j < data[1]; j++, pair += 2) {
+            for (j = 0; j < data[1]; j++, pair += 2, proj += 3) {
                 if (pair[0] > 0) {
                     dead = 0;
+                    /* INDARK.EXE 0x8120: a disc per point that shrinks as
+                     * its life runs out. WAITD3 and Time Gate keep the
+                     * test but draw nothing. */
+                    if (dust_discs && proj[2] > 300 && visible) {
+                        r3d_draw_disc(proj[0], proj[1], proj[2], pair[0], 3, data[0]);
+                    }
                     data[3 + j * 3] = (s16)(data[3 + j * 3] - pair[1]);
                     pair[0] = (s16)(pair[0] - 5);
                 }

@@ -180,10 +180,11 @@ void sound_stop_all(void)
 
 /* 0x40b31e */
 /* The titles that ship their music as data. Returns 1 when handled. */
+static s16 s_data_playing = -1;
+
 static int music_play_data(s16 music)
 {
     const struct game_profile *profile = game_current();
-    static s16 playing = -1;
     u32 size = 0;
     u8 *data;
 
@@ -193,10 +194,10 @@ static int music_play_data(s16 music)
     if (music < 0) {
         platform_midi_stop();
         music_adlib_stop();
-        playing = -1;
+        s_data_playing = -1;
         return 1;
     }
-    if (music == playing) {
+    if (music == s_data_playing) {
         return 1;
     }
     /* The DOS Time Gate's first two entries are instrument banks; the
@@ -240,8 +241,17 @@ static int music_play_data(s16 music)
         break;
     }
     mem_free(data);
-    playing = music;
+    s_data_playing = music;
     return 1;
+}
+
+/* The tune playing, -1 for none. */
+s16 music_current(void)
+{
+    if (game_current()->music_source == MUSIC_CD) {
+        return g_music_pending;
+    }
+    return s_data_playing;
 }
 
 void music_play(s16 music)
