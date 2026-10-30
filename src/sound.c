@@ -37,6 +37,32 @@ static u32 s_music_timer;        /* 0x4415e4 */
 static u32 s_music_length;       /* 0x43513c, ticks */
 static u32 s_music_wait;         /* 0x4449ec */
 
+/* The DOS Time Gate's volume screen (TIMEGATE.EXE 0x16da0): samples
+ * 0..0x7fff (0x6184c), music 0..199 (0x61850). */
+static int s_sample_volume = SAMPLE_VOLUME_MAX;
+static int s_music_volume = MUSIC_VOLUME_MAX;
+
+/* Hands 8 bit unsigned PCM to the mixer at the sample volume. */
+static void pcm_play(const u8 *pcm, u32 len, u32 rate, int loops)
+{
+    u8 *quiet;
+    u32 i;
+
+    if (s_sample_volume >= SAMPLE_VOLUME_MAX) {
+        platform_sound_play(pcm, len, rate, loops);
+        return;
+    }
+    quiet = malloc(len);
+    if (quiet == NULL) {
+        return;
+    }
+    for (i = 0; i < len; i++) {
+        quiet[i] = (u8)(128 + ((pcm[i] - 128) * s_sample_volume) / SAMPLE_VOLUME_MAX);
+    }
+    platform_sound_play(quiet, len, rate, loops);
+    free(quiet);
+}
+
 /* Plays the first PCM block of a VOC file. */
 static void voc_play(const u8 *voc, u32 size, int loops)
 {
@@ -58,7 +84,7 @@ static void voc_play(const u8 *voc, u32 size, int loops)
         }
         if (type == 1 && len > 2 && offset + 4 + len <= size) {
             u32 rate = 1000000u / (u32)(256 - body[0]);
-            platform_sound_play(body + 2, len - 2, rate, loops);
+            pcm_play(body + 2, len - 2, rate, loops);
             return;
         }
         offset += 4 + len;
@@ -92,7 +118,7 @@ static void wav_play(const u8 *wav, u32 size, int loops)
             bits = (u32)(body[14] | (body[15] << 8));
         } else if (memcmp(wav + offset, "data", 4) == 0 && rate != 0 && channels == 1) {
             if (bits == 8) {
-                platform_sound_play(body, len, rate, loops);
+                pcm_play(body, len, rate, loops);
             } else if (bits == 16) {
                 u32 n = len / 2, i;
                 u8 *narrow = malloc(n);
@@ -101,7 +127,7 @@ static void wav_play(const u8 *wav, u32 size, int loops)
                     for (i = 0; i < n; i++) {
                         narrow[i] = (u8)(body[i * 2 + 1] ^ 0x80);   /* high byte, signed to unsigned */
                     }
-                    platform_sound_play(narrow, n, rate, loops);
+                    pcm_play(narrow, n, rate, loops);
                     free(narrow);
                 }
             }
@@ -152,6 +178,24 @@ void sample_play(s16 sample)
     }
 }
 
+/* A sound kept as a WAVE or VOC entry of a resource file (the save
+ * screens' clicks, TIMEGATE.EXE 0x37fbd then 0x3b75f). */
+void sample_play_resource(const char *pak, int entry)
+{
+    u32 size = 0;
+    u8 *data;
+
+    if (!g_sound_ready2 || (data = pak_load(pak, entry, &size)) == NULL) {
+        return;
+    }
+    if (size >= 4 && memcmp(data, "RIFF", 4) == 0) {
+        wav_play(data, size, 1);
+    } else {
+        voc_play(data, size, 1);
+    }
+    mem_free(data);
+}
+
 /* 0x40b26c - count 0 loops until stopped. */
 void sample_repeat(s16 sample, u16 count)
 {
@@ -183,6 +227,83 @@ void sound_stop_all(void)
 static s16 s_data_playing = -1;
 static int s_data_muted;            /* music off: the tune waits here */
 static s16 s_data_wanted = -1;
+
+static u32 vlq(const u8 *p, const u8 *end, const u8 **next)
+{
+    u32 v = 0;
+
+    while (p < end) {
+        u8 b = *p++;
+
+        v = (v << 7) | (b & 0x7f);
+        if (!(b & 0x80)) {
+            break;
+        }
+    }
+    *next = p;
+    return v;
+}
+
+/* Scales the note velocities and channel volumes of a standard MIDI file
+ * to the music volume, in place: the hosts' synthesisers have no master
+ * volume the engine can reach. */
+static void midi_scale(u8 *midi, u32 size)
+{
+    u32 offset = 14;
+
+    if (s_music_volume >= MUSIC_VOLUME_MAX || size < 14 || memcmp(midi, "MThd", 4) != 0) {
+        return;
+    }
+    while (offset + 8 <= size) {
+        u32 chunk = ((u32)midi[offset + 4] << 24) | ((u32)midi[offset + 5] << 16)
+                | ((u32)midi[offset + 6] << 8) | midi[offset + 7];
+        u8 *p = midi + offset + 8, *end;
+        u8 status = 0;
+        u32 len;
+
+        if (chunk > size - offset - 8) {
+            chunk = size - offset - 8;
+        }
+        end = p + chunk;
+        if (memcmp(midi + offset, "MTrk", 4) == 0) {
+            while (p < end) {
+                const u8 *next;
+
+                vlq(p, end, &next);
+                p = (u8 *)next;
+                if (p >= end) {
+                    break;
+                }
+                if (*p & 0x80) {
+                    status = *p++;
+                }
+                if (status == 0xff) {
+                    p++;
+                    len = vlq(p, end, &next);
+                    p = (u8 *)next + len;
+                    status = 0;
+                } else if (status == 0xf0 || status == 0xf7) {
+                    len = vlq(p, end, &next);
+                    p = (u8 *)next + len;
+                    status = 0;
+                } else if ((status & 0xf0) == 0xc0 || (status & 0xf0) == 0xd0) {
+                    p++;
+                } else if (status >= 0x80 && p + 1 < end) {
+                    if ((status & 0xf0) == 0x90 && p[1] != 0) {
+                        int v = p[1] * s_music_volume / MUSIC_VOLUME_MAX;
+                        p[1] = (u8)(v < 1 ? 1 : v);
+                    } else if ((status & 0xf0) == 0xb0 && p[0] == 7) {
+                        p[1] = (u8)(p[1] * s_music_volume / MUSIC_VOLUME_MAX);
+                    }
+                    p += 2;
+                } else {
+                    break;
+                }
+            }
+        }
+        offset += 8 + chunk;
+    }
+}
 
 static int music_play_data(s16 music)
 {
@@ -219,6 +340,7 @@ static int music_play_data(s16 music)
     }
     switch (profile->music_source) {
     case MUSIC_MIDI:
+        midi_scale(data, size);
         if (!platform_midi_play(data, size, 1)) {
             fprintf(stderr, "music %d: not a MIDI file the host plays\n", music);
         }
@@ -233,6 +355,9 @@ static int music_play_data(s16 music)
                 fwrite(midi, 1, midi_size, dump);
                 fclose(dump);
             }
+        }
+        if (midi != NULL) {
+            midi_scale(midi, midi_size);
         }
         if (midi == NULL || !platform_midi_play(midi, midi_size, 1)) {
             fprintf(stderr, "music %d: HMP not played\n", music);
@@ -267,6 +392,28 @@ int music_enabled(void)
         return g_cdaudio_ready;
     }
     return !s_data_muted;
+}
+
+void sound_volumes(int *sample, int *music)
+{
+    *sample = s_sample_volume;
+    *music = s_music_volume;
+}
+
+/* A new music volume starts the tune again at that volume. */
+void sound_set_volumes(int sample, int music)
+{
+    s_sample_volume = sample < 0 ? 0 : sample > SAMPLE_VOLUME_MAX ? SAMPLE_VOLUME_MAX : sample;
+    music = music < 0 ? 0 : music > MUSIC_VOLUME_MAX ? MUSIC_VOLUME_MAX : music;
+    if (music != s_music_volume) {
+        s_music_volume = music;
+        if (s_data_playing >= 0) {
+            s16 m = s_data_playing;
+
+            s_data_playing = -1;
+            music_play_data(m);
+        }
+    }
 }
 
 void music_play(s16 music)

@@ -251,6 +251,10 @@ void sample_repeat(s16 sample, u16 count);
 void music_play(s16 music);
 s16 music_current(void);
 int music_enabled(void);
+enum { SAMPLE_VOLUME_MAX = 0x7fff, MUSIC_VOLUME_MAX = 199 };
+void sound_volumes(int *sample, int *music);
+void sound_set_volumes(int sample, int music);
+void sample_play_resource(const char *pak, int entry);
 
 /* Full screen sequences. */
 int movie_play(const char *name);          /* cutscene.c: .SMK or .MUX */
