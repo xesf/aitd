@@ -25,6 +25,9 @@
 #include "cdimage.h"
 #include "game.h"
 #include "harness.h"
+#include "draw.h"
+#include "menu.h"
+#include "savegame.h"
 #include "platform.h"
 #include "subsystems.h"
 
@@ -238,6 +241,22 @@ int harness_run(int argc, char **argv)
         engine_init();
         g_frame_limit = frame_budget();
         g_frame_dump_path = getenv("AITD_DUMP_FRAME");
+        if (getenv("AITD_LOAD") != NULL) {
+            /* A saved game instead of the start: AITD_LOAD=dir,slot. */
+            int dir = 0, slot = 0;
+
+            sscanf(getenv("AITD_LOAD"), "%d,%d", &dir, &slot);
+            draw_init();
+            g_present_buffer = g_screen;
+            if (!savegame_read_slot(dir, slot)) {
+                fprintf(stderr, "AITD_LOAD: no save %d,%d\n", dir, slot);
+            } else {
+                g_init_view = 2;
+                game_scene_loop(1);
+            }
+            engine_shutdown();
+            return 1;
+        }
         game_run(floor ? (s16)atoi(floor) : (s16)game_current()->start_floor,
                  room ? (s16)atoi(room) : (s16)game_current()->start_room, 1);
         engine_shutdown();
