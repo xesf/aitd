@@ -255,6 +255,8 @@ enum { SAMPLE_VOLUME_MAX = 0x7fff, MUSIC_VOLUME_MAX = 199 };
 void sound_volumes(int *sample, int *music);
 void sound_set_volumes(int sample, int music);
 void sample_play_resource(const char *pak, int entry);
+/* The word offsets of the instructions `life` ran the last time it ran. */
+int life_ran(s16 life, const u16 **at);
 
 /* Full screen sequences. */
 int movie_play(const char *name);          /* cutscene.c: .SMK or .MUX */

@@ -10,6 +10,8 @@
  *   --stage=font     init, then draw the font glyph sheet from ITD_RESS entry 1
  *   --stage=intro    init, then game_run(1, 0, 0) - the intro
  *   --stage=menu     init, then one pass of main_menu_run
+ *   --stage=life-check  list every life script with the editor, fail on any
+ *                    that does not end at its length
  *   --stage=install  copy the game folder out of the disc image
  *
  * AITD_FRAMES caps how long the presenting stages run, so a scripted check
@@ -27,6 +29,7 @@
 #include "harness.h"
 #include "draw.h"
 #include "menu.h"
+#include "editor/editor.h"
 #include "savegame.h"
 #include "platform.h"
 #include "subsystems.h"
@@ -313,6 +316,16 @@ int harness_run(int argc, char **argv)
         printf("stage pictures: %d written\n", count);
         engine_shutdown();
         return 1;
+    }
+
+    if (strcmp(stage, "life-check") == 0) {
+        /* The editor's life listing over every script of the title. */
+        int bad;
+
+        engine_init();
+        bad = ed_life_check(1);
+        engine_shutdown();
+        return bad == 0 ? 1 : (exit(1), 1);
     }
 
     if (strcmp(stage, "menu") == 0) {

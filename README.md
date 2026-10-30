@@ -157,8 +157,11 @@ AITD_LANG=FRANCAIS make run-aitd1
 
 F10 opens the editor over the main menu or the game, and F10 or Esc goes
 back to where you were. The editor shows the running game's data: the
-pictures of `ITD_RESS.PAK`, the models of `LISTBODY.PAK`, the font and
-the text table. Tab or the number keys switch between these viewers. The
+pictures of `ITD_RESS.PAK`, the models of `LISTBODY.PAK`, the font, the
+text table, and the life scripts of `LISTLIFE.PAK` as listings with the
+game's variables at their current values. In the life listing, Enter
+goes to the script of the next object in the room, and `>` marks the
+lines the script ran the last time it ran. Tab or the number keys switch between these viewers. The
 game's clock stops while the editor is open. The editor lives in
 `src/editor/`.
 

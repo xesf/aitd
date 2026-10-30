@@ -30,11 +30,8 @@ enum {
     REPEAT_EVERY = 4
 };
 
-static const struct ed_viewer *const s_viewers[] = {
-    &ed_view_pictures, &ed_view_models, &ed_view_fonts, &ed_view_texts
-};
-
-#define VIEWER_COUNT ((int)(sizeof(s_viewers) / sizeof(s_viewers[0])))
+#define s_viewers g_ed_viewers
+#define VIEWER_COUNT g_ed_viewer_count
 
 static int s_active;
 static int s_current;

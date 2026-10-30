@@ -19,6 +19,11 @@
 #include "subsystems.h"
 #include "editor/ed_ui.h"
 
+const struct ed_viewer *const g_ed_viewers[] = {
+    &ed_view_pictures, &ed_view_models, &ed_view_fonts, &ed_view_texts, &ed_view_life
+};
+const int g_ed_viewer_count = (int)(sizeof(g_ed_viewers) / sizeof(g_ed_viewers[0]));
+
 struct ed_colours g_ed;
 u8 g_ed_game_palette[AITD_PALETTE_BYTES];
 
@@ -94,24 +99,21 @@ s16 ed_text_width(const char *text)
 
 void ed_bars(int current, const char *help)
 {
-    static const struct ed_viewer *const viewers[] = {
-        &ed_view_pictures, &ed_view_models, &ed_view_fonts, &ed_view_texts
-    };
     s16 x = 4;
     int i;
 
     raster_reset_clip();
     ed_rect(0, 0, (s16)(g_screen_width - 1), (s16)(ed_line() - 1), g_ed.dim);
-    for (i = 0; i < (int)(sizeof(viewers) / sizeof(viewers[0])); i++) {
+    for (i = 0; i < g_ed_viewer_count; i++) {
         char label[32];
 
-        snprintf(label, sizeof(label), "%d %s", i + 1, viewers[i]->name);
+        snprintf(label, sizeof(label), "%d %s", i + 1, g_ed_viewers[i]->name);
         if (i == current) {
             ed_rect((s16)(x - 2), 0, (s16)(x + ed_text_width(label) + 1), (s16)(ed_line() - 1),
                     g_ed.select);
         }
         ed_text(x, 1, label, i == current ? g_ed.accent : g_ed.white);
-        x = (s16)(x + ed_text_width(label) + 10);
+        x = (s16)(x + ed_text_width(label) + 8);
     }
     ed_rect(0, (s16)(ed_bottom() + 1), (s16)(g_screen_width - 1), (s16)(g_screen_height - 1),
             g_ed.dim);

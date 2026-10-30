@@ -9,8 +9,11 @@ in the `VERSION` file, and `aitd --version` prints it.
 
 ### Added
 - An editor, opened with F10 over the main menu or the game, with viewers
-  for the pictures, the models, the font and the texts of the running
-  game. F10 or Esc goes back to where you were.
+  for the pictures, the models, the font, the texts and the life scripts
+  of the running game. F10 or Esc goes back to where you were. The life
+  listing shows the variables' current values, the objects that run the
+  script, and the lines it ran last. `--stage=life-check` lists every
+  script of a game and fails on any that does not list to its end.
 - Hold Shift with Up to run, as well as pressing Up twice.
 - The harness spawns an effect at the player with `AITD_SPECIAL=frame,type`,
   `h` in `AITD_INPUT` holds Shift, `f` presses F10, and `AITD_LOAD=dir,slot` starts the

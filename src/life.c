@@ -932,9 +932,32 @@ static void turn_angle(struct actor *a, s16 *angle, s16 target, s16 duration)
 
 static int s_trace = -1;
 
+/* The instructions each script ran the last time it ran (word offsets),
+ * for the editor's listing. Not in the original. */
+enum { LIFE_RAN_SLOTS = 64, LIFE_RAN_MAX = 256 };
+
+static struct {
+    s16 life;
+    u16 count;
+    u16 at[LIFE_RAN_MAX];
+} s_ran[LIFE_RAN_SLOTS];
+
+int life_ran(s16 life, const u16 **at)
+{
+    int slot = (u16)life % LIFE_RAN_SLOTS;
+
+    if (s_ran[slot].life != life || s_ran[slot].count == 0) {
+        return 0;
+    }
+    *at = s_ran[slot].at;
+    return s_ran[slot].count;
+}
+
 void life_run(s16 life, int flag)
 {
     int done = 0;
+    int ran_slot = (u16)life % LIFE_RAN_SLOTS;
+    const u8 *base;
 
     if (s_trace == -1) {
         s_trace = getenv("AITD_LIFETRACE") != NULL;
@@ -949,9 +972,17 @@ void life_run(s16 life, int flag)
         s_life_num = -1;
         return;
     }
+    base = s_pc;
+    s_ran[ran_slot].life = life;
+    s_ran[ran_slot].count = 0;
 
     while (!done) {
-        s16 opcode = fetch();
+        s16 opcode;
+
+        if (s_ran[ran_slot].life == life && s_ran[ran_slot].count < LIFE_RAN_MAX) {
+            s_ran[ran_slot].at[s_ran[ran_slot].count++] = (u16)((s_pc - base) / 2);
+        }
+        opcode = fetch();
         s16 op = life_opcode_map((s16)(opcode & 0x7fff));
         int targeted = 0;
         struct actor *a;

@@ -38,6 +38,11 @@ extern const struct ed_viewer ed_view_pictures;
 extern const struct ed_viewer ed_view_models;
 extern const struct ed_viewer ed_view_fonts;
 extern const struct ed_viewer ed_view_texts;
+extern const struct ed_viewer ed_view_life;
+
+/* The viewers in their order on the top bar (ed_ui.c). */
+extern const struct ed_viewer *const g_ed_viewers[];
+extern const int g_ed_viewer_count;
 
 /* Colours of the palette on screen nearest to the editor's own. */
 struct ed_colours {

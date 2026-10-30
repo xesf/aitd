@@ -57,6 +57,7 @@ ENGINE_SRC := \
 	src/editor/ed_model.c \
 	src/editor/ed_font.c \
 	src/editor/ed_text.c \
+	src/editor/ed_life.c \
 	src/platforms/common.c \
 	src/platforms/mixer.c
 

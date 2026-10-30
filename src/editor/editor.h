@@ -19,4 +19,7 @@ void editor_run(void);
 
 int editor_active(void);
 
+/* Lists every life script of the title; the count that fails. */
+int ed_life_check(int verbose);
+
 #endif /* AITD_EDITOR_H */
