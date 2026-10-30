@@ -129,6 +129,8 @@ static void harness_input(void)
                 case 't': scancode = 0x0f; break;
                 case 'h': run = 1; break;
                 case 'f': scancode = 0x44; break;   /* F10, the editor */
+                case 'p': scancode = 0xc9; break;   /* Page Up */
+                case 'n': scancode = 0xd1; break;   /* Page Down */
                 case '1': case '2': case '3': case '4': case '5':
                 case '6': case '7': case '8': case '9':
                     scancode = 0x02 + (*k - '1'); break;

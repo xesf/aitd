@@ -10,7 +10,8 @@ in the `VERSION` file, and `aitd --version` prints it.
 ### Added
 - An editor, opened with F10 over the main menu or the game, with viewers
   for the pictures, the models, the font, the texts and the life scripts
-  of the running game. F10 or Esc goes back to where you were. The life
+  of the running game, and the animations played on the models. F10 or
+  Esc goes back to where you were. The life
   listing shows the variables' current values, the objects that run the
   script, and the lines it ran last. `--stage=life-check` lists every
   script of a game and fails on any that does not list to its end.
