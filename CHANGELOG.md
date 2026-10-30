@@ -10,7 +10,8 @@ in the `VERSION` file, and `aitd --version` prints it.
 ### Added
 - Hold Shift with Up to run, as well as pressing Up twice.
 - The harness spawns an effect at the player with `AITD_SPECIAL=frame,type`,
-  and `h` in `AITD_INPUT` holds Shift.
+  `h` in `AITD_INPUT` holds Shift, and `AITD_LOAD=dir,slot` starts the
+  game stage from a saved game.
 
 ### Fixed
 - Alone in the Dark 1, 2 and Jack in the Dark draw the coloured circles of
@@ -25,6 +26,11 @@ in the `VERSION` file, and `aitd --version` prints it.
   again when it closes. Saving from that menu goes back to the game.
 - Time Gate no longer shows the scene in the inventory's colours for a
   moment when the inventory opens.
+- Time Gate's menu comes back in its own colours after the cinematic
+  option.
+- Time Gate's sound icon opens a Sound Options screen that switches the
+  music and the sound effects. Music played from data (AdLib, MIDI, HMP)
+  can now be switched off with ; as well.
 
 ## [0.3.0] - 2026-10-25
 
