@@ -432,10 +432,13 @@ and checked against it; no third party code is used.
   scene dimmed into band 16..31 by brightness and a 360 tick cool-down.
 - **In-game menus**: AITD1, AITD2 and Jack show a framed list (return,
   save, load, music, sound, detail, quit in their text ids); Time Gate the
-  medallion ring over the scene shrunk to half size (TG 0x409397: return,
-  save, load, -, film, difficulty, quit). Their save and load screens are
-  one column of slots (framed, or on black for Time Gate); AITD3 keeps its
-  own screens.
+  medallion ring, over the scene shrunk to half size on Windows (TG
+  0x409397: return, save, load, volume, film, difficulty, quit) and alone
+  with eight icons on DOS (TIMEGATE.EXE 0x19f80: the same with the sound
+  card setup before the volume screen 0x16da0, after a ten frame shrink of
+  the scene). The AITD1, AITD2 and Jack save and load screens are one
+  framed column of slots; Time Gate's are a wooden drum (body 0x34, faces
+  on page 0x39, TIMEGATE.EXE 0x20390); AITD3 keeps its own screens.
 - **Time Gate masks**: same RLE blobs as AITD2/3 (x1, y1, x2, y2, width,
   height, then rows of skip/copy byte pairs, 0x42a478), ten slots per
   viewed room, mask `view * 10 + zone`. The DOS build keeps them in
