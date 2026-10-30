@@ -246,8 +246,63 @@ static void cards_select(void)
     g_difficulty[0] = g_difficulty[1] = g_difficulty[2] = (s16)selected;
 }
 
+/* Ring entry 3. The Windows build starts Windows' volume control
+ * (TG 0x4144c8); here the game's own texts ("Sound Options", 40..44)
+ * switch the music and the sound effects, in the colours of the Time
+ * Gate save screen. Up and Down choose, Enter or Space switches, Escape
+ * leaves. */
+static void sound_options_draw(int selected)
+{
+    s16 rows[2];
+    int i;
+
+    rows[0] = (s16)(TEXT_ID_MUSIC_OFF + music_enabled());
+    rows[1] = (s16)(TEXT_ID_SOUND_OFF + (g_sound_ready2 ? 1 : 0));
+    target_begin();
+    raster_reset_clip();
+    memset(g_raster.target, 0, SCREEN_PIXELS);
+    text_draw_centered_shadowed(SCALED(160), SCALED(60), TEXT_ID_SOUND_OPTIONS, 0xf3, 0xff);
+    for (i = 0; i < 2; i++) {
+        text_draw_centered(SCALED(160), SCALED((s16)(100 + 16 * i)), rows[i],
+                           (u8)(i == selected ? 0xf3 : 0xff));
+    }
+    raster_pop_target();
+    screen_present();
+}
+
+static void sound_options(void)
+{
+    int selected = 0;
+
+    sound_options_draw(selected);
+    wait_released();
+    for (;;) {
+        input_poll();
+        if ((g_last_scancode & 0xff) == SC_ESC) {
+            wait_released();
+            break;
+        }
+        if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            selected ^= 1;
+        } else if (confirm_key()) {
+            if (selected == 0) {
+                music_toggle();
+            } else {
+                g_sound_ready2 ^= 1;
+                g_sample_priority = -1;
+                g_sample_current = -1;
+                sound_stop_all();
+            }
+        } else {
+            continue;
+        }
+        sound_options_draw(selected);
+        wait_released();
+    }
+}
+
 /* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
- * 3 starts Windows' volume control and is left out, 4 replays the second
+ * 3 starts Windows' volume control (here sound_options), 4 replays the second
  * intro film, 5 is the difficulty screen. The menu tune stops for a new
  * game (0x417aa8) and for the films, and starts again after them
  * (0x417a3b, 0x417b6e). */
@@ -297,6 +352,11 @@ static int ring_menu(void)
             case 6: return MENU_RESULT_QUIT;
             case 4:     /* TG 0x409835(1): the second intro film again */
                 ring_film();
+                ring_draw(selected);
+                timer_reset(&timer);
+                break;
+            case 3:
+                sound_options();
                 ring_draw(selected);
                 timer_reset(&timer);
                 break;
@@ -400,6 +460,8 @@ int menu_ring_options(void)
                     loaded = 1;
                     break;
                 }
+            } else if (selected == 3) {
+                sound_options();
             } else if (selected == 4) {
                 ring_film();
             } else if (selected == 5) {

@@ -77,7 +77,7 @@ static void escape_draw_framed(s16 selected)
         s16 text = texts[i];
 
         if (i == 3) {
-            text = (s16)(text + (g_cdaudio_ready ? 1 : 0));
+            text = (s16)(text + (music_enabled() ? 1 : 0));
         } else if (i == 4) {
             text = (s16)(text + (g_sound_ready2 ? 1 : 0));
         } else if (i == 5) {
@@ -119,7 +119,7 @@ static void escape_draw(s16 selected)
     escape_draw_entry(ESCAPE_SAVE, TEXT_ID_SAVE_GAME, selected);
     escape_draw_entry(ESCAPE_LOAD, TEXT_ID_LOAD_GAME, selected);
     escape_draw_entry(ESCAPE_DIFFICULTY, TEXT_ID_DIFFICULTY, selected);
-    escape_draw_entry(ESCAPE_MUSIC, (s16)(TEXT_ID_MUSIC_OFF + g_cdaudio_ready), selected);
+    escape_draw_entry(ESCAPE_MUSIC, (s16)(TEXT_ID_MUSIC_OFF + music_enabled()), selected);
     escape_draw_entry(ESCAPE_SOUND, (s16)(TEXT_ID_SOUND_OFF + g_sound_ready2), selected);
     escape_draw_entry(ESCAPE_DETAIL, (s16)(TEXT_ID_DETAIL_LOW + g_poly_detail), selected);
     escape_draw_entry(ESCAPE_QUIT, TEXT_ID_QUIT, selected);

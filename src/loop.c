@@ -154,7 +154,7 @@ static int handle_input(s16 flag, int *hold_count, u32 *hold_start, int *hold_do
         if (!g_message_shown) {
             if (g_scene_scancode == SC_SEMICOLON) {
                 music_toggle();
-                message_show(g_cdaudio_ready + TEXT_ID_MUSIC_OFF);
+                message_show((s16)(music_enabled() + TEXT_ID_MUSIC_OFF));
                 g_message_shown = 1;
             }
             if (g_scene_scancode == SC_S) {

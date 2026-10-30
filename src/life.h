@@ -250,6 +250,7 @@ void sample_play(s16 sample);
 void sample_repeat(s16 sample, u16 count);
 void music_play(s16 music);
 s16 music_current(void);
+int music_enabled(void);
 
 /* Full screen sequences. */
 int movie_play(const char *name);          /* cutscene.c: .SMK or .MUX */

@@ -85,6 +85,7 @@ enum itd_ress {
  * the string at offset +2. */
 enum text_id {
     TEXT_ID_TITLE = 1,
+    TEXT_ID_SOUND_OPTIONS = 0x28,
     TEXT_ID_MUSIC_OFF = 0x29,       /* + g_cdaudio_ready */
     TEXT_ID_SOUND_OFF = 0x2b,       /* + g_sound_ready2 */
     TEXT_ID_SAVE_GAME = 0x2d,

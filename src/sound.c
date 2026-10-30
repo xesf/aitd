@@ -181,6 +181,8 @@ void sound_stop_all(void)
 /* 0x40b31e */
 /* The titles that ship their music as data. Returns 1 when handled. */
 static s16 s_data_playing = -1;
+static int s_data_muted;            /* music off: the tune waits here */
+static s16 s_data_wanted = -1;
 
 static int music_play_data(s16 music)
 {
@@ -195,6 +197,11 @@ static int music_play_data(s16 music)
         platform_midi_stop();
         music_adlib_stop();
         s_data_playing = -1;
+        s_data_wanted = -1;
+        return 1;
+    }
+    if (s_data_muted) {
+        s_data_wanted = music;
         return 1;
     }
     if (music == s_data_playing) {
@@ -251,7 +258,15 @@ s16 music_current(void)
     if (game_current()->music_source == MUSIC_CD) {
         return g_music_pending;
     }
-    return s_data_playing;
+    return s_data_muted ? s_data_wanted : s_data_playing;
+}
+
+int music_enabled(void)
+{
+    if (game_current()->music_source == MUSIC_CD) {
+        return g_cdaudio_ready;
+    }
+    return !s_data_muted;
 }
 
 void music_play(s16 music)
@@ -291,6 +306,25 @@ void music_play(s16 music)
 /* 0x40b3f6 */
 void music_toggle(void)
 {
+    if (game_current()->music_source != MUSIC_CD) {
+        /* Music as data: the CD flag says nothing, the tune is held. */
+        if (!s_data_muted) {
+            s16 m = s_data_playing;
+
+            music_play(-1);
+            s_data_wanted = m;
+            s_data_muted = 1;
+        } else {
+            s16 m = s_data_wanted;
+
+            s_data_muted = 0;
+            s_data_wanted = -1;
+            if (m >= 0) {
+                music_play(m);
+            }
+        }
+        return;
+    }
     g_cdaudio_ready ^= 1;
     if (!g_cdaudio_ready) {
         platform_cdaudio_stop();
