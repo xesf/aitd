@@ -22,15 +22,21 @@ in the `VERSION` file, and `aitd --version` prints it.
 - The car of the Alone in the Dark 1 intro no longer circles for ever when
   the game runs at a low frame rate (seen on the Vita).
 - Time Gate stops the music for a new game and for the intro films of the
-  menu, plays the menu tune in the game's menu and starts the game's tune
-  again when it closes. Saving from that menu goes back to the game.
+  menu, and starts the game's tune again when the game's menu closes (the
+  DOS menu is silent, the Windows one plays the menu tune). Saving from
+  that menu goes back to the game.
 - Time Gate no longer shows the scene in the inventory's colours for a
   moment when the inventory opens.
 - Time Gate's menu comes back in its own colours after the cinematic
   option.
-- Time Gate's sound icon opens a Sound Options screen that switches the
-  music and the sound effects. Music played from data (AdLib, MIDI, HMP)
-  can now be switched off with ; as well.
+- The DOS Time Gate's menu has the original's eight icons, opens with the
+  scene shrinking into the screen and shows the medallion alone. Its
+  sound icon opens the original volume screen, with a music and a sound
+  bar. Music played from data (AdLib, MIDI, HMP) can now be switched off
+  with ; as well.
+- Time Gate's save and load screens are the original's turning wooden
+  drum, with the picture of each saved game on a face. Saves made from the
+  game's menu now keep a picture.
 
 ## [0.3.0] - 2026-10-25
 
