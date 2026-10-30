@@ -34,6 +34,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -44,7 +45,10 @@
 #include "draw.h"
 #include "life.h"
 #include "menu.h"
+#include "pak.h"
 #include "palette.h"
+#include "picture.h"
+#include "r3d.h"
 #include "platform.h"
 #include "raster.h"
 #include "savegame.h"
@@ -409,20 +413,17 @@ static int save_screen_plain(void)
 
 /* The slot's thumbnail in the colours of the palette on screen: AITD1 has
  * one palette, the later titles save the camera's with the picture. */
-static void thumb_to_screen_palette(u8 *thumb, const u8 *palette)
+static void thumb_to_colours(u8 *thumb, const u8 *palette, int first, int last)
 {
     u8 map[256];
     int i, j;
 
-    if (memcmp(palette, g_palette_buffer, 0x300) == 0) {
-        return;
-    }
     for (i = 0; i < 256; i++) {
         const u8 *c = palette + i * 3;
-        int best = 0;
+        int best = first;
         long best_d = 0x7fffffffL;
 
-        for (j = 0; j < 256; j++) {
+        for (j = first; j <= last; j++) {
             const u8 *o = g_palette_buffer + j * 3;
             long dr = c[0] - o[0], dg = c[1] - o[1], db = c[2] - o[2];
             long d = dr * dr + dg * dg + db * db;
@@ -436,6 +437,13 @@ static void thumb_to_screen_palette(u8 *thumb, const u8 *palette)
     }
     for (i = 0; i < THUMB_W * THUMB_H; i++) {
         thumb[i] = map[thumb[i]];
+    }
+}
+
+static void thumb_to_screen_palette(u8 *thumb, const u8 *palette)
+{
+    if (memcmp(palette, g_palette_buffer, 0x300) != 0) {
+        thumb_to_colours(thumb, palette, 0, 255);
     }
 }
 
@@ -643,13 +651,226 @@ static int save_screen_run(int saving)
     return result;
 }
 
+/* ---- Time Gate: the drum ------------------------------------------------
+ *
+ * TIMEGATE.EXE 0x20390 (TG320.EX_ 0x40e37f): the save (0x1f750) and load
+ * (0x1fe10) screens are a wooden drum, ITD_RESS body 0x34, turning about
+ * its x axis in front of ITD_RESS picture 4 (save) or 3 (load). Its eight
+ * faces are 256 x 768 page 0x39 (page 0x3a is its second page), and
+ * 0x209d0 pastes the picture of each saved game onto its face: rows 10..89
+ * of the 160 x 100 picture at x 44 of the face. Up and down turn the drum
+ * a face (0x80); it turns 4 a frame, and from 100 short of the face one
+ * more every third frame, clicking (ITD_RESS sound 0x37) when it stops;
+ * every turn starts with sound 0x38. Enter takes the face in front,
+ * Escape leaves.
+ *
+ * The pictures here are the engine's 80 x 50 ones, doubled, in colours
+ * 16..143 of the screen's palette: colour 0 would let the drum's inside
+ * show through (the original's pictures keep to the same range, 0x31198). */
+enum {
+    DRUM_SLOTS = 8,
+    DRUM_PAGE_BYTES = 0x30000,
+    DRUM_BODY = 0x34,
+    DRUM_PAGE0 = 0x39,
+    DRUM_PAGE1 = 0x3a,
+    DRUM_PICTURE_SAVE = 4,
+    DRUM_PICTURE_LOAD = 3,
+    DRUM_SOUND_STOP = 0x37,
+    DRUM_SOUND_TURN = 0x38,
+    DRUM_FACE = 0x80,
+    DRUM_FACE_X = 0x2c
+};
+
+static const s16 s_drum_face_y[DRUM_SLOTS] = {    /* 0x20aaf.. */
+    7, 0x68, 0xcc, 0x12b, 0x18b, 0x1ec, 0x24b, 0x2a8
+};
+
+static u8 *drum_page(int entry)
+{
+    u8 *page = calloc(1, DRUM_PAGE_BYTES);
+    u32 size = 0;
+    u8 *data = pak_load("ITD_RESS.PAK", entry, &size);
+
+    if (page != NULL && data != NULL) {
+        memcpy(page, data, size < DRUM_PAGE_BYTES ? size : DRUM_PAGE_BYTES);
+    }
+    if (data != NULL) {
+        mem_free(data);
+    }
+    return page;
+}
+
+/* 0x209d0 and 0x20940 */
+static void drum_paste_saves(u8 *page)
+{
+    u8 thumb[THUMB_W * THUMB_H], palette[0x300];
+    char path[1024];
+    int slot, x, y;
+
+    for (slot = 0; slot < DRUM_SLOTS; slot++) {
+        save_path(0, slot, path, sizeof(path), 0);
+        if (!save_read_header(path, thumb, palette, NULL, NULL)) {
+            continue;
+        }
+        thumb_to_colours(thumb, palette, 0x10, 0x8f);
+        for (y = 0; y < 80; y++) {
+            u8 *row = page + (s_drum_face_y[slot] + y) * 256 + DRUM_FACE_X;
+            const u8 *src = thumb + ((y + 10) / 2) * THUMB_W;
+
+            for (x = 0; x < 160; x++) {
+                row[x] = src[x / 2];
+            }
+        }
+    }
+}
+
+static void drum_draw(const u8 *picture, u8 *body, s16 angle)
+{
+    static const s32 light_dir[3] = { -88000, 48000, -100 };
+    static const s32 light_pos[3] = { 0, 0, 0 };
+
+    raster_reset_clip();
+    memcpy(g_raster.target, picture, SCREEN_PIXELS);
+    r3d_set_camera_angles(0, 0, 0);
+    r3d_set_camera_position(0, 0, -8000);
+    r3d_set_projection(160, 100, 128, 500, 490);
+    r3d_set_clip_y(10000);
+    r3d_set_light_raw(light_dir, light_pos);
+    if (body != NULL) {
+        r3d_draw_body(-430, 0, -1520, angle, 0, 0, body);
+    }
+    draw_present();
+}
+
+/* Returns the slot taken, -1 for none. */
+static int drum_run(int saving)
+{
+    u8 *picture = malloc(SCREEN_PIXELS);
+    u8 *page0 = drum_page(DRUM_PAGE0), *page1 = drum_page(DRUM_PAGE1);
+    u32 body_size = 0;
+    u8 *body = pak_load("ITD_RESS.PAK", DRUM_BODY, &body_size);
+    s16 angle = 0, target = 0;
+    int slot = 0, step = 4, count = 0, moving = 0, latch = 0, done = 0;
+
+    if (picture == NULL || page0 == NULL || page1 == NULL) {
+        free(picture);
+        free(page0);
+        free(page1);
+        if (body != NULL) {
+            mem_free(body);
+        }
+        return -1;
+    }
+    palette_fade_out(0x14, 0);
+    memset(picture, 0, SCREEN_PIXELS);
+    picture_load(saving ? DRUM_PICTURE_SAVE : DRUM_PICTURE_LOAD, picture, g_palette_buffer);
+    drum_paste_saves(page0);
+    r3d_set_texture_pages(page0, DRUM_PAGE_BYTES, page1, DRUM_PAGE_BYTES);
+    raster_push_target(g_screen);
+    drum_draw(picture, body, angle);
+    palette_set_range(g_palette_buffer, 0, 256);
+    wait_release();
+
+    while (!done) {
+        int diff = target - angle;
+
+        /* 0x20485: the turn */
+        if (diff != 0) {
+            int dist = diff < 0 ? -diff : diff;
+
+            moving = 1;
+            if (dist > 100) {
+                step = 4;
+            } else if (++count == 3) {
+                count = 0;
+                if (++step > dist) {
+                    step = dist;
+                    sample_play_resource("ITD_RESS.PAK", DRUM_SOUND_STOP);
+                }
+            }
+            angle = (s16)(angle + (diff < 0 ? -step : step));
+        } else if (moving) {
+            sample_play_resource("ITD_RESS.PAK", DRUM_SOUND_STOP);
+            moving = 0;
+        }
+        drum_draw(picture, body, angle);
+
+        input_poll();
+        if (g_key_dir_flags == 0) {
+            latch = 0;
+        }
+        if ((g_key_dir_flags & DIR_UP) && !latch) {
+            slot = (slot + 1) % DRUM_SLOTS;
+            target = (s16)(target + DRUM_FACE);
+            sample_play_resource("ITD_RESS.PAK", DRUM_SOUND_TURN);
+            latch = 1;
+        }
+        if ((g_key_dir_flags & DIR_DOWN) && !latch) {
+            slot = (slot + DRUM_SLOTS - 1) % DRUM_SLOTS;
+            target = (s16)(target - DRUM_FACE);
+            sample_play_resource("ITD_RESS.PAK", DRUM_SOUND_TURN);
+            latch = 1;
+        }
+        switch (g_last_scancode & 0xff) {
+        case SC_ENTER:
+        case 0x9c:
+            done = 1;
+            break;
+        case SC_ESC:
+            done = 1;
+            slot = -1;
+            break;
+        default:
+            break;
+        }
+        platform_delay(14);     /* the VGA frame the original waits on */
+    }
+    palette_fade_out(8, 0);
+    wait_release();
+
+    raster_pop_target();
+    r3d_set_texture_pages(NULL, 0, NULL, 0);
+    free(picture);
+    free(page0);
+    free(page1);
+    if (body != NULL) {
+        mem_free(body);
+    }
+    return slot;
+}
+
+/* 0x1f750 (save) and 0x1fe10 (load): a load from an empty face does
+ * nothing (0x202b0). */
+static int drum_screen_run(int saving)
+{
+    char path[1024];
+    int slot = drum_run(saving);
+
+    if (slot < 0) {
+        return 0;
+    }
+    if (saving) {
+        time_t now = time(NULL);
+        char name[SAVE_NAME_BYTES];
+
+        strftime(name, sizeof(name), "%d/%m/%y %H:%M", localtime(&now));
+        save_path(0, slot, path, sizeof(path), 1);
+        return save_file_write(path, name);
+    }
+    save_path(0, slot, path, sizeof(path), 0);
+    if (!save_read_header(path, NULL, NULL, NULL, NULL)) {
+        return 0;
+    }
+    return save_file_read(path);
+}
+
 /* 0x41928f */
 int savegame_save(void)
 {
     int result;
 
     memcpy(g_saved_palette, g_palette_buffer, 0x300);
-    result = save_screen_run(1);
+    result = game_current()->menu_style == MENU_STYLE_RING ? drum_screen_run(1) : save_screen_run(1);
     memcpy(g_palette_buffer, g_saved_palette, 0x300);
     return result;
 }
@@ -666,7 +887,7 @@ int savegame_restore(void *object_table, int in_game)
         g_present_buffer = g_screen;
     }
     memcpy(g_saved_palette, g_palette_buffer, 0x300);
-    result = save_screen_run(0);
+    result = game_current()->menu_style == MENU_STYLE_RING ? drum_screen_run(0) : save_screen_run(0);
     memcpy(g_palette_buffer, g_saved_palette, 0x300);
     return result;
 }

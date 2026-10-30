@@ -59,6 +59,7 @@ static int s_point_count;                    /* 0x439904 */
 static s16 s_camera[R3D_MAX_POINTS * 3];     /* TG 0x43c4b0, camera space */
 static const u8 *s_uv_table;                 /* TG 0x4422a0 */
 static struct tex_page s_pages[2];           /* TG 0x45c4d0, 0x45c4cc */
+static struct tex_page s_page_override[2];   /* the save screens' drum */
 static int s_normal_count;                   /* TG 0x4422b2 */
 static int s_normal_offset;                  /* TG 0x4422ae */
 static s32 s_light_dir[3], s_light_pos[3];   /* TG 0x43c333.., 0x451d54.. */
@@ -1096,8 +1097,13 @@ static void body_extras(const u8 *body, int load_pages)
     }
     if ((flags & BODY_TEXTURED) && load_pages) {
         s_uv_table = body + rd16(extra + (animated ? 6 : 0));
-        s_pages[0] = texture_page(rd16(extra + (animated ? 0x0c : 6)), NULL);
-        s_pages[1] = texture_page(rd16(extra + (animated ? 0x0e : 8)), s_pages[0].texels);
+        if (s_page_override[0].texels != NULL) {
+            s_pages[0] = s_page_override[0];
+            s_pages[1] = s_page_override[1];
+        } else {
+            s_pages[0] = texture_page(rd16(extra + (animated ? 0x0c : 6)), NULL);
+            s_pages[1] = texture_page(rd16(extra + (animated ? 0x0e : 8)), s_pages[0].texels);
+        }
     }
     if (flags & BODY_NORMALS) {
         s_normal_count = rd16(extra + (animated ? 8 : 2));
@@ -1125,6 +1131,24 @@ void r3d_set_light(const s16 *dir, const s16 *pos)
     s_light_pos[0] = light_value(pos[0], g_r3d_x);
     s_light_pos[1] = light_value(pos[1], g_r3d_y);
     s_light_pos[2] = light_value(pos[2], g_r3d_z);
+}
+
+/* TG 0x41b234 (TIMEGATE.EXE 0x2dc60): while the save screens run
+ * (0x43c34c / 0x61854 set) a body keeps the pages it is given instead of
+ * loading its own. NULL gives the pages back to the bodies. */
+void r3d_set_texture_pages(const u8 *page0, u32 size0, const u8 *page1, u32 size1)
+{
+    s_page_override[0].texels = page0;
+    s_page_override[0].size = size0;
+    s_page_override[1].texels = page1;
+    s_page_override[1].size = size1;
+}
+
+/* The light as camera space values, set directly (TG 0x40e41c..). */
+void r3d_set_light_raw(const s32 *dir, const s32 *pos)
+{
+    memcpy(s_light_dir, dir, sizeof(s_light_dir));
+    memcpy(s_light_pos, pos, sizeof(s_light_pos));
 }
 
 /* 0x424710 */

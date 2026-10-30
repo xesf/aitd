@@ -74,6 +74,8 @@ void r3d_set_clip_y(s16 y);
  * body was rejected. Leaves the screen box in g_r3d_bbox. */
 /* Time Gate: the light of the camera view in force for the next bodies,
  * direction and position in world space. */
+void r3d_set_texture_pages(const u8 *page0, u32 size0, const u8 *page1, u32 size1);
+void r3d_set_light_raw(const s32 *dir, const s32 *pos);
 void r3d_set_light(const s16 *dir, const s16 *pos);
 
 int r3d_draw_body(s16 x, s16 y, s16 z, s16 alpha, s16 beta, s16 gamma,
