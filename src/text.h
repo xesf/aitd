@@ -19,5 +19,6 @@ void text_table_free(void);
 int text_record_count(void);
 
 const struct text_record *text_get_record(int id);     /* 0x414fcb */
+const struct text_record *text_record_at(int index);
 
 #endif /* AITD_TEXT_H */

@@ -153,6 +153,14 @@ AITD_LANG=FRANCAIS make run-aitd1
 | P | Pause |
 | S | Sound on or off |
 | ; | Music on or off |
+| F10 | Open or close the editor (see below) |
+
+F10 opens the editor over the main menu or the game, and F10 or Esc goes
+back to where you were. The editor shows the running game's data: the
+pictures of `ITD_RESS.PAK`, the models of `LISTBODY.PAK`, the font and
+the text table. Tab or the number keys switch between these viewers. The
+game's clock stops while the editor is open. The editor lives in
+`src/editor/`.
 
 The number row chooses an action without opening the inventory. This is
 an addition: the original games have no such keys. The keys follow the

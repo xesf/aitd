@@ -239,6 +239,26 @@ int font_height(void)
     return tallest;
 }
 
+/* How far the tallest glyph reaches above the y a string is drawn at (the
+ * record fonts place glyphs by their own offsets); 0 for the old format. */
+int font_ascent(void)
+{
+    int top = 0;
+    int ch;
+
+    if (s_old_format) {
+        return 0;
+    }
+    for (ch = s_first_char; ch <= s_last_char; ch++) {
+        const u8 *record = glyph_record((u8)ch);
+
+        if (record != NULL && record[5] > 0 && (s8)record[7] > top) {
+            top = (s8)record[7];
+        }
+    }
+    return top;
+}
+
 /*
  * 0x420e6f. Clipping is handled by the caller in the original through the
  * rectangles at 0x445c92 and 0x445c96; here the target bounds do the same job.

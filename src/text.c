@@ -123,6 +123,15 @@ int text_record_count(void)
     return s_record_count;
 }
 
+/* The record at a position of the table, for the editor; NULL past the end. */
+const struct text_record *text_record_at(int index)
+{
+    if (index < 0 || index >= s_record_count || index >= TEXT_RECORD_MAX) {
+        return NULL;
+    }
+    return &s_records[index];
+}
+
 /*
  * 0x414fcb - linear scan, NULL when the id is absent.
  */

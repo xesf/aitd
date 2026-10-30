@@ -1144,6 +1144,33 @@ void r3d_set_texture_pages(const u8 *page0, u32 size0, const u8 *page1, u32 size
     s_page_override[1].size = size1;
 }
 
+void r3d_view_save(struct r3d_view *v)
+{
+    v->cam[0] = s_cam_x;
+    v->cam[1] = s_cam_y;
+    v->cam[2] = s_cam_z;
+    memcpy(v->angles, s_cam_angles, sizeof(v->angles));
+    v->projection[0] = s_centre_x;
+    v->projection[1] = s_centre_y;
+    v->projection[2] = s_z_offset;
+    v->projection[3] = s_focal_x;
+    v->projection[4] = s_focal_y;
+    v->clip_y = s_clip_y;
+    memcpy(v->light_dir, s_light_dir, sizeof(v->light_dir));
+    memcpy(v->light_pos, s_light_pos, sizeof(v->light_pos));
+}
+
+void r3d_view_restore(const struct r3d_view *v)
+{
+    r3d_set_camera_position(v->cam[0], v->cam[1], v->cam[2]);
+    r3d_set_camera_angles(v->angles[0], v->angles[1], v->angles[2]);
+    r3d_set_projection(v->projection[0], v->projection[1], v->projection[2],
+                       v->projection[3], v->projection[4]);
+    s_clip_y = v->clip_y;
+    memcpy(s_light_dir, v->light_dir, sizeof(s_light_dir));
+    memcpy(s_light_pos, v->light_pos, sizeof(s_light_pos));
+}
+
 /* The light as camera space values, set directly (TG 0x40e41c..). */
 void r3d_set_light_raw(const s32 *dir, const s32 *pos)
 {

@@ -51,6 +51,12 @@ ENGINE_SRC := \
 	src/mux.c \
 	src/cdimage.c \
 	src/stubs.c \
+	src/editor/editor.c \
+	src/editor/ed_ui.c \
+	src/editor/ed_pict.c \
+	src/editor/ed_model.c \
+	src/editor/ed_font.c \
+	src/editor/ed_text.c \
 	src/platforms/common.c \
 	src/platforms/mixer.c
 

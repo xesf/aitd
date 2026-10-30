@@ -8,9 +8,12 @@ in the `VERSION` file, and `aitd --version` prints it.
 ## [Unreleased]
 
 ### Added
+- An editor, opened with F10 over the main menu or the game, with viewers
+  for the pictures, the models, the font and the texts of the running
+  game. F10 or Esc goes back to where you were.
 - Hold Shift with Up to run, as well as pressing Up twice.
 - The harness spawns an effect at the player with `AITD_SPECIAL=frame,type`,
-  `h` in `AITD_INPUT` holds Shift, and `AITD_LOAD=dir,slot` starts the
+  `h` in `AITD_INPUT` holds Shift, `f` presses F10, and `AITD_LOAD=dir,slot` starts the
   game stage from a saved game.
 
 ### Fixed

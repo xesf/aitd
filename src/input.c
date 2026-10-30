@@ -25,6 +25,7 @@
 #include "anim.h"
 #include "draw.h"
 #include "menu.h"
+#include "editor/editor.h"
 #include "platform.h"
 #include "subsystems.h"
 
@@ -127,6 +128,7 @@ static void harness_input(void)
                 case 'x': scancode = 0x01; break;
                 case 't': scancode = 0x0f; break;
                 case 'h': run = 1; break;
+                case 'f': scancode = 0x44; break;   /* F10, the editor */
                 case '1': case '2': case '3': case '4': case '5':
                 case '6': case '7': case '8': case '9':
                     scancode = 0x02 + (*k - '1'); break;
@@ -239,6 +241,7 @@ void input_poll(void)
 
     s_poll_number++;
     harness_input();
+    editor_poll();
     {
         /* AITD_DUMP_EVERY=n with AITD_DUMP_FRAME=prefix: snapshot every
          * n polls, whatever screen is up. */

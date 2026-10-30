@@ -74,6 +74,14 @@ void r3d_set_clip_y(s16 y);
  * body was rejected. Leaves the screen box in g_r3d_bbox. */
 /* Time Gate: the light of the camera view in force for the next bodies,
  * direction and position in world space. */
+/* The camera, projection, clip and light, for a screen that draws with its
+ * own and gives the game's back (the editor). */
+struct r3d_view {
+    s16 cam[3], angles[3], projection[5], clip_y;
+    s32 light_dir[3], light_pos[3];
+};
+void r3d_view_save(struct r3d_view *v);
+void r3d_view_restore(const struct r3d_view *v);
 void r3d_set_texture_pages(const u8 *page0, u32 size0, const u8 *page1, u32 size1);
 void r3d_set_light_raw(const s32 *dir, const s32 *pos);
 void r3d_set_light(const s16 *dir, const s16 *pos);
