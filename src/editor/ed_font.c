@@ -39,7 +39,7 @@ static void enlarged(s16 left, s16 top)
     int x, y;
 
     memset(cell, g_ed.black, sizeof(cell));
-    ed_text(-100, -100, " ", g_ed.white);     /* binds the font in white */
+    ed_text_game(-100, -100, " ", g_ed.white);    /* binds the font in white */
     font_draw_string(cell, CELL, CELL, 2, 2 + font_ascent(), text);
     for (y = 0; y < CELL; y++) {
         for (x = 0; x < CELL; x++) {
@@ -53,7 +53,7 @@ static void enlarged(s16 left, s16 top)
 static void font_draw(void)
 {
     s16 panel = (s16)(g_screen_width - CELL * ZOOM - 6);
-    s16 top = (s16)(ed_top() + 4), pitch = (s16)(ed_line() + 1);
+    s16 top = (s16)(ed_top() + 4), pitch = (s16)(ed_line_game() + 1);
     s16 col = (s16)((panel - 10) / COLUMNS);
     char line[64];
     int c;
@@ -67,20 +67,20 @@ static void font_draw(void)
         if (c == s_char) {
             ed_rect((s16)(x - 2), (s16)(y - 1), (s16)(x + col - 3), (s16)(y + pitch - 2), g_ed.select);
         }
-        ed_text(x, y, text, c == s_char ? g_ed.accent : g_ed.white);
+        ed_text_game(x, y, text, c == s_char ? g_ed.accent : g_ed.white);
     }
     {
         s16 left = panel;
 
         enlarged(left, top);
-        snprintf(line, sizeof(line), "%d (0x%02x)", s_char, s_char);
+        snprintf(line, sizeof(line), "%d", s_char);
         ed_text(left, (s16)(top + CELL * ZOOM + 4), line, g_ed.white);
-        snprintf(line, sizeof(line), "advance %d", font_glyph_advance((u8)s_char));
+        snprintf(line, sizeof(line), "adv %d", font_glyph_advance((u8)s_char));
         ed_text(left, (s16)(top + CELL * ZOOM + 4 + ed_line()), line, g_ed.grey);
-        snprintf(line, sizeof(line), "height %d", font_height());
+        snprintf(line, sizeof(line), "h %d", font_height());
         ed_text(left, (s16)(top + CELL * ZOOM + 4 + 2 * ed_line()), line, g_ed.grey);
     }
-    ed_bars(2, "Arrows character  Tab viewer  F10 back");
+    ed_bars(2, "Arrows: character  Tab next  F10 back");
 }
 
 const struct ed_viewer ed_view_fonts = {

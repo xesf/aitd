@@ -1,7 +1,7 @@
 /*
  * ed_ui.h - what the editor's viewers share: the viewer interface, keys,
  * colours picked from the palette on screen, and text and list drawing in
- * the title's own font (ed_ui.c).
+ * an 8 x 8 font (ed_ui.c).
  */
 
 #ifndef AITD_ED_UI_H
@@ -66,8 +66,16 @@ s16 ed_line(void);              /* height of a line of text */
 
 void ed_clear(u8 colour);
 void ed_rect(s16 x1, s16 y1, s16 x2, s16 y2, u8 colour);
+/* The editor's 8 x 8 font (ed_font8.c): characters 32..126. */
+extern const u8 g_ed_font8[95][8];
+
 void ed_text(s16 x, s16 y, const char *text, u8 colour);
 s16 ed_text_width(const char *text);
+
+/* The title's own font, for the game's text (accents and all). */
+void ed_text_game(s16 x, s16 y, const char *text, u8 colour);
+s16 ed_text_game_width(const char *text);
+s16 ed_line_game(void);
 
 /* A scrolling list of `count` rows in x1..x2, y1..y2: `row` writes the
  * text of a row. Keeps *first so that `selected` stays in view. */

@@ -53,6 +53,7 @@ ENGINE_SRC := \
 	src/stubs.c \
 	src/editor/editor.c \
 	src/editor/ed_ui.c \
+	src/editor/ed_font8.c \
 	src/editor/ed_pict.c \
 	src/editor/ed_model.c \
 	src/editor/ed_font.c \

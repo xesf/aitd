@@ -519,7 +519,7 @@ static void life_draw(void)
 
     load();
     ed_clear(g_ed.black);
-    snprintf(line, sizeof(line), "LISTLIFE %d / %d  %d bytes  used by", s_entry, s_count - 1,
+    snprintf(line, sizeof(line), "LISTLIFE %d/%d %db used by", s_entry, s_count - 1,
              s_size);
     for (i = 0; i < g_object_count && users < 4; i++) {
         struct world_object *o = object_get(i);
@@ -539,7 +539,7 @@ static void life_draw(void)
     ed_text(3, (s16)(top + 1), line, s_object >= 0 ? g_ed.accent : g_ed.white);
     ed_list(0, (s16)(top + ed_line() + 2), (s16)(g_screen_width - 1), bottom, s_line_count,
             s_line, &s_first, row);
-    ed_bars(4, "Left/Right script  Up/Down line  Enter next object");
+    ed_bars(4, "L/R script  Up/Dn line  Enter next obj");
 }
 
 const struct ed_viewer ed_view_life = {

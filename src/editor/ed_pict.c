@@ -91,7 +91,7 @@ static void pict_key(int sc)
 
 static void swatches(void)
 {
-    s16 top = ed_top(), size = (s16)((ed_bottom() - top) / 16);
+    s16 top = (s16)(ed_top() + ed_line() + 2), size = (s16)((ed_bottom() - top) / 16);
     s16 left = (s16)((g_screen_width - size * 16) / 2);
     int i;
 
@@ -118,15 +118,15 @@ static void pict_draw(void)
     if (!s_info && s_is_picture) {
         return;
     }
-    ed_bars(0, "Up/Down entry  Enter bars  Tab viewer  F10 back");
-    snprintf(line, sizeof(line), "ITD_RESS %d / %d   %u bytes   %s", s_entry, s_count - 1,
+    ed_bars(0, "Up/Dn entry  Enter bars  Tab next");
+    snprintf(line, sizeof(line), "ITD_RESS %d/%d  %u b  %s", s_entry, s_count - 1,
              (unsigned)s_size,
-             s_is_picture ? (s_has_palette ? "picture with palette" : "picture, game palette")
+             s_is_picture ? (s_has_palette ? "picture+palette" : "picture")
              : s_size == AITD_PALETTE_BYTES ? "palette" : "not a picture");
     ed_rect(0, ed_top(), (s16)(ed_text_width(line) + 6), (s16)(ed_top() + ed_line()), g_ed.black);
     ed_text(3, (s16)(ed_top() + 1), line, g_ed.white);
 }
 
 const struct ed_viewer ed_view_pictures = {
-    "Pictures", pict_open, pict_close, pict_key, pict_draw
+    "Images", pict_open, pict_close, pict_key, pict_draw
 };

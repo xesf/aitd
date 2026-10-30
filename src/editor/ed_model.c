@@ -176,14 +176,14 @@ static void model_draw(void)
     if (s_spin) {
         s_beta = (s16)((s_beta + 6) & 0x3ff);
     }
-    ed_bars(1, "Up/Dn body  PgUp/Dn anim  L/R turn  Space spin  Enter tilt  +/-");
+    ed_bars(1, "Up/Dn body PgUp/Dn anim L/R Spc Ent +/-");
     if (s_body == NULL) {
-        snprintf(line, sizeof(line), "LISTBODY %d / %d   empty", s_entry, s_count - 1);
+        snprintf(line, sizeof(line), "LISTBODY %d/%d  empty", s_entry, s_count - 1);
     } else if (s_parsed) {
-        snprintf(line, sizeof(line), "LISTBODY %d / %d   %u bytes   flags %04x   %u points",
+        snprintf(line, sizeof(line), "LISTBODY %d/%d %ub flags %04x %u pts",
                  s_entry, s_count - 1, (unsigned)s_size, s_info.flags, s_info.vertex_count);
     } else {
-        snprintf(line, sizeof(line), "LISTBODY %d / %d   %u bytes", s_entry, s_count - 1,
+        snprintf(line, sizeof(line), "LISTBODY %d/%d  %u b", s_entry, s_count - 1,
                  (unsigned)s_size);
     }
     ed_text(3, (s16)(top + 1), line, g_ed.white);
@@ -194,14 +194,14 @@ static void model_draw(void)
         ed_text(3, (s16)(top + 1 + ed_line()), line, g_ed.grey);
     }
     if (s_anim < 0) {
-        snprintf(line, sizeof(line), "LISTANIM -   rest pose   (%d animations)", s_anim_count);
+        snprintf(line, sizeof(line), "LISTANIM -  rest pose (%d anims)", s_anim_count);
     } else if (s_anim_data == NULL) {
-        snprintf(line, sizeof(line), "LISTANIM %d   empty", s_anim);
+        snprintf(line, sizeof(line), "LISTANIM %d  empty", s_anim);
     } else {
-        snprintf(line, sizeof(line), "LISTANIM %d / %d   keyframe %d of %d   %d bones%s", s_anim,
+        snprintf(line, sizeof(line), "LISTANIM %d/%d key %d/%d %d bones%s", s_anim,
                  s_anim_count - 1, s_key, anim_frame_count(s_anim_data),
                  (s16)(s_anim_data[2] | (s_anim_data[3] << 8)),
-                 (s_info.flags & 2) ? "" : "   (the body has none)");
+                 (s_info.flags & 2) ? "" : " (body: none)");
     }
     ed_text(3, (s16)(top + 1 + 2 * ed_line()), line, s_anim < 0 ? g_ed.grey : g_ed.accent);
 }

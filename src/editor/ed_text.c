@@ -33,7 +33,7 @@ static void wrapped(s16 x, s16 y, s16 width, s16 bottom, const char *text)
     size_t used = 0;
 
     line[0] = '\0';
-    while (*text != '\0' && y + ed_line() <= bottom) {
+    while (*text != '\0' && y + ed_line_game() <= bottom) {
         const char *end = text;
         char word[128];
         size_t n;
@@ -51,9 +51,9 @@ static void wrapped(s16 x, s16 y, s16 width, s16 bottom, const char *text)
             char test[256 + 128];
 
             snprintf(test, sizeof(test), "%s %s", line, word);
-            if (ed_text_width(test) > width) {
-                ed_text(x, y, line, g_ed.white);
-                y = (s16)(y + ed_line());
+            if (ed_text_game_width(test) > width) {
+                ed_text_game(x, y, line, g_ed.white);
+                y = (s16)(y + ed_line_game());
                 line[0] = '\0';
                 used = 0;
             }
@@ -66,8 +66,8 @@ static void wrapped(s16 x, s16 y, s16 width, s16 bottom, const char *text)
         used = strlen(line);
         text = *end == ' ' ? end + 1 : end;
     }
-    if (used > 0 && y + ed_line() <= bottom) {
-        ed_text(x, y, line, g_ed.white);
+    if (used > 0 && y + ed_line_game() <= bottom) {
+        ed_text_game(x, y, line, g_ed.white);
     }
 }
 
@@ -87,14 +87,14 @@ static void text_draw(void)
     ed_rect(0, split, (s16)(g_screen_width - 1), split, g_ed.grey);
     r = text_record_at(s_selected);
     if (r != NULL) {
-        snprintf(line, sizeof(line), "record %d of %d, id %d, width %d", s_selected, count,
+        snprintf(line, sizeof(line), "record %d/%d  id %d  width %d", s_selected, count,
                  r->id, r->width);
         ed_text(3, (s16)(split + 2), line, g_ed.accent);
         if (r->text != NULL) {
             wrapped(3, (s16)(split + 2 + ed_line()), (s16)(g_screen_width - 6), bottom, r->text);
         }
     }
-    ed_bars(3, "Up/Down/PgUp/PgDn record  Tab viewer  F10 back");
+    ed_bars(3, "Up/Dn PgUp/PgDn record  Tab next");
 }
 
 const struct ed_viewer ed_view_texts = {

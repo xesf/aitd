@@ -2,7 +2,9 @@
  * ed_ui.c - drawing for the editor's viewers.
  *
  * Everything goes into the raster target the editor set up (the buffer the
- * input poll puts on the window), in the title's own font. The palette is
+ * input poll puts on the window), in an 8 x 8 font (ed_font8.c) that
+ * leaves room on a 320 x 200 screen; text from the game itself can use
+ * the title's own font (ed_text_game). The palette is
  * whatever the viewer shows (a picture's, the game's), so the editor's
  * colours are the entries of that palette nearest to black, white, greys,
  * an amber accent and a blue for the selection.
@@ -60,9 +62,7 @@ void ed_use_palette(const u8 *palette)
 
 s16 ed_line(void)
 {
-    int h = font_height();
-
-    return (s16)((h > 0 ? h : 8) + 3);
+    return 10;
 }
 
 s16 ed_top(void)
@@ -86,15 +86,57 @@ void ed_rect(s16 x1, s16 y1, s16 x2, s16 y2, u8 colour)
     raster_rect(x1, x2, y1, y2, colour);
 }
 
-/* y is the top of the line, whatever the font measures from. */
+/* 8 x 8, through the raster clip; characters outside 32..126 show as ?. */
 void ed_text(s16 x, s16 y, const char *text, u8 colour)
 {
-    text_draw_string(x, (s16)(y + font_ascent()), text, colour);
+    x = (s16)(x + g_raster.origin_x);
+    y = (s16)(y + g_raster.origin_y);
+    for (; *text != '\0'; text++, x = (s16)(x + 8)) {
+        u8 c = (u8)*text;
+        const u8 *glyph = g_ed_font8[(c >= 32 && c <= 126 ? c : '?') - 32];
+        int row, col;
+
+        if (x > g_raster.clip_xmax) {
+            break;
+        }
+        for (row = 0; row < 8; row++) {
+            int py = y + row;
+
+            if (py < g_raster.clip_ymin || py > g_raster.clip_ymax || glyph[row] == 0) {
+                continue;
+            }
+            for (col = 0; col < 8; col++) {
+                int px = x + col;
+
+                if ((glyph[row] >> col) & 1 && px >= g_raster.clip_xmin && px <= g_raster.clip_xmax) {
+                    g_raster.target[py * g_raster.pitch + px] = colour;
+                }
+            }
+        }
+    }
 }
 
 s16 ed_text_width(const char *text)
 {
+    return (s16)(8 * strlen(text));
+}
+
+/* In the title's own font, y the top of the line. */
+void ed_text_game(s16 x, s16 y, const char *text, u8 colour)
+{
+    text_draw_string(x, (s16)(y + font_ascent()), text, colour);
+}
+
+s16 ed_text_game_width(const char *text)
+{
     return (s16)font_string_width(text);
+}
+
+s16 ed_line_game(void)
+{
+    int h = font_height();
+
+    return (s16)((h > 0 ? h : 8) + 3);
 }
 
 void ed_bars(int current, const char *help)
@@ -113,7 +155,7 @@ void ed_bars(int current, const char *help)
                     g_ed.select);
         }
         ed_text(x, 1, label, i == current ? g_ed.accent : g_ed.white);
-        x = (s16)(x + ed_text_width(label) + 8);
+        x = (s16)(x + ed_text_width(label) + 6);
     }
     ed_rect(0, (s16)(ed_bottom() + 1), (s16)(g_screen_width - 1), (s16)(g_screen_height - 1),
             g_ed.dim);
