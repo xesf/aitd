@@ -29,8 +29,8 @@ in the `VERSION` file, and `aitd --version` prints it.
   moment when the inventory opens.
 - Time Gate's menu comes back in its own colours after the cinematic
   option.
-- The DOS Time Gate's menu has the original's eight icons, opens with the
-  scene shrinking into the screen and shows the medallion alone. Its
+- The DOS Time Gate's menu has the original's eight icons and fades in on
+  the medallion alone. Its
   sound icon opens the original volume screen, with a music and a sound
   bar. Music played from data (AdLib, MIDI, HMP) can now be switched off
   with ; as well.

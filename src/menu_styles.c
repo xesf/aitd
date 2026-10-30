@@ -512,6 +512,8 @@ static int ring_menu(void)
  * (0x4093a5..0x4093ca); a save or a load closes the menu (0x409676,
  * 0x4096ea), and on the way out the game's tune starts again
  * (0x41f3e0, 0x41f346). */
+static int s_ring_fade_in;     /* drawn under a black palette, faded in after */
+
 static void ring_scene_draw(int selected, const u8 *scene, const u8 *scene_palette)
 {
     u8 palette[AITD_PALETTE_BYTES], map[256];
@@ -547,37 +549,10 @@ static void ring_scene_draw(int selected, const u8 *scene, const u8 *scene_palet
     }
     ring_icons(selected);
     raster_pop_target();
-    palette_set_range(g_palette_buffer, 0, 256);
+    if (!s_ring_fade_in) {
+        palette_set_range(g_palette_buffer, 0, 256);
+    }
     screen_present();
-}
-
-/* TIMEGATE.EXE 0x1a02b: ten frames of the scene at half size in the middle
- * of a black screen, each frame shrinking the last into its own middle. */
-static void ring_zoom_in(const u8 *scene)
-{
-    u8 *frame = malloc(SCREEN_PIXELS);
-    int w = g_screen_width, h = g_screen_height, i, x, y;
-
-    if (frame == NULL) {
-        return;
-    }
-    memcpy(frame, scene, SCREEN_PIXELS);
-    for (i = 0; i < 10; i++) {
-        target_begin();
-        memset(g_raster.target, 0, SCREEN_PIXELS);
-        for (y = 0; y < h / 2; y++) {
-            for (x = 0; x < w / 2; x++) {
-                g_raster.target[(y + h / 4) * w + x + w / 4] = frame[(y * 2) * w + x * 2];
-            }
-        }
-        for (y = h / 4; y < h / 4 + h / 2; y++) {
-            memcpy(frame + y * w + w / 4, g_raster.target + y * w + w / 4, (size_t)(w / 2));
-        }
-        raster_pop_target();
-        screen_present();
-        platform_delay(14);
-    }
-    free(frame);
 }
 
 int menu_ring_options(void)
@@ -598,11 +573,15 @@ int menu_ring_options(void)
     game_music = music_current();
     sound_stop_all();
     if (ring_dos()) {
-        /* 0x19f96: the music stops, the ring is silent. */
+        /* 0x19f96: the music stops, the ring is silent. The original then
+         * shrinks the scene into the middle of the screen over ten
+         * frames (0x1a02b); that is left out, the menu opens on the ring. */
         music_play(-1);
-        ring_zoom_in(scene);
-        g_fade_state = 1;
+        palette_blackout();
+        s_ring_fade_in = 1;
         ring_scene_draw(selected, scene, scene_palette);
+        s_ring_fade_in = 0;
+        g_fade_state = 1;
         palette_fade(0x40, 0);
     } else {
         music_play((s16)game_current()->menu_music);
