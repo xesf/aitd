@@ -8,8 +8,8 @@
  * colour 4 shadow; the others are colour 4 (frames in frame.c).
  *
  * Ring (Time Gate, TG320.EX_ 0x405f6b / 0x405c64): ITD_RESS picture 1, a
- * medallion, with seven HYB icons around it (positions doubled in the
- * 640 x 400 build, TG640.EX_ 0x405e2a); left and right walk the ring
+ * medallion, with seven HYB icons around it, eight on DOS (positions
+ * doubled in the 640 x 400 build, TG640.EX_ 0x405e2a); left and right walk the ring
  * and the selected icon is redrawn from its highlighted bank. Enter, space
  * or keypad enter pick, Escape picks quit, 3000 idle ticks give -1.
  */
@@ -27,6 +27,7 @@
 #include "pak.h"
 #include "palette.h"
 #include "picture.h"
+#include "platform.h"
 #include "raster.h"
 #include "anim.h"
 #include "draw.h"
@@ -151,18 +152,62 @@ static int framed_menu(void)
 
 /* ---- ring ----------------------------------------------------------------- */
 
-static const struct {
-    s16 x, y;
-    u8 icon, selected;   /* ITD_RESS HYB banks, 0x451b.. at 0x416c63 */
-} s_ring[7] = {
-    { 0x27, 0x01, 0x67, 0x66 },
-    { 0x1c, 0x34, 0x6e, 0x6f },
-    { 0x2b, 0x6d, 0x5c, 0x5d },
-    { 0x84, 0x96, 0x72, 0x73 },
-    { 0xe3, 0x6d, 0x6c, 0x6d },
-    { 0xef, 0x34, 0x5e, 0x5f },
-    { 0xe6, 0x01, 0x6a, 0x6b }
+enum ring_action {
+    RING_RESUME,        /* the in-game ring; new game on the title's */
+    RING_SAVE,
+    RING_LOAD,
+    RING_SETUP,
+    RING_VOLUME,
+    RING_FILM,
+    RING_DIFFICULTY,
+    RING_QUIT
 };
+
+struct ring_entry {
+    s16 x, y;
+    u8 icon, selected;   /* ITD_RESS HYB banks */
+    u8 action;
+};
+
+/* Windows (0x451b.. at 0x416c63): seven icons, the bottom one starts
+ * Windows' volume control (0x4144c8). */
+static const struct ring_entry s_ring_windows[] = {
+    { 0x27, 0x01, 0x67, 0x66, RING_RESUME },
+    { 0x1c, 0x34, 0x6e, 0x6f, RING_SAVE },
+    { 0x2b, 0x6d, 0x5c, 0x5d, RING_LOAD },
+    { 0x84, 0x96, 0x72, 0x73, RING_VOLUME },
+    { 0xe3, 0x6d, 0x6c, 0x6d, RING_FILM },
+    { 0xef, 0x34, 0x5e, 0x5f, RING_DIFFICULTY },
+    { 0xe6, 0x01, 0x6a, 0x6b, RING_QUIT }
+};
+
+/* DOS (TIMEGATE.EXE 0x19b00, mouse boxes 0x19e40): eight, the bottom two
+ * the sound card setup (0x32980) and the volume screen (0x16da0). */
+static const struct ring_entry s_ring_dos[] = {
+    { 0x27, 0x01, 0x67, 0x66, RING_RESUME },
+    { 0x1c, 0x34, 0x6e, 0x6f, RING_SAVE },
+    { 0x2b, 0x6d, 0x5c, 0x5d, RING_LOAD },
+    { 0x60, 0x8f, 0x70, 0x71, RING_SETUP },
+    { 0xaf, 0x8f, 0x72, 0x73, RING_VOLUME },
+    { 0xe3, 0x6d, 0x6c, 0x6d, RING_FILM },
+    { 0xef, 0x34, 0x5e, 0x5f, RING_DIFFICULTY },
+    { 0xe6, 0x01, 0x6a, 0x6b, RING_QUIT }
+};
+
+static int ring_dos(void)
+{
+    return game_current()->music_source == MUSIC_TG_DOS;
+}
+
+static const struct ring_entry *ring_entries(int *count)
+{
+    if (ring_dos()) {
+        *count = (int)(sizeof(s_ring_dos) / sizeof(s_ring_dos[0]));
+        return s_ring_dos;
+    }
+    *count = (int)(sizeof(s_ring_windows) / sizeof(s_ring_windows[0]));
+    return s_ring_windows;
+}
 
 static void ring_icon(int entry, s16 x, s16 y)
 {
@@ -175,10 +220,20 @@ static void ring_icon(int entry, s16 x, s16 y)
     }
 }
 
+static void ring_icons(int selected)
+{
+    int i, count;
+    const struct ring_entry *ring = ring_entries(&count);
+
+    for (i = 0; i < count; i++) {
+        ring_icon(ring[i].icon, SCALED(ring[i].x), SCALED(ring[i].y));
+    }
+    ring_icon(ring[selected].selected, SCALED(ring[selected].x), SCALED(ring[selected].y));
+}
+
 static void ring_draw(int selected)
 {
     u8 palette[AITD_PALETTE_BYTES];
-    int i;
 
     target_begin();
     raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
@@ -188,10 +243,7 @@ static void ring_draw(int selected)
             palette_set_range(g_palette_buffer, 0, 256);
         }
     }
-    for (i = 0; i < 7; i++) {
-        ring_icon(s_ring[i].icon, SCALED(s_ring[i].x), SCALED(s_ring[i].y));
-    }
-    ring_icon(s_ring[selected].selected, SCALED(s_ring[selected].x), SCALED(s_ring[selected].y));
+    ring_icons(selected);
     raster_pop_target();
     screen_present();
 }
@@ -246,66 +298,130 @@ static void cards_select(void)
     g_difficulty[0] = g_difficulty[1] = g_difficulty[2] = (s16)selected;
 }
 
-/* Ring entry 3. The Windows build starts Windows' volume control
- * (TG 0x4144c8); here the game's own texts ("Sound Options", 40..44)
- * switch the music and the sound effects, in the colours of the Time
- * Gate save screen. Up and Down choose, Enter or Space switches, Escape
- * leaves. */
-static void sound_options_draw(int selected)
-{
-    s16 rows[2];
-    int i;
+/* ---- the volume screen ---------------------------------------------------
+ *
+ * TIMEGATE.EXE 0x16da0: ITD_RESS picture 0x75, a lute over the music bar
+ * (y 0x40..0x47) and a horn over the sound bar (0x76..0x7d), both x
+ * 0x51..0xf0, and the cancel (0x5a, lit 0x5b) and OK (0x68, lit 0x69)
+ * icons in the bottom corners. Up and down walk music, sound, buttons;
+ * left and right slide the bar's knob a pixel a frame (0..155) or pick a
+ * button. Enter keeps the volumes unless cancel is lit, Escape leaves.
+ * The Windows build starts Windows' volume control here (TG 0x4144c8). */
+enum {
+    VOLUME_PICTURE = 0x75,
+    VOLUME_LEFT = 0x51,
+    VOLUME_RIGHT = 0xf0,
+    VOLUME_SPAN = 0x9b,
+    VOLUME_MUSIC_Y = 0x40,
+    VOLUME_SOUND_Y = 0x76,
+    VOLUME_KNOB_LIT = 0xf0,
+    VOLUME_KNOB = 0xfe
+};
 
-    rows[0] = (s16)(TEXT_ID_MUSIC_OFF + music_enabled());
-    rows[1] = (s16)(TEXT_ID_SOUND_OFF + (g_sound_ready2 ? 1 : 0));
-    target_begin();
-    raster_reset_clip();
-    memset(g_raster.target, 0, SCREEN_PIXELS);
-    text_draw_centered_shadowed(SCALED(160), SCALED(60), TEXT_ID_SOUND_OPTIONS, 0xf3, 0xff);
-    for (i = 0; i < 2; i++) {
-        text_draw_centered(SCALED(160), SCALED((s16)(100 + 16 * i)), rows[i],
-                           (u8)(i == selected ? 0xf3 : 0xff));
+/* 0x16d10: -1 lights no button, 0 OK, 1 cancel. */
+static void volume_buttons(int lit)
+{
+    ring_icon(0x5a, SCALED(1), SCALED(0x9a));
+    ring_icon(0x68, SCALED(0x10e), SCALED(0x9a));
+    if (lit == 0) {
+        ring_icon(0x69, SCALED(0x10e), SCALED(0x9a));
+    } else if (lit == 1) {
+        ring_icon(0x5b, SCALED(1), SCALED(0x9a));
     }
+}
+
+static void volume_knob(int value, s16 y, s16 bottom, int colour)
+{
+    raster_rect(SCALED((s16)(VOLUME_LEFT + value)), SCALED((s16)(VOLUME_LEFT + value + 2)),
+                SCALED(y), SCALED(bottom), colour);
+}
+
+/* 0x17402 */
+static void volume_draw(const u8 *picture, int row, int music, int sound, int button)
+{
+    target_begin();
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
+    memcpy(g_raster.target, picture, SCREEN_PIXELS);
+    raster_rect(SCALED(VOLUME_LEFT), SCALED(VOLUME_RIGHT), SCALED(VOLUME_MUSIC_Y),
+                SCALED(VOLUME_MUSIC_Y + 7), 0);
+    raster_rect(SCALED(VOLUME_LEFT), SCALED(VOLUME_RIGHT), SCALED(VOLUME_SOUND_Y),
+                SCALED(VOLUME_SOUND_Y + 7), 0);
+    volume_knob(sound, VOLUME_SOUND_Y, VOLUME_SOUND_Y + 6, row == 1 ? VOLUME_KNOB_LIT : VOLUME_KNOB);
+    volume_knob(music, VOLUME_MUSIC_Y, VOLUME_MUSIC_Y + 7, row == 0 ? VOLUME_KNOB_LIT : VOLUME_KNOB);
+    volume_buttons(row == 2 ? button : -1);
     raster_pop_target();
     screen_present();
 }
 
-static void sound_options(void)
+static void volume_screen(void)
 {
-    int selected = 0;
+    u8 *picture = malloc(SCREEN_PIXELS);
+    int sample_volume, music_volume, music, sound, row = 0, button = 0, latch = 0;
 
-    sound_options_draw(selected);
+    if (picture == NULL) {
+        return;
+    }
+    memset(picture, 0, SCREEN_PIXELS);
+    if (picture_load(VOLUME_PICTURE, picture, g_palette_buffer) == 1) {
+        palette_set_range(g_palette_buffer, 0, 256);
+    }
+    sound_volumes(&sample_volume, &music_volume);
+    sound = sample_volume * VOLUME_SPAN / SAMPLE_VOLUME_MAX;
+    music = music_volume * VOLUME_SPAN / MUSIC_VOLUME_MAX;
+    volume_draw(picture, row, music, sound, button);
     wait_released();
     for (;;) {
+        int sc;
+
         input_poll();
-        if ((g_last_scancode & 0xff) == SC_ESC) {
-            wait_released();
+        sc = g_last_scancode & 0xff;
+        if (sc == SC_ESC) {
             break;
         }
-        if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
-            selected ^= 1;
-        } else if (confirm_key()) {
-            if (selected == 0) {
-                music_toggle();
-            } else {
-                g_sound_ready2 ^= 1;
-                g_sample_priority = -1;
-                g_sample_current = -1;
-                sound_stop_all();
+        if (sc == SC_ENTER || sc == 0x9c) {
+            if (button == 0) {      /* 0x17251 */
+                sound_set_volumes(sound * SAMPLE_VOLUME_MAX / VOLUME_SPAN,
+                                  music * MUSIC_VOLUME_MAX / VOLUME_SPAN);
             }
-        } else {
-            continue;
+            break;
         }
-        sound_options_draw(selected);
-        wait_released();
+        if (g_key_dir_flags & DIR_RIGHT) {
+            if (row == 0 && music < VOLUME_SPAN) {
+                music++;
+            } else if (row == 1 && sound < VOLUME_SPAN) {
+                sound++;
+            } else if (row == 2) {
+                button = 0;
+            }
+        }
+        if (g_key_dir_flags & DIR_LEFT) {
+            if (row == 0 && music > 0) {
+                music--;
+            } else if (row == 1 && sound > 0) {
+                sound--;
+            } else if (row == 2) {
+                button = 1;
+            }
+        }
+        if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            if (!latch) {
+                row += (g_key_dir_flags & DIR_UP) ? (row > 0 ? -1 : 0) : (row < 2 ? 1 : 0);
+            }
+            latch = 1;
+        } else if (g_key_dir_flags == 0) {
+            latch = 0;
+        }
+        volume_draw(picture, row, music, sound, button);
+        platform_delay(14);
     }
+    wait_released();
+    free(picture);
 }
 
-/* TG 0x41778f: 0 new game, 2 load, 5 difficulty, 6 quit; 1 does nothing,
- * 3 starts Windows' volume control (here sound_options), 4 replays the second
- * intro film, 5 is the difficulty screen. The menu tune stops for a new
- * game (0x417aa8) and for the films, and starts again after them
- * (0x417a3b, 0x417b6e). */
+/* TG 0x41778f (TIMEGATE.EXE 0x29a20): new game, load, the sound screens,
+ * the second intro film again (0x409835(1)), difficulty, quit; save does
+ * nothing. The menu tune stops for a new game (0x417aa8) and for the
+ * films, and starts again after them (0x417a3b, 0x417b6e). */
 static void ring_film(void)
 {
     const char *const *films = game_current()->intro_movies;
@@ -318,10 +434,27 @@ static void ring_film(void)
     music_play((s16)game_current()->menu_music);
 }
 
+/* The sound card setup (TIMEGATE.EXE 0x32980) picks DOS drivers and
+ * ports; the host's audio needs none of it. */
+static void ring_setup(void)
+{
+    fprintf(stderr, "menu: the sound card setup has nothing to set here\n");
+}
+
+/* Enter or keypad Enter on DOS (0x1a25a); the Windows build also takes
+ * space. */
+static int ring_confirm(void)
+{
+    int sc = g_last_scancode & 0xff;
+
+    return ring_dos() ? (sc == SC_ENTER || sc == 0x9c) : confirm_key();
+}
+
 static int ring_menu(void)
 {
     struct game_timer timer;
-    int selected = 0;
+    int selected = 0, count;
+    const struct ring_entry *ring = ring_entries(&count);
 
     ring_draw(selected);
     g_fade_state = 1;
@@ -335,41 +468,40 @@ static int ring_menu(void)
         }
         input_poll();
         if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
-            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? 6 : 1)) % 7;
+            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? count - 1 : 1)) % count;
             ring_draw(selected);
             timer_reset(&timer);
             wait_released();
         } else if ((g_last_scancode & 0xff) == SC_ESC) {
             wait_released();
             return MENU_RESULT_QUIT;
-        } else if (confirm_key()) {
+        } else if (ring_confirm()) {
             wait_released();
-            switch (selected) {
-            case 0:
+            switch (ring[selected].action) {
+            case RING_RESUME:
                 music_play(-1);
                 return MENU_RESULT_NEW_GAME;
-            case 2: return MENU_RESULT_LOAD_GAME;
-            case 6: return MENU_RESULT_QUIT;
-            case 4:     /* TG 0x409835(1): the second intro film again */
+            case RING_LOAD:
+                return MENU_RESULT_LOAD_GAME;
+            case RING_QUIT:
+                return MENU_RESULT_QUIT;
+            case RING_FILM:
                 ring_film();
-                ring_draw(selected);
-                timer_reset(&timer);
                 break;
-            case 3:
-                sound_options();
-                ring_draw(selected);
-                timer_reset(&timer);
+            case RING_SETUP:
+                ring_setup();
                 break;
-            case 5:
+            case RING_VOLUME:
+                volume_screen();
+                break;
+            case RING_DIFFICULTY:
                 cards_select();
-                ring_draw(selected);
-                timer_reset(&timer);
                 break;
             default:
-                fprintf(stderr, "menu: ring entry %d not rebuilt\n", selected);
-                timer_reset(&timer);
                 break;
             }
+            ring_draw(selected);
+            timer_reset(&timer);
         }
     }
 }
@@ -390,41 +522,70 @@ static void ring_scene_draw(int selected, const u8 *scene, const u8 *scene_palet
     if (picture_load(1, g_raster.target, palette) == 1) {
         memcpy(g_palette_buffer, palette, sizeof(palette));
     }
-    for (i = 0; i < 256; i++) {
-        const u8 *c = scene_palette + i * 3;
-        int k, best = 16, best_d = 1 << 30;
+    if (!ring_dos()) {
+        for (i = 0; i < 256; i++) {
+            const u8 *c = scene_palette + i * 3;
+            int k, best = 16, best_d = 1 << 30;
 
-        for (k = 16; k < 144; k++) {
-            const u8 *t = g_palette_buffer + k * 3;
-            int d = (c[0] - t[0]) * (c[0] - t[0]) + (c[1] - t[1]) * (c[1] - t[1])
-                  + (c[2] - t[2]) * (c[2] - t[2]);
-            if (d < best_d) {
-                best_d = d;
-                best = k;
+            for (k = 16; k < 144; k++) {
+                const u8 *t = g_palette_buffer + k * 3;
+                int d = (c[0] - t[0]) * (c[0] - t[0]) + (c[1] - t[1]) * (c[1] - t[1])
+                      + (c[2] - t[2]) * (c[2] - t[2]);
+                if (d < best_d) {
+                    best_d = d;
+                    best = k;
+                }
+            }
+            map[i] = (u8)best;
+        }
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                g_raster.target[(y + h / 2) * g_screen_width + x + w / 2]
+                    = map[scene[(y * 2) * g_screen_width + x * 2]];
             }
         }
-        map[i] = (u8)best;
     }
-    for (y = 0; y < h; y++) {
-        for (x = 0; x < w; x++) {
-            g_raster.target[(y + h / 2) * g_screen_width + x + w / 2]
-                = map[scene[(y * 2) * g_screen_width + x * 2]];
-        }
-    }
-    for (i = 0; i < 7; i++) {
-        ring_icon(s_ring[i].icon, SCALED(s_ring[i].x), SCALED(s_ring[i].y));
-    }
-    ring_icon(s_ring[selected].selected, SCALED(s_ring[selected].x), SCALED(s_ring[selected].y));
+    ring_icons(selected);
     raster_pop_target();
     palette_set_range(g_palette_buffer, 0, 256);
     screen_present();
+}
+
+/* TIMEGATE.EXE 0x1a02b: ten frames of the scene at half size in the middle
+ * of a black screen, each frame shrinking the last into its own middle. */
+static void ring_zoom_in(const u8 *scene)
+{
+    u8 *frame = malloc(SCREEN_PIXELS);
+    int w = g_screen_width, h = g_screen_height, i, x, y;
+
+    if (frame == NULL) {
+        return;
+    }
+    memcpy(frame, scene, SCREEN_PIXELS);
+    for (i = 0; i < 10; i++) {
+        target_begin();
+        memset(g_raster.target, 0, SCREEN_PIXELS);
+        for (y = 0; y < h / 2; y++) {
+            for (x = 0; x < w / 2; x++) {
+                g_raster.target[(y + h / 4) * w + x + w / 4] = frame[(y * 2) * w + x * 2];
+            }
+        }
+        for (y = h / 4; y < h / 4 + h / 2; y++) {
+            memcpy(frame + y * w + w / 4, g_raster.target + y * w + w / 4, (size_t)(w / 2));
+        }
+        raster_pop_target();
+        screen_present();
+        platform_delay(14);
+    }
+    free(frame);
 }
 
 int menu_ring_options(void)
 {
     u8 *scene = malloc(SCREEN_PIXELS);
     u8 scene_palette[AITD_PALETTE_BYTES];
-    int selected = 0, loaded = 0;
+    int selected = 0, loaded = 0, count;
+    const struct ring_entry *ring = ring_entries(&count);
     s16 game_music;
 
     if (scene == NULL) {
@@ -432,46 +593,66 @@ int menu_ring_options(void)
     }
     memcpy(scene, g_screen, SCREEN_PIXELS);
     memcpy(scene_palette, g_palette_buffer, sizeof(scene_palette));
+    savegame_make_thumbnail(scene);     /* 0x19fd6 */
     ticks_freeze();
     game_music = music_current();
     sound_stop_all();
-    music_play((s16)game_current()->menu_music);
-    ring_scene_draw(selected, scene, scene_palette);
+    if (ring_dos()) {
+        /* 0x19f96: the music stops, the ring is silent. */
+        music_play(-1);
+        ring_zoom_in(scene);
+        g_fade_state = 1;
+        ring_scene_draw(selected, scene, scene_palette);
+        palette_fade(0x40, 0);
+    } else {
+        music_play((s16)game_current()->menu_music);
+        ring_scene_draw(selected, scene, scene_palette);
+    }
     wait_released();
     for (;;) {
         input_poll();
         if (g_key_dir_flags & (DIR_LEFT | DIR_RIGHT)) {
-            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? 6 : 1)) % 7;
+            selected = (selected + ((g_key_dir_flags & DIR_LEFT) ? count - 1 : 1)) % count;
             ring_scene_draw(selected, scene, scene_palette);
             wait_released();
         } else if ((g_last_scancode & 0xff) == SC_ESC) {
             wait_released();
             break;
-        } else if (confirm_key()) {
+        } else if (ring_confirm()) {
+            int action = ring[selected].action;
+
             wait_released();
-            if (selected == 0) {
+            if (action == RING_RESUME) {
                 break;
-            } else if (selected == 1) {
+            } else if (action == RING_SAVE) {
                 if (savegame_save()) {
                     break;
                 }
-            } else if (selected == 2) {
+            } else if (action == RING_LOAD) {
                 if (savegame_restore(NULL, 1)) {
                     loaded = 1;
                     break;
                 }
-            } else if (selected == 3) {
-                sound_options();
-            } else if (selected == 4) {
+            } else if (action == RING_SETUP) {
+                ring_setup();
+            } else if (action == RING_VOLUME) {
+                volume_screen();
+            } else if (action == RING_FILM) {
                 ring_film();
-            } else if (selected == 5) {
+                if (ring_dos()) {
+                    music_play(-1);
+                }
+            } else if (action == RING_DIFFICULTY) {
                 cards_select();
-            } else if (selected == 6) {
+            } else if (action == RING_QUIT) {
                 g_quit_requested = 1;
                 break;
             }
             ring_scene_draw(selected, scene, scene_palette);
         }
+    }
+    if (ring_dos() && !loaded) {
+        palette_fade_out(0x20, 0);      /* 0x1a36e */
     }
     if (!loaded) {      /* a loaded game has started its own tune */
         music_play(-1);
