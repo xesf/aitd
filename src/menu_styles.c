@@ -258,6 +258,7 @@ static void ring_film(void)
     music_play(-1);
     if (films != NULL && films[0] != NULL && films[1] != NULL) {
         movie_play(films[1]);
+        g_fade_state = 0;   /* the film's palette is up: ring_draw sets its own */
     }
     music_play((s16)game_current()->menu_music);
 }
