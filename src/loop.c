@@ -511,11 +511,11 @@ void game_scene_loop(s16 flag)
         }
         if (getenv("AITD_TRACE")) {
             const struct actor *p = &g_actors[g_player_actor];
-            fprintf(stderr, "f%d fl=%x pl=%d obj=%d life=%d lm=%d tm=%d anim=%d fr=%d/%d sp=%d pos=%d,%d,%d step=%d,%d beta=%d keys=%d cam=%d room=%d act=%d inhand=%d\n",
+            fprintf(stderr, "f%d fl=%x pl=%d obj=%d life=%d lm=%d tm=%d anim=%d fr=%d/%d sp=%d pos=%d,%d,%d step=%d,%d beta=%d keys=%d cam=%d room=%d act=%d inhand=%d hd=%d po=%d\n",
                     s_frame_number, p->flags, g_player_actor, p->object, p->life, p->life_mode,
                     p->track_mode, p->anim, p->frame, p->frame_count, p->speed,
                     p->room_x, p->room_y, p->room_z, p->step_x, p->step_z, p->beta,
-                    (int)g_key_dir_flags, g_cur_camera, g_cur_room, p->anim_action_type, g_in_hand[g_inventory_index]);
+                    (int)g_key_dir_flags, g_cur_camera, g_cur_room, p->anim_action_type, g_in_hand[g_inventory_index], p->hard_dec, g_player_object);
         }
         if (g_frame_limit > 0 && --g_frame_limit == 0) {
             if (g_frame_dump_path != NULL) {

@@ -1246,6 +1246,13 @@ void actor_do_move(void)
         }
         break;
 
+    case TRACK_FOLLOW_PATH:
+        /* Time Gate steers to the next node of a path found in the
+         * room's graph (0x41ef3c) and keeps the last node when there is
+         * no path. The path search is not rebuilt: the actor heads
+         * straight for the object, as TRACK_FOLLOW does, which brings the
+         * guards to Ben in the open rooms instead of leaving them, and
+         * the scenes that wait for them, standing for ever. */
     case TRACK_FOLLOW:
         /* Follow another object. */
         if (a->track_number != -1) {

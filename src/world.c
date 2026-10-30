@@ -964,6 +964,7 @@ void actor_set_move_mode(s16 mode, s16 param)
         a->mark = -1;
         break;
     case TRACK_FOLLOW:
+    case TRACK_FOLLOW_PATH:     /* TG 0x406cb2 */
         a->track_number = param;
         a->mark = -1;
         break;

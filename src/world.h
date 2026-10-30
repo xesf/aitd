@@ -57,7 +57,10 @@ enum track_mode {
     TRACK_NONE = 0,
     TRACK_MANUAL = 1,               /* the arrow keys */
     TRACK_FOLLOW = 2,               /* follow another object */
-    TRACK_SCRIPT = 3                /* a TRAK entry */
+    TRACK_SCRIPT = 3,               /* a TRAK entry */
+    TRACK_FOLLOW_PATH = 5           /* Time Gate: follow another object
+                                       along the room's path graph
+                                       (TG320.EX_ 0x407176) */
 };
 
 /* life_mode & 3: when an object's life script runs. */
