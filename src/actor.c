@@ -18,6 +18,7 @@
 #include "draw.h"
 #include "life.h"
 #include "menu.h"
+#include "path.h"
 #include "subsystems.h"
 #include "r3d.h"
 #include "world.h"
@@ -1202,6 +1203,66 @@ static int goto_pos_passed(const struct actor *a, s16 dist)
 
 static int s_shift_run;
 
+/* Time Gate's actors are 0xca bytes; 0xb6 holds the legs of the last
+ * route and 0xb8 / 0xba the point it led to. */
+static s16 s_route_legs[ACTOR_MAX];
+static s16 s_route_x[ACTOR_MAX], s_route_z[ACTOR_MAX];
+
+/* TG320.EX_ 0x407176: walk to another object along a route round the
+ * floor's obstacles (path.c), towards the first corner of the route, or
+ * the last corner found while there is none. Positions go to the floor
+ * grid as (room / 10 + room origin) >> 3. */
+static void follow_path(struct actor *a)
+{
+    s16 target, x, z, tx, tz, px, pz, dir;
+    const u8 *ar, *tr, *frame;
+    struct actor *t;
+    int current, i = g_cur_actor_index;
+
+    if (a->track_number == -1 || (target = object_get(a->track_number)->actor) == -1) {
+        a->rot_dir = 0;
+        a->speed = 0;
+        return;
+    }
+    t = &g_actors[target];
+    if (t->room == -1 || a->room == -1) {
+        return;
+    }
+    tr = g_floor_rooms[t->room];
+    ar = g_floor_rooms[a->room];
+    tx = (s16)((t->room_x / 10 + ROOM_X(tr)) >> 3);
+    tz = (s16)((-t->room_z / 10 + ROOM_Z(tr)) >> 3);
+    x = (s16)((a->room_x / 10 + ROOM_X(ar)) >> 3);
+    z = (s16)((-a->room_z / 10 + ROOM_Z(ar)) >> 3);
+    s_route_legs[i] = (s16)path_find(x, z, tx, tz);
+
+    /* Following Ben, or someone in the room on screen: the position in
+     * that room; otherwise the position in the actor's own room. */
+    current = target == g_player_actor || t->room == g_cur_room;
+    frame = current ? tr : ar;
+    if (s_route_legs[i] != 0) {
+        s16 nx, nz;
+
+        path_first_node(&nx, &nz);
+        s_route_x[i] = (s16)((s16)(nx * 8 - ROOM_X(frame)) * 10);
+        s_route_z[i] = (s16)(-(s16)(nz * 8 - ROOM_Z(frame)) * 10);
+    }
+    px = s_route_x[i];
+    pz = s_route_z[i];
+    dir = current ? turn_towards(a->world_x, a->world_z, a->beta, px, pz)
+                  : turn_towards(a->room_x, a->room_z, a->beta, px, pz);
+    if (!a->rot[2] || dir != a->rot_dir) {
+        interp_init(a->beta, (s16)(a->beta - (s16)((u16)dir << 8)), 100, a->rot);
+    }
+    a->rot_dir = dir;
+    if (dir) {
+        a->beta = interp_get_angle(a->rot);
+    } else {
+        a->rot[2] = 0;
+    }
+    a->speed = 10;
+}
+
 void actor_do_move(void)
 {
     struct actor *a = g_cur_actor;
@@ -1247,12 +1308,9 @@ void actor_do_move(void)
         break;
 
     case TRACK_FOLLOW_PATH:
-        /* Time Gate steers to the next node of a path found in the
-         * room's graph (0x41ef3c) and keeps the last node when there is
-         * no path. The path search is not rebuilt: the actor heads
-         * straight for the object, as TRACK_FOLLOW does, which brings the
-         * guards to Ben in the open rooms instead of leaving them, and
-         * the scenes that wait for them, standing for ever. */
+        follow_path(a);
+        break;
+
     case TRACK_FOLLOW:
         /* Follow another object. */
         if (a->track_number != -1) {

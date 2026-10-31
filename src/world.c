@@ -14,6 +14,7 @@
 #include "menu.h"
 #include "pak.h"
 #include "palette.h"
+#include "path.h"
 #include "r3d.h"
 #include "subsystems.h"
 #include "world.h"
@@ -349,6 +350,10 @@ void world_set_floor(s16 floor)
 
         build_name(name, sizeof(name), profile->camera_prefix, floor); /* CAM / CAMSAL */
         g_floor_cameras = load_all_entries(name, &g_floor_camera_count);
+    }
+
+    if (game_id() == GAME_TIMEGATE) {
+        path_load_floor(floor);         /* TG320.EX_ 0x40c557 */
     }
 
     g_cur_camera = -1;

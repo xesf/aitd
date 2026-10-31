@@ -30,6 +30,7 @@ ENGINE_SRC := \
 	src/world.c \
 	src/draw.c \
 	src/actor.c \
+	src/path.c \
 	src/life.c \
 	src/lifemap.c \
 	src/ui.c \

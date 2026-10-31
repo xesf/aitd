@@ -1488,7 +1488,18 @@ void life_run(s16 life, int flag)
             o->body = body;
             o->anim = anim;
             a->body = body;
-            if (a->flags & 1) {
+            if (game_id() == GAME_TIMEGATE) {
+                /* TG320.EX_ 0x418d9a: the pose from the first frame of the
+                 * animation playing, then the new one through anim_init,
+                 * so that an ANIM_REPEAT of it straight after stands. */
+                if ((a->flags & 1) && a->anim != -1) {
+                    anim_set_frame(0, hqr_get(g_cache_anim, a->anim, NULL),
+                                   hqr_get(g_cache_body, a->body, NULL));
+                    anim_init(anim, 4, -1);
+                } else {
+                    g_init_view = 1;
+                }
+            } else if (a->flags & 1) {
                 a->anim = anim;
                 anim_set_frame(0, hqr_get(g_cache_anim, a->anim, NULL),
                                hqr_get(g_cache_body, a->body, NULL));
