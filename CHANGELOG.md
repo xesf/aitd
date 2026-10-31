@@ -16,11 +16,24 @@ in the `VERSION` file, and `aitd --version` prints it.
   script, and the lines it ran last. `--stage=life-check` lists every
   script of a game and fails on any that does not list to its end.
 - Hold Shift with Up to run, as well as pressing Up twice.
+- The DOS Time Gate's sound card setup screen, from the setup icon of the
+  menu: DIGITAL and MIDI switch the sound effects and the music, and play
+  the test sound and tune.
+- Time Gate plays its samples on ten channels at once, each with its own
+  volume, including the lists of samples some rooms play in turn and the
+  sounds that fade with distance from the camera.
+- PAK containers packed with methods 2 and 3 can be read.
 - The harness spawns an effect at the player with `AITD_SPECIAL=frame,type`,
   `h` in `AITD_INPUT` holds Shift, `f` presses F10, and `AITD_LOAD=dir,slot` starts the
   game stage from a saved game.
 
 ### Fixed
+- Time Gate: the guard who comes to Ben at the tool box walks round the
+  counter and reaches him, so the game goes on instead of freezing. Guards
+  that follow Ben take routes round obstacles.
+- Alone in the Dark 1: WATER no longer runs its operand as the next
+  instruction, and the actors are cut at the water line while it is on.
+  Tracks set the actors' walk, run and stand speeds.
 - Alone in the Dark 1, 2 and Jack in the Dark draw the coloured circles of
   the dust cloud an actor leaves when it dies.
 - The save and load screens of Alone in the Dark 1, 2 and Jack in the Dark
