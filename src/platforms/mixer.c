@@ -1,9 +1,11 @@
 /*
- * mixer.c - the audio every backend shares: one sample voice over a music
+ * mixer.c - the audio every backend shares: sample voices over a music
  * generator, mixed to 16 bit mono at MIXER_RATE.
  *
  * The original drove one waveOut voice (0x402ec7 stops the current sample
- * before it starts another), so a new sample replaces the current one. The
+ * before it starts another), so a new sample replaces the current one:
+ * that is voice 0. Time Gate mixes ten channels (TG320.EX_ 0x451c20), each
+ * with its own volume; they are voices 0..MIXER_VOICES - 1. The
  * music comes from the AdLib renderer (music.c), or from CD audio: a track
  * of the disc image, or a ripped track beside the data.
  *
@@ -24,12 +26,17 @@
 
 static aitd_mutex s_lock = AITD_MUTEX_INIT;
 
-static u8 *s_voice;          /* 8 bit unsigned */
-static u32 s_voice_size;
-static u32 s_voice_step;     /* 16.16 source samples per output sample */
-static u64 s_voice_pos;      /* 16.16 */
-static int s_voice_loops;    /* plays left, 0 = forever */
-static int s_voice_active;
+struct voice {
+    u8 *data;               /* 8 bit unsigned */
+    u32 size;
+    u32 step;               /* 16.16 source samples per output sample */
+    u64 pos;                /* 16.16 */
+    int loops;              /* plays left, 0 = forever */
+    int volume;             /* 0..MIXER_VOLUME_MAX */
+    int active;
+};
+
+static struct voice s_voices[MIXER_VOICES];
 static void (*s_music_render)(short *out, int frames, int rate);
 static void (*s_midi_render)(short *out, int frames);
 
@@ -77,7 +84,7 @@ static void music_render(short *out, int frames)
 
 void mixer_render(short *out, int frames)
 {
-    int i;
+    int i, v;
 
     aitd_mutex_lock(&s_lock);
     if (s_music_render != NULL) {
@@ -88,24 +95,29 @@ void mixer_render(short *out, int frames)
     if (s_midi_render != NULL) {
         s_midi_render(out, frames);
     }
-    for (i = 0; i < frames && s_voice_active; i++) {
-        u32 index = (u32)(s_voice_pos >> 16);
-        int mixed;
+    for (v = 0; v < MIXER_VOICES; v++) {
+        struct voice *voice = &s_voices[v];
+        int gain = voice->volume * 192 / MIXER_VOLUME_MAX;
 
-        if (index >= s_voice_size) {
-            if (s_voice_loops == 1) {
-                s_voice_active = 0;
-                break;
+        for (i = 0; i < frames && voice->active; i++) {
+            u32 index = (u32)(voice->pos >> 16);
+            int mixed;
+
+            if (index >= voice->size) {
+                if (voice->loops == 1) {
+                    voice->active = 0;
+                    break;
+                }
+                if (voice->loops > 1) {
+                    voice->loops--;
+                }
+                voice->pos = 0;
+                index = 0;
             }
-            if (s_voice_loops > 1) {
-                s_voice_loops--;
-            }
-            s_voice_pos = 0;
-            index = 0;
+            mixed = out[i] + ((int)voice->data[index] - 128) * gain;
+            out[i] = (short)(mixed > 32767 ? 32767 : mixed < -32768 ? -32768 : mixed);
+            voice->pos += voice->step;
         }
-        mixed = out[i] + ((int)s_voice[index] - 128) * 192;
-        out[i] = (short)(mixed > 32767 ? 32767 : mixed < -32768 ? -32768 : mixed);
-        s_voice_pos += s_voice_step;
     }
     aitd_mutex_unlock(&s_lock);
 }
@@ -141,11 +153,13 @@ void platform_sound_shutdown(void)
     platform_sound_stop();
 }
 
-void platform_sound_play(const void *sample, u32 size, u32 rate, int loops)
+void platform_sound_play_voice(int voice, const void *sample, u32 size, u32 rate, int loops,
+                                int volume)
 {
+    struct voice *v;
     u8 *copy;
 
-    if (sample == NULL || size == 0 || rate == 0) {
+    if (voice < 0 || voice >= MIXER_VOICES || sample == NULL || size == 0 || rate == 0) {
         return;
     }
     copy = malloc(size);
@@ -155,34 +169,74 @@ void platform_sound_play(const void *sample, u32 size, u32 rate, int loops)
     memcpy(copy, sample, size);
 
     aitd_mutex_lock(&s_lock);
-    free(s_voice);
-    s_voice = copy;
-    s_voice_size = size;
-    s_voice_step = (u32)(((u64)rate << 16) / MIXER_RATE);
-    s_voice_pos = 0;
-    s_voice_loops = loops;
-    s_voice_active = 1;
+    v = &s_voices[voice];
+    free(v->data);
+    v->data = copy;
+    v->size = size;
+    v->step = (u32)(((u64)rate << 16) / MIXER_RATE);
+    v->pos = 0;
+    v->loops = loops;
+    v->volume = volume < 0 ? 0 : volume > MIXER_VOLUME_MAX ? MIXER_VOLUME_MAX : volume;
+    v->active = 1;
+    aitd_mutex_unlock(&s_lock);
+}
+
+void platform_sound_play(const void *sample, u32 size, u32 rate, int loops)
+{
+    platform_sound_play_voice(0, sample, size, rate, loops, MIXER_VOLUME_MAX);
+}
+
+void platform_sound_stop_voice(int voice)
+{
+    struct voice *v;
+
+    if (voice < 0 || voice >= MIXER_VOICES) {
+        return;
+    }
+    aitd_mutex_lock(&s_lock);
+    v = &s_voices[voice];
+    v->active = 0;
+    free(v->data);
+    v->data = NULL;
+    v->size = 0;
     aitd_mutex_unlock(&s_lock);
 }
 
 void platform_sound_stop(void)
 {
+    int v;
+
+    for (v = 0; v < MIXER_VOICES; v++) {
+        platform_sound_stop_voice(v);
+    }
+}
+
+int platform_sound_voice_playing(int voice)
+{
+    int active;
+
+    if (voice < 0 || voice >= MIXER_VOICES) {
+        return 0;
+    }
     aitd_mutex_lock(&s_lock);
-    s_voice_active = 0;
-    free(s_voice);
-    s_voice = NULL;
-    s_voice_size = 0;
+    active = s_voices[voice].active;
     aitd_mutex_unlock(&s_lock);
+    return active;
 }
 
 int platform_sound_playing(void)
 {
-    int active;
+    return platform_sound_voice_playing(0);
+}
 
+void platform_sound_voice_volume(int voice, int volume)
+{
+    if (voice < 0 || voice >= MIXER_VOICES) {
+        return;
+    }
     aitd_mutex_lock(&s_lock);
-    active = s_voice_active;
+    s_voices[voice].volume = volume < 0 ? 0 : volume > MIXER_VOLUME_MAX ? MIXER_VOLUME_MAX : volume;
     aitd_mutex_unlock(&s_lock);
-    return active;
 }
 
 /* ---- CD audio ---------------------------------------------------------- */

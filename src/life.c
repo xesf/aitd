@@ -118,6 +118,19 @@ static int time_gate(void)
     return game_id() == GAME_TIMEGATE;
 }
 
+/* 0x419ff4: an animation's sample is quieter the further the object is
+ * from the camera, by the sum of the distances along each axis
+ * (0x4283b3, which gives 0x7fff when the sum overflows). */
+static int tg_distance_volume(const struct actor *a)
+{
+    s16 cx, cy, cz;
+    long d;
+
+    r3d_get_camera_position(&cx, &cy, &cz);
+    d = labs((long)a->world_x - cx) + labs((long)a->world_y - cy) + labs((long)a->world_z - cz);
+    return d >= SAMPLE_VOLUME_MAX ? 0 : (int)(SAMPLE_VOLUME_MAX - d);
+}
+
 /* Titles before Alone in the Dark 2 read some operands differently. */
 static int before_aitd2(void)
 {
@@ -1144,13 +1157,16 @@ void life_run(s16 life, int flag)
             s16 sample = eval();
             s16 anim, frame;
 
-            if (time_gate()) {
-                fetch();    /* volume */
-            }
+            s16 channel = time_gate() ? fetch() : 0;
+
             anim = fetch();
             frame = fetch();
             if (a->end_frame && a->anim == anim && a->frame == frame) {
-                sample_play(sample);
+                if (time_gate()) {
+                    tg_sample_play(sample, channel, tg_distance_volume(a), 1);
+                } else {
+                    sample_play(sample);
+                }
             }
             break;
         }
@@ -1159,7 +1175,8 @@ void life_run(s16 life, int flag)
         case LIFE_OP_SAMPLE: {
             s16 s = (before_aitd2() || time_gate()) ? eval() : fetch();
             if (time_gate()) {
-                fetch();    /* volume */
+                tg_sample_play(s, fetch(), SAMPLE_VOLUME_MAX, 1);   /* 0x41a083 */
+                break;
             }
             sample_play(s);
             break;
@@ -1332,6 +1349,10 @@ void life_run(s16 life, int flag)
         case LIFE_OP_REP_SAMPLE: {
             s16 s = (game_id() == GAME_AITD1 || time_gate()) ? eval() : fetch();
             s16 n = fetch();
+            if (time_gate()) {
+                tg_sample_play(s, n, SAMPLE_VOLUME_MAX, 0);   /* 0x41a0ac: n is the channel */
+                break;
+            }
             sample_repeat(s, (u16)n);
             break;
         }
@@ -1354,7 +1375,8 @@ void life_run(s16 life, int flag)
         }
         case LIFE_OP_STOP_SAMPLE:
             if (time_gate()) {
-                fetch();
+                tg_sample_stop(fetch());    /* 0x41a0dd */
+                break;
             }
             sound_stop_all();
             break;
@@ -1612,21 +1634,24 @@ void life_run(s16 life, int flag)
         case LIFE_OP_MUSIC_THEN:
         case LIFE_OP_MUSIC_THEN_LOOP: { s16 m = fetch(); fetch(); g_music_next = fetch(); music_play(m); break; }
         case LIFE_OP_FADE_OUT_MUSIC_STOP: fetch(); fetch(); music_play(-1); break;
-        case LIFE_OP_SET_VOLUME_SAMPLE:
+        case LIFE_OP_SET_VOLUME_SAMPLE: { s16 c = fetch(); tg_sample_volume(c, fetch()); break; }
         case LIFE_OP_SET_MUSIC_VOLUME:
         case LIFE_OP_MUSIC_ALTER_TEMPO: fetch(); fetch(); break;
         case LIFE_OP_FADE_IN_MUSIC: { s16 m = fetch(); fetch(); fetch(); music_play(m); break; }
         case LIFE_OP_START_FADE_IN_MUSIC:
         case LIFE_OP_START_FADE_IN_MUSIC_LOOP: { s16 m = fetch(); fetch(); fetch(); fetch(); fetch(); music_play(m); break; }
         case LIFE_OP_START_FADE_IN_MUSIC_THEN: { s16 m = fetch(); fetch(); fetch(); fetch(); fetch(); g_music_next = fetch(); music_play(m); break; }
-        case LIFE_OP_TG_VALUE_LIST: {
-            s16 n = fetch();
-            while (n-- > 0) {
-                eval();
+        case LIFE_OP_SAMPLE_LIST: {   /* 0x41a6cb: samples played in turn */
+            s16 list[32];
+            s16 n = fetch(), i;
+            for (i = 0; i < n; i++) {
+                s16 v = eval();
+                if (i < 32) list[i] = v;
             }
+            tg_sample_list(list, n < 32 ? n : 32);
             break;
         }
-        case LIFE_OP_TG_122: break;
+        case LIFE_OP_STOP_SAMPLE_LIST: tg_sample_list_stop(); break;     /* 0x41a704 */
         default:
             break;                                               /* 79, 84, 95 */
         }

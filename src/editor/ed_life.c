@@ -114,7 +114,7 @@ static const char *const s_tg_names[] = {      /* 102.. */
     "SET_MUSIC_VOLUME", "MUSIC_AND_LOOP", "MUSIC_THEN", "MUSIC_THEN_LOOP",
     "START_FADE_IN_MUSIC", "START_FADE_IN_MUSIC_THEN", "START_FADE_IN_MUSIC_LOOP",
     "FADE_OUT_MUSIC_STOP", "MUSIC_ALTER_TEMPO", "REP_SAMPLE_N_TIME", "OP119", "OP120",
-    "VALUE_LIST", "OP122"
+    "SAMPLE_LIST", "STOP_SAMPLE_LIST"
 };
 
 static const char *const s_var_names[] = {

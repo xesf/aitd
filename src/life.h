@@ -134,8 +134,8 @@ enum life_op {
     LIFE_OP_FADE_OUT_MUSIC_STOP = 116,
     LIFE_OP_MUSIC_ALTER_TEMPO = 117,
     LIFE_OP_REP_SAMPLE_N_TIME = 118, /* not handled by the TG interpreter */
-    LIFE_OP_TG_VALUE_LIST = 121,    /* count, then that many expressions */
-    LIFE_OP_TG_122 = 122,
+    LIFE_OP_SAMPLE_LIST = 121,      /* count, then that many samples */
+    LIFE_OP_STOP_SAMPLE_LIST = 122,
     /* Alone in the Dark 1 only. */
     LIFE_OP_MESSAGE_VALUE = 200,
     LIFE_OP_CAMERA = 201,
@@ -255,6 +255,15 @@ enum { SAMPLE_VOLUME_MAX = 0x7fff, MUSIC_VOLUME_MAX = 199 };
 void sound_volumes(int *sample, int *music);
 void sound_set_volumes(int sample, int music);
 void sample_play_resource(const char *pak, int entry);
+/* Time Gate's sample channels (sound.c). volume: 0..SAMPLE_VOLUME_MAX. */
+void sound_test(const char *wav);
+void music_test(const char *hmp);
+void sound_set_enabled(int samples, int music);
+void tg_sample_play(s16 sample, int channel, int volume, int loops);
+void tg_sample_stop(int channel);
+void tg_sample_volume(int channel, int volume);
+void tg_sample_list(const s16 *samples, int count);
+void tg_sample_list_stop(void);
 /* The word offsets of the instructions `life` ran the last time it ran. */
 int life_ran(s16 life, const u16 **at);
 

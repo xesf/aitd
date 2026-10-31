@@ -14,6 +14,7 @@
  * byte per sample.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,25 +43,15 @@ static u32 s_music_wait;         /* 0x4449ec */
 static int s_sample_volume = SAMPLE_VOLUME_MAX;
 static int s_music_volume = MUSIC_VOLUME_MAX;
 
-/* Hands 8 bit unsigned PCM to the mixer at the sample volume. */
+/* The voice and volume (0..SAMPLE_VOLUME_MAX) the next pcm_play uses. */
+static int s_play_voice;
+static int s_play_volume = SAMPLE_VOLUME_MAX;
+
+/* Hands 8 bit unsigned PCM to the mixer, scaled by the sample volume. */
 static void pcm_play(const u8 *pcm, u32 len, u32 rate, int loops)
 {
-    u8 *quiet;
-    u32 i;
-
-    if (s_sample_volume >= SAMPLE_VOLUME_MAX) {
-        platform_sound_play(pcm, len, rate, loops);
-        return;
-    }
-    quiet = malloc(len);
-    if (quiet == NULL) {
-        return;
-    }
-    for (i = 0; i < len; i++) {
-        quiet[i] = (u8)(128 + ((pcm[i] - 128) * s_sample_volume) / SAMPLE_VOLUME_MAX);
-    }
-    platform_sound_play(quiet, len, rate, loops);
-    free(quiet);
+    platform_sound_play_voice(s_play_voice, pcm, len, rate, loops,
+                              (int)((long)s_play_volume * s_sample_volume / SAMPLE_VOLUME_MAX));
 }
 
 /* Plays the first PCM block of a VOC file. */
@@ -145,16 +136,125 @@ static s16 priority_of(s16 sample)
     return ((const u8 *)g_priority_itd)[sample];
 }
 
-static void start(s16 sample, int loops)
+static void data_play(const u8 *data, u32 size, int loops)
 {
-    u32 size = 0;
-    const u8 *data = hqr_get(g_cache_sample, sample, &size);
-
     if (data != NULL && size >= 4 && memcmp(data, "RIFF", 4) == 0) {
         wav_play(data, size, loops);
     } else {
         voc_play(data, size, loops);
     }
+}
+
+static void start(s16 sample, int loops)
+{
+    u32 size = 0;
+    const u8 *data = hqr_get(g_cache_sample, sample, &size);
+
+    data_play(data, size, loops);
+}
+
+/* Time Gate's sample channels (TG320.EX_ 0x451c20, ten of 30 bytes): a
+ * sample plays on a channel the script names, beside the others, at a
+ * volume of its own. Channel 7 also plays a list of samples in turn
+ * (opcode 121) until opcode 122 stops it. */
+enum { TG_CHANNELS = MIXER_VOICES, TG_LIST_CHANNEL = 7, TG_LIST_MAX = 32 };
+
+static s16 s_tg_list[TG_LIST_MAX];  /* 0x45d1a0 */
+static int s_tg_list_last;          /* 0x45d1b5, the last index */
+static int s_tg_list_next;          /* 0x45d1b7 */
+static int s_tg_list_on;            /* 0x43c477 */
+
+static int tg_channel(int channel)
+{
+    return channel < 0 ? 0 : channel > TG_CHANNELS - 1 ? TG_CHANNELS - 1 : channel;
+}
+
+/* 0x41f470 (once) and 0x41f4f4 (loops 0: until stopped). */
+void tg_sample_play(s16 sample, int channel, int volume, int loops)
+{
+    u32 size = 0;
+    const u8 *data;
+
+    if (!g_sound_ready2 || sample < 0) {
+        return;
+    }
+    data = hqr_get(g_cache_sample, sample, &size);
+    if (data == NULL) {
+        return;
+    }
+    s_play_voice = tg_channel(channel);
+    s_play_volume = volume;
+    data_play(data, size, loops);
+    s_play_voice = 0;
+    s_play_volume = SAMPLE_VOLUME_MAX;
+}
+
+/* 0x41f5cf */
+void tg_sample_stop(int channel)
+{
+    platform_sound_stop_voice(tg_channel(channel));
+}
+
+/* 0x41f806 */
+void tg_sample_volume(int channel, int volume)
+{
+    platform_sound_voice_volume(tg_channel(channel),
+                                (int)((long)volume * s_sample_volume / SAMPLE_VOLUME_MAX));
+}
+
+/* 0x41f755: the first sample now, the others as each one ends. */
+void tg_sample_list(const s16 *samples, int count)
+{
+    int i;
+
+    if (count <= 0) {
+        return;
+    }
+    if (count > TG_LIST_MAX) {
+        count = TG_LIST_MAX;
+    }
+    for (i = 0; i < count; i++) {
+        s_tg_list[i] = samples[i];
+    }
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "sample list: %d samples from %d\n", count, samples[0]);
+    }
+    tg_sample_stop(TG_LIST_CHANNEL);
+    s_tg_list_last = count - 1;
+    s_tg_list_next = 1;
+    s_tg_list_on = g_sound_ready2 && hqr_get(g_cache_sample, s_tg_list[0], NULL) != NULL;
+    if (s_tg_list_on) {
+        tg_sample_play(s_tg_list[0], TG_LIST_CHANNEL, SAMPLE_VOLUME_MAX, 1);
+    }
+}
+
+/* 0x41f7e5 */
+void tg_sample_list_stop(void)
+{
+    s_tg_list_on = 0;
+    tg_sample_stop(TG_LIST_CHANNEL);
+}
+
+/* 0x41614a, each frame: the next sample of the list once one ends. */
+static void tg_list_frame(void)
+{
+    s16 sample;
+
+    if (!s_tg_list_on || !g_sound_ready2 || platform_sound_voice_playing(TG_LIST_CHANNEL)) {
+        return;
+    }
+    if (s_tg_list_next == s_tg_list_last + 1) {
+        s_tg_list_next = 0;
+    }
+    sample = s_tg_list[s_tg_list_next++];
+    if (getenv("AITD_TRACE") != NULL) {
+        fprintf(stderr, "sample list: next %d\n", sample);
+    }
+    if (hqr_get(g_cache_sample, sample, NULL) == NULL) {
+        s_tg_list_on = 0;
+        return;
+    }
+    tg_sample_play(sample, TG_LIST_CHANNEL, SAMPLE_VOLUME_MAX, 1);
 }
 
 /* 0x40b1d6 */
@@ -188,11 +288,7 @@ void sample_play_resource(const char *pak, int entry)
     if (!g_sound_ready2 || (data = pak_load(pak, entry, &size)) == NULL) {
         return;
     }
-    if (size >= 4 && memcmp(data, "RIFF", 4) == 0) {
-        wav_play(data, size, 1);
-    } else {
-        voc_play(data, size, 1);
-    }
+    data_play(data, size, 1);
     mem_free(data);
 }
 
@@ -498,6 +594,9 @@ void shaking_restore(void)
 /* 0x40b452 */
 void audio_frame(void)
 {
+    if (game_id() == GAME_TIMEGATE) {
+        tg_list_frame();
+    }
     if (!platform_sound_playing()) {
         g_sample_priority = -1;
         g_sample_current = -1;

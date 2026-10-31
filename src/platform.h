@@ -68,10 +68,17 @@ void platform_delay(u32 milliseconds);
  * paths fed from g_cache_sample (0x444a98). */
 int platform_sound_init(void);
 void platform_sound_shutdown(void);
-/* One voice: a new sample replaces the current one. loops: plays, 0 = forever. */
+/* Voice 0: a new sample replaces the current one. loops: plays, 0 = forever. */
 void platform_sound_play(const void *sample, u32 size, u32 rate, int loops);
-void platform_sound_stop(void);
-int platform_sound_playing(void);
+void platform_sound_stop(void);         /* every voice */
+int platform_sound_playing(void);       /* voice 0 */
+/* Time Gate's ten sample channels, each with a volume 0..MIXER_VOLUME_MAX. */
+enum { MIXER_VOICES = 10, MIXER_VOLUME_MAX = 0x7fff };
+void platform_sound_play_voice(int voice, const void *sample, u32 size, u32 rate, int loops,
+                                int volume);
+void platform_sound_stop_voice(int voice);
+int platform_sound_voice_playing(int voice);
+void platform_sound_voice_volume(int voice, int volume);
 /* A music generator mixed under the samples (called on the audio thread). */
 void platform_set_music_render(void (*render)(short *out, int frames, int rate));
 
