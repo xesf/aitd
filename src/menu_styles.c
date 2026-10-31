@@ -434,11 +434,177 @@ static void ring_film(void)
     music_play((s16)game_current()->menu_music);
 }
 
-/* The sound card setup (TIMEGATE.EXE 0x32980) picks DOS drivers and
- * ports; the host's audio needs none of it. */
+/* ---- the sound card setup ------------------------------------------------
+ *
+ * TIMEGATE.EXE 0x32980: ITD_RESS picture 0x7b, five buttons down the left
+ * (AUTO DETECT, DIGITAL, MIDI, OK, CANCEL at x 0xa, y 0x28 + 0x1e n,
+ * 0x31ea0), and two raised panels (0x31d20) with sunken fields (0x31e00)
+ * holding the digital device's name, port and IRQ / DMA, and the MIDI
+ * device's name and port (0x32310). Up and down walk the buttons, Enter
+ * presses one, Escape cancels (0x32590). DIGITAL and MIDI open a list of
+ * DOS cards, then play TEST.WAV or TEST.HMP; OK writes HMISET.CFG.
+ *
+ * Here the cards are the host's: DIGITAL and MIDI switch the sound
+ * effects and the music on and off, and play the test file when they come
+ * on; AUTO DETECT switches both on; OK keeps the choice, CANCEL drops it. */
+enum { SETUP_PICTURE = 0x7b, SETUP_BUTTONS = 5 };
+
+static const char *const s_setup_labels[SETUP_BUTTONS] = {
+    "AUTO DETECT", "  DIGITAL  ", "   MIDI    ", "    OK     ", "  CANCEL   "
+};
+
+/* 0x31d20: a raised panel, light top and right, dark left and bottom. */
+static void setup_panel(s16 x1, s16 y1, s16 x2, s16 y2)
+{
+    raster_rect(SCALED((s16)(x1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(y2 - 1)), 4);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y1 + 2)), SCALED((s16)(x1 + 1)), SCALED((s16)(y2 - 1)), 7);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y2 - 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y2 - 1)), 7);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), 0xff);
+    raster_line(SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y2 - 2)), 0xff);
+    raster_line(SCALED(x1), SCALED(y1), SCALED(x2), SCALED(y1), 0);
+    raster_line(SCALED(x1), SCALED(y2), SCALED(x2), SCALED(y2), 0);
+    raster_line(SCALED(x1), SCALED(y1), SCALED(x1), SCALED(y2), 0);
+    raster_line(SCALED(x2), SCALED(y1), SCALED(x2), SCALED(y2), 0);
+}
+
+/* 0x31e00: a sunken field, black inside. */
+static void setup_field(s16 x1, s16 y1, s16 x2, s16 y2)
+{
+    raster_rect(SCALED((s16)(x1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(y2 - 1)), 0);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y1 + 2)), SCALED((s16)(x1 + 1)), SCALED((s16)(y2 - 1)), 0xff);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y2 - 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y2 - 1)), 0xff);
+    raster_line(SCALED((s16)(x1 + 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), 7);
+    raster_line(SCALED((s16)(x2 - 1)), SCALED((s16)(y1 + 1)), SCALED((s16)(x2 - 1)), SCALED((s16)(y2 - 2)), 7);
+}
+
+/* 0x322c0: the x that centres a text of `len` 8 pixel cells in x1..x2. */
+static s16 setup_centre(const char *text, s16 x1, s16 x2)
+{
+    int len = (int)strlen(text);
+
+    return (s16)(x1 + (x2 - x1) / 2 - ((len + 1) / 2) * 8);
+}
+
+/* 0x31ea0 (drawn) and 0x320d0 (lit): a button, sunken while lit. */
+static void setup_button(int index, int lit)
+{
+    const char *label = s_setup_labels[index];
+    s16 x = 0xa, y = (s16)(0x28 + 0x1e * index);
+    s16 x2 = (s16)(x + (s16)strlen(label) * 8 + 0xe), y2 = (s16)(y + 0xc);
+
+    raster_rect(SCALED((s16)(x - 1)), SCALED((s16)(x2 + 1)), SCALED((s16)(y - 1)), SCALED((s16)(y2 + 1)), 0);
+    if (!lit) {
+        raster_rect(SCALED(x), SCALED(x2), SCALED(y), SCALED(y2), 6);
+        raster_line(SCALED(x), SCALED((s16)(y + 1)), SCALED(x), SCALED(y2), 7);
+        raster_line(SCALED(x), SCALED(y2), SCALED(x2), SCALED(y2), 7);
+        raster_line(SCALED(x), SCALED(y), SCALED(x2), SCALED(y), 0xff);
+        raster_line(SCALED(x2), SCALED(y), SCALED(x2), SCALED((s16)(y2 - 1)), 0xff);
+        text_draw_string(SCALED((s16)(x + 8)), SCALED((s16)(y + 0xb)), label, 0xff);
+    } else {
+        raster_rect(SCALED(x), SCALED((s16)(x2 - 1)), SCALED((s16)(y + 1)), SCALED(y2), 1);
+        raster_line(SCALED(x), SCALED((s16)(y2 + 1)), SCALED(x2), SCALED((s16)(y2 + 1)), 7);
+        raster_line(SCALED(x2), SCALED(y), SCALED(x2), SCALED((s16)(y2 + 1)), 7);
+        text_draw_string(SCALED((s16)(x + 7)), SCALED((s16)(y + 0xc)), label, 0xff);
+    }
+}
+
+static void setup_text(const char *text, s16 x1, s16 x2, s16 y)
+{
+    text_draw_string(SCALED(setup_centre(text, x1, x2)), SCALED(y), text, 0xff);
+}
+
+static void setup_draw(const u8 *picture, int selected, int digital, int midi)
+{
+    int i;
+
+    target_begin();
+    raster_set_clip(0, 0, (s16)(g_screen_width - 1), (s16)(g_screen_height - 1));
+    memcpy(g_raster.target, picture, SCREEN_PIXELS);
+    for (i = 0; i < SETUP_BUTTONS; i++) {
+        setup_button(i, i == selected);
+    }
+    setup_panel(0x78, 0x28, 0x13b, 0x6e);
+    setup_field(0x7d, 0x30, 0x136, 0x3e);
+    setup_field(0xa5, 0x44, 0x10e, 0x52);
+    setup_field(0xaa, 0x58, 0x109, 0x66);
+    setup_text(digital ? "Digital audio" : "No Sound", 0x7d, 0x136, 0x3c);
+    setup_text(digital ? "Host mixer" : "", 0xa5, 0x10e, 0x50);
+    setup_text(digital ? "10 channels" : "", 0xaa, 0x109, 0x64);
+    setup_panel(0x78, 0x78, 0x13b, 0xaa);
+    setup_field(0x7d, 0x80, 0x136, 0x8e);
+    setup_field(0xa5, 0x94, 0x10e, 0xa2);
+    setup_text(midi ? "General MIDI" : "No Sound", 0x7d, 0x136, 0x8c);
+    setup_text(midi ? "Host synth" : "", 0xa5, 0x10e, 0xa0);
+    raster_pop_target();
+    screen_present();
+}
+
 static void ring_setup(void)
 {
-    fprintf(stderr, "menu: the sound card setup has nothing to set here\n");
+    u8 *picture = malloc(SCREEN_PIXELS);
+    int selected = 0, latch = 0, done = 0;
+    int digital = g_sound_ready2 != 0, midi = music_enabled();
+    int was_digital = digital, was_midi = midi;
+
+    if (picture == NULL) {
+        return;
+    }
+    memset(picture, 0, SCREEN_PIXELS);
+    if (picture_load(SETUP_PICTURE, picture, g_palette_buffer) == 1) {
+        palette_set_range(g_palette_buffer, 0, 256);
+    }
+    setup_draw(picture, selected, digital, midi);
+    wait_released();
+    while (!done) {
+        int sc;
+
+        input_poll();
+        sc = g_last_scancode & 0xff;
+        if (sc == SC_ESC) {
+            selected = 4;
+            break;
+        }
+        if (g_key_dir_flags & (DIR_UP | DIR_DOWN)) {
+            if (!latch) {
+                selected += (g_key_dir_flags & DIR_UP) ? (selected > 0 ? -1 : 0)
+                                                       : (selected < SETUP_BUTTONS - 1 ? 1 : 0);
+                setup_draw(picture, selected, digital, midi);
+            }
+            latch = 1;
+        } else if (g_key_dir_flags == 0) {
+            latch = 0;
+        }
+        if (sc == SC_ENTER || sc == 0x9c) {
+            switch (selected) {
+            case 0:
+                if (!digital) sound_test("TEST.WAV");
+                digital = midi = 1;
+                break;
+            case 1:
+                digital ^= 1;
+                if (digital) sound_test("TEST.WAV");
+                break;
+            case 2:
+                midi ^= 1;
+                music_test(midi ? "TEST.HMP" : NULL);
+                break;
+            default:
+                done = 1;
+                break;
+            }
+            setup_draw(picture, selected, digital, midi);
+            wait_released();
+        }
+        platform_delay(14);
+    }
+    music_test(NULL);
+    if (selected == 3) {
+        sound_set_enabled(digital, midi);
+    } else {
+        sound_set_enabled(was_digital, was_midi);
+    }
+    wait_released();
+    free(picture);
 }
 
 /* Enter or keypad Enter on DOS (0x1a25a); the Windows build also takes

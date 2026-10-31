@@ -490,6 +490,69 @@ int music_enabled(void)
     return !s_data_muted;
 }
 
+/* The setup screen's test files (TIMEGATE.EXE 0x32980): a WAVE file
+ * beside the data, played once. */
+void sound_test(const char *wav)
+{
+    u32 size = file_size(wav);
+    u8 *data;
+
+    if (size == 0 || (data = load_malloc(wav)) == NULL) {
+        return;
+    }
+    s_play_voice = 0;
+    data_play(data, size, 1);
+    mem_free(data);
+}
+
+/* An HMP file beside the data, looping in place of the tune; NULL stops
+ * it and lets the tune that was playing start again. */
+void music_test(const char *hmp)
+{
+    static int testing;
+    u32 size, midi_size = 0;
+    u8 *data, *midi;
+
+    if (hmp == NULL) {
+        if (testing) {
+            s16 m = s_data_playing;
+
+            testing = 0;
+            platform_midi_stop();
+            s_data_playing = -1;
+            if (m >= 0 && !s_data_muted) {
+                music_play(m);
+            }
+        }
+        return;
+    }
+    size = file_size(hmp);
+    if (size == 0 || (data = load_malloc(hmp)) == NULL) {
+        return;
+    }
+    midi = hmp_to_midi(data, size, &midi_size);
+    mem_free(data);
+    if (midi != NULL) {
+        midi_scale(midi, midi_size);
+        platform_midi_stop();
+        music_adlib_stop();
+        testing = platform_midi_play(midi, midi_size, 1);
+        free(midi);
+    }
+}
+
+/* Switches the sound effects and the music on or off. */
+void sound_set_enabled(int samples, int music)
+{
+    if (!samples && g_sound_ready2) {
+        sound_stop_all();
+    }
+    g_sound_ready2 = (s16)(samples ? 1 : 0);
+    if ((music != 0) != (music_enabled() != 0)) {
+        music_toggle();
+    }
+}
+
 void sound_volumes(int *sample, int *music)
 {
     *sample = s_sample_volume;
