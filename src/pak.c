@@ -127,6 +127,97 @@ int pak_entry_count(const struct pak *pak)
 }
 
 /*
+ * 0x42a8f0, methods 2 and 3. The first byte is the escape marker; any other
+ * byte is a literal. After a marker:
+ *
+ *   0          the marker itself
+ *   1rrnnnnn   the next r + 1 bytes, n + 2 times over
+ *   0oolnnnn   a copy from earlier output: o picks an offset of 1, 2 or 4
+ *              bytes (0x43b4bc) read as a negative number, all ones above
+ *              (the routine starts from ~0); with l clear the length is
+ *              n + 4, with l set n picks a length of 1, 2 or 4 bytes
+ *              (0x43b4cc), unsigned
+ *
+ * An o or n with no entry in its table calls a null pointer in the
+ * original; here it ends the stream as corrupt. No Alone in the Dark 3
+ * container uses these methods; the earlier games are why they exist.
+ */
+static u32 lz_read(const u8 **p, const u8 *end, int bytes, int ones)
+{
+    u32 v = ones ? 0xffffffffu : 0;
+    int i;
+
+    if (end - *p < bytes) {
+        *p = end + 1;
+        return 0;
+    }
+    if (bytes == 4) {
+        v = 0;
+    }
+    for (i = 0; i < bytes; i++) {
+        v = (v & ~(0xffu << (i * 8))) | ((u32)(*p)[i] << (i * 8));
+    }
+    *p += bytes;
+    return v;
+}
+
+static int legacy_lz(const u8 *src, u32 src_size, u8 *dst, u32 dst_size)
+{
+    static const int sizes[4] = { 0, 1, 2, 4 };
+    const u8 *p = src, *end = src + src_size;
+    u32 out = 0;
+    u8 marker;
+
+    if (src_size == 0) {
+        return 0;
+    }
+    marker = *p++;
+    while (p < end) {
+        u8 c = *p++;
+
+        if (c != marker) {
+            if (out >= dst_size) return 0;
+            dst[out++] = c;
+            continue;
+        }
+        if (p >= end) return 0;
+        c = *p++;
+        if (c == 0) {
+            if (out >= dst_size) return 0;
+            dst[out++] = marker;
+        } else if (c & 0x80) {
+            u32 times = (u32)(c & 0x1f) + 2, len = (u32)((c & 0x60) >> 5) + 1;
+
+            if ((u32)(end - p) < len || dst_size - out < times * len) return 0;
+            while (times-- > 0) {
+                memcpy(dst + out, p, len);
+                out += len;
+            }
+            p += len;
+        } else {
+            int offset_bytes = sizes[(c & 0x60) >> 5];
+            u32 offset, len, i;
+
+            if (offset_bytes == 0) return 0;
+            offset = lz_read(&p, end, offset_bytes, 1);
+            if (!(c & 0x10)) {
+                len = (u32)(c & 0x0f) + 4;
+            } else {
+                int len_bytes = (c & 0x0f) < 3 ? sizes[(c & 0x0f) + 1] : 0;
+
+                if (len_bytes == 0) return 0;
+                len = lz_read(&p, end, len_bytes, 0);
+            }
+            if (p > end || (u32)-offset > out || dst_size - out < len) return 0;
+            for (i = 0; i < len; i++, out++) {      /* byte by byte: runs overlap */
+                dst[out] = dst[out + offset];
+            }
+        }
+    }
+    return out == dst_size;
+}
+
+/*
  * 0x425dca. In WAITD3.EXE methods 0 and 1 share the memmove branch; the
  * earlier titles use 1 for implode, which no Alone in the Dark 3 container
  * contains, so it is decoded as implode here. 2 and 3 are the legacy LZ,
@@ -155,16 +246,7 @@ int pak_unpack(int method, int flags, const u8 *src, u32 src_size, u8 *dst,
 
     case PAK_METHOD_LEGACY_LZ_2:
     case PAK_METHOD_LEGACY_LZ_3:
-        /*
-         * 0x42a8f0. An escape-byte LZ77: the first byte of the stream is the
-         * escape marker, a following zero emits the marker literally, and the
-         * high bit of the control byte selects between two match encodings.
-         * Both long forms dispatch through jump tables at 0x43b4bc and
-         * 0x42a96e which have not been recovered, so this is not implemented.
-         * No container shipped with Alone in the Dark 3 uses it; the earlier
-         * games in the series are the reason it exists.
-         */
-        return 0;
+        return legacy_lz(src, src_size, dst, dst_size);
 
     default:
         return 0;

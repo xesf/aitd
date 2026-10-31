@@ -264,13 +264,23 @@ The original reads the payload into the *tail* of the destination buffer and
 expands forward over it (`0x420332`..`0x42035d`), allocating `0x7d0` bytes of
 slack for method 4. `src/pak.c` uses a separate payload buffer instead.
 
-### Method 2/3 not implemented
+### Methods 2 and 3: the escape-byte LZ
 
-`0x42a8f0` is an escape-marker LZ: the first byte is the marker, a following
-zero emits the marker literally, and the high bit of the control byte selects
-between two match encodings. Both long forms dispatch through jump tables at
-`0x43b4bc` and `0x42a96e`, which have not been recovered. No Alone in the Dark
-3 container uses it — it exists for the earlier games.
+`0x42a8f0` decodes both. The first byte is the escape marker; any other
+byte is a literal. After a marker:
+
+| Byte | Meaning |
+|---|---|
+| `0` | the marker itself |
+| `1rrnnnnn` | the next r + 1 bytes, repeated n + 2 times |
+| `0oolnnnn` | copy from earlier output |
+
+For a copy, `o` picks the offset's size through the table at `0x43b4bc`:
+1, 2 or 4 bytes (`lodsb`, `lodsw`, `lodsd`) loaded over `~0`, so a short
+offset is negative. With `l` clear the length is n + 4; with `l` set, n
+picks the length's size through `0x43b4cc`: 1, 2 or 4 bytes, zero
+extended. An `o` of 0 or an `n` above 2 lands on a null entry. No Alone in
+the Dark 3 container uses these methods; `src/pak.c` decodes them anyway.
 
 ## lib386 lineage
 
@@ -873,9 +883,6 @@ to read. The primitive list after the group table is likewise unread.
 - Opcode 100 records a palette cycle (0x40d6eb) whose stepping routine
   0x40d598 has no caller in this build; whether the shipped scripts rely
   on it, and what drove it in development, is unknown.
-- `0x42a8f0` legacy LZ (methods 2 and 3): the two long match forms dispatch
-  through jump tables at `0x43b4bc` and `0x42a96e`, neither recovered. Needed
-  only for the earlier games in the series.
 - The unnamed cache at `0x407581` (`0x4e20` bytes, 50 entries) has no backing
   container, so what fills it is still unknown.
 - The Hex-Rays widget in this IDA Free session returns stale pseudocode; all of
