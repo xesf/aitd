@@ -868,14 +868,11 @@ in `bounds`, i.e. box corners, which is what first identified the array.
 `./pak_dump --bodies` runs the reconstructed C parser over the container:
 788 parsed, 0 failed, 450 with groups.
 
-**Since resolved** (see docs/formats.md): bone records are 16 bytes.
-The paragraph below is the original note.
-
-**Not determined:** the group record stride. Strides of 14, 16, 18 and 20 all
-fit inside every block, so block length alone cannot decide it — the layout has
-to come from the code. `body_render_or_walk` (`0x4038f6`, `0x2e3f` bytes) reads
-`g_cache_body` at six sites and `g_cache_anim` at two; that is the next thing
-to read. The primitive list after the group table is likewise unread.
+**Since resolved** (see docs/formats.md and `src/body.h`): the word at `0x0e`
+is the size of an extra block, not a fixed 10 bytes, and the "groups" are
+bones: a count, a table of byte offsets, then records of 16 bytes (24 when
+flag 8 adds a rest rotation). The primitive list follows. Every body of the
+five data sets parses to its end with that layout.
 
 ## Open questions
 

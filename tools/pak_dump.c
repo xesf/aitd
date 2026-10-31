@@ -107,7 +107,7 @@ static int verify_bodies(void)
     int i;
     int parsed = 0;
     int failed = 0;
-    int with_groups = 0;
+    int with_bones = 0;
 
     if (!pak_open(&pak, profile->list_body)) {
         fprintf(stderr, "%s: cannot open\n", profile->list_body);
@@ -126,8 +126,8 @@ static int verify_bodies(void)
 
         if (body_parse(block, size, &body)) {
             parsed++;
-            if (body.flags & BODY_FLAG_HAS_GROUPS) {
-                with_groups++;
+            if (body.flags & BODY_FLAG_HAS_BONES) {
+                with_bones++;
             }
         } else {
             failed++;
@@ -137,8 +137,8 @@ static int verify_bodies(void)
         mem_free(block);
     }
 
-    printf("%s: %d parsed, %d failed, %d with groups\n",
-           profile->list_body, parsed, failed, with_groups);
+    printf("%s: %d parsed, %d failed, %d with bones\n",
+           profile->list_body, parsed, failed, with_bones);
 
     pak_close(&pak);
     return failed != 0;

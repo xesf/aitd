@@ -1,46 +1,30 @@
 /*
- * body.h - LISTBODY.PAK model format.
+ * body.h - LISTBODY.PAK model format, as the renderer reads it (r3d.c,
+ * 0x423ba9 and 0x423e59; TG320.EX_ for the textured bodies).
  *
- * Derived by probing all 788 entries of the shipped LISTBODY.PAK through the
- * reconstructed container reader. What is stated here held for every entry;
- * what is not yet determined is called out as such rather than guessed.
+ *   u16 flags              2 bones, 4 no points, 8 bones with their own
+ *                          rotation (Time Gate), plus textures and normals
+ *   s16 bounds[6]          x1 x2 y1 y2 z1 z2
+ *   u16 extra_size         bytes of the extra block that follows
+ *   u8  extra[extra_size]  the animation's scratch words; the texture and
+ *                          normal tables' offsets in the titles that have them
+ *   u16 vertex_count
+ *   s16 vertices[vertex_count][3]
  *
- * Layout
- * ------
- *   u16 flags
- *   s16 bounds[6]          candidate bounding box, offsets 0x02..0x0d
- *   ...                    0x0e..: contents depend on flags
+ *   flags & 2:
+ *   u16 bone_count
+ *   u16 bone_offsets[bone_count]   byte offsets of the records below
+ *   bone records, 0x10 bytes (0x18 with flags & 8):
+ *     +0 u16  first point, a byte offset into the vertex array
+ *     +2 s16  point count
+ *     +4 u16  pivot point, a byte offset into the vertex array
+ *     +6 u8   parent bone
+ *     +7 u8   this bone's index
+ *     +8 s16  type: rotate, translate or zoom
+ *     +a s16  alpha beta gamma, or x y z, set by the animation
+ *     +10     with flags & 8: the bone's rest rotation alpha beta gamma
  *
- *   flags & 2 clear:  u16 vertex_count at 0x10, vertices from 0x12
- *   flags & 2 set:    u16 vertex_count at 0x1a, vertices from 0x1c
- *
- *   vertex: s16 x, s16 y, s16 z
- *
- *   flags & 2 set:    u16 group_count follows the vertex array, then the
- *                     group records themselves.
- *
- * Evidence
- * --------
- *   flags values present: 0 (1 entry), 1 (337), 2 (2), 3 (448).
- *   With the offsets above, the vertex array fits inside the block for
- *   337/337 of the flags==1 entries and 448/448 of the flags==3 entries.
- *   Setting bit 1 shifts the count by exactly 10 bytes, so that bit gates a
- *   10 byte header section.
- *   Bit 1 also gates the group table: a group count parses sanely for every
- *   entry that has the bit and for none that lack it, which is what marks it
- *   as the "skinned/animated" flag as opposed to a static mesh.
- *   In the simplest body the single group record contains 26, the entry's own
- *   vertex count, i.e. one group spanning the whole mesh.
- *
- * Not determined
- * --------------
- *   The group record stride. Strides of 14, 16, 18 and 20 all fit inside
- *   every block, so block length alone cannot decide it; the field layout has
- *   to come from the code that walks the table. sub_4038F6 (0x4038f6, 0x2e3f
- *   bytes) reads g_cache_body at six sites and is the next thing to read.
- *
- *   What follows the group table (primitives: faces, lines, spheres) is
- *   likewise unread.
+ *   u16 primitive_count, then the primitives (r3d.c collect_primitives).
  */
 
 #ifndef AITD_BODY_H
@@ -48,8 +32,9 @@
 
 #include "aitd.h"
 
-/* Bit 1 of the flags word. */
-#define BODY_FLAG_HAS_GROUPS 0x0002
+/* Bits of the flags word. */
+#define BODY_FLAG_HAS_BONES 0x0002
+#define BODY_FLAG_BONE_ROTATIONS 0x0008
 
 struct body_vertex {
     s16 x, y, z;
@@ -58,18 +43,23 @@ struct body_vertex {
 struct body {
     u16 flags;
     s16 bounds[6];
+    u16 extra_size;
 
     u16 vertex_count;
     const struct body_vertex *vertices;  /* points into the source block */
 
-    u16 group_count;      /* 0 unless BODY_FLAG_HAS_GROUPS */
-    const u8 *groups;     /* raw; stride not yet determined */
-    u32 groups_size;      /* bytes from the group table to end of block */
+    u16 bone_count;       /* 0 unless BODY_FLAG_HAS_BONES */
+    const u8 *bone_offsets;
+    const u8 *bones;      /* the records, bone_stride bytes each */
+    u16 bone_stride;
+
+    u16 primitive_count;
+    const u8 *primitives;
 };
 
 /*
- * Parses the header of a decompressed LISTBODY entry. Does not copy: the
- * pointers alias the caller's block, which must outlive the struct.
+ * Parses a decompressed LISTBODY entry up to its primitives. Does not copy:
+ * the pointers alias the caller's block, which must outlive the struct.
  * Returns 0 if the block is too short for the layout above.
  */
 int body_parse(const void *block, u32 size, struct body *out);

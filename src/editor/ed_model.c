@@ -180,8 +180,9 @@ static void model_draw(void)
     if (s_body == NULL) {
         snprintf(line, sizeof(line), "LISTBODY %d/%d  empty", s_entry, s_count - 1);
     } else if (s_parsed) {
-        snprintf(line, sizeof(line), "LISTBODY %d/%d %ub flags %04x %u pts",
-                 s_entry, s_count - 1, (unsigned)s_size, s_info.flags, s_info.vertex_count);
+        snprintf(line, sizeof(line), "BODY %d/%d %04x %upt %ubn %upr",
+                 s_entry, s_count - 1, s_info.flags, s_info.vertex_count,
+                 s_info.bone_count, s_info.primitive_count);
     } else {
         snprintf(line, sizeof(line), "LISTBODY %d/%d  %u b", s_entry, s_count - 1,
                  (unsigned)s_size);
