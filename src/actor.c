@@ -1159,9 +1159,9 @@ static s16 track_op_map(s16 raw)
 {
     static const s16 aitd1[] = {
         TRACK_OP_WARP, TRACK_OP_GOTO_POS, TRACK_OP_END, TRACK_OP_REWIND,
-        TRACK_OP_MARK, TRACK_OP_SKIP, TRACK_OP_SKIP, TRACK_OP_SKIP,
-        TRACK_OP_SKIP, TRACK_OP_ROTATE, TRACK_OP_COL_OFF, TRACK_OP_COL_ON,
-        TRACK_OP_SKIP, TRACK_OP_FALL_OFF, TRACK_OP_FALL_ON, TRACK_OP_GOTO_POS_Y,
+        TRACK_OP_MARK, TRACK_OP_WALK, TRACK_OP_RUN, TRACK_OP_STAND,
+        TRACK_OP_BACK, TRACK_OP_ROTATE, TRACK_OP_COL_OFF, TRACK_OP_COL_ON,
+        TRACK_OP_SKIP_WORD, TRACK_OP_FALL_OFF, TRACK_OP_FALL_ON, TRACK_OP_GOTO_POS_Y,
         TRACK_OP_STORE_POS, TRACK_OP_STAIRS_X, TRACK_OP_STAIRS_Z, TRACK_OP_ANGLES
     };
 
@@ -1503,9 +1503,16 @@ void actor_do_move(void)
             }
             break;
         }
-        case TRACK_OP_SKIP:
+        case TRACK_OP_WALK:
+        case TRACK_OP_RUN:
+        case TRACK_OP_STAND:
+        case TRACK_OP_BACK: {
+            static const s16 speeds[] = { 10, 16, 0, -1 };   /* the original's 4, 5, 0, -1 */
+
+            a->speed = speeds[op - TRACK_OP_WALK];
             a->position_in_track++;
             break;
+        }
         case TRACK_OP_ANGLES:
             a->alpha = blob_s16(p, 2);
             a->beta = blob_s16(p, 4);

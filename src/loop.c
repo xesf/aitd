@@ -562,6 +562,7 @@ void game_run(s16 floor, s16 room, s16 flag)
     draw_init();
     g_present_buffer = g_screen;
 
+    g_water = 0;            /* INDARK.EXE 0x3623 */
     world_load_objects();   /* 0x409490 */
     world_reset_flags();    /* 0x407bae */
 

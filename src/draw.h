@@ -30,6 +30,7 @@ enum special_type {
 
 extern u8 *g_screen;
 extern s16 g_clip_y_default;    /* 0x4350e1 */
+extern s16 g_water;             /* AITD1: actors cut at y -600 */
 extern s16 g_fade_request;      /* 0x43505c */
 extern s16 g_black_screen;      /* 0x43505a */
 extern s32 g_force_redraw;      /* 0x435138 */

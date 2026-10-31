@@ -28,7 +28,12 @@ enum track_op {
     TRACK_OP_STAIRS_X = 14,
     TRACK_OP_STAIRS_Z = 15,
     TRACK_OP_ANGLES = 16,
-    TRACK_OP_SKIP = 100                /* AITD1 5, 6, 7, 8, 12: no operand, no effect here */
+    /* Alone in the Dark 1 only (INDARK.EXE 0xd708..0xd738): the speed
+     * ANIM_MOVE reads, walk, run, stand or back, as Up does for Carnby. */
+    TRACK_OP_WALK = 100,
+    TRACK_OP_RUN = 101,
+    TRACK_OP_STAND = 102,
+    TRACK_OP_BACK = 103
 };
 
 /* Time based interpolator, 8 bytes: from, to, duration, start tick. */

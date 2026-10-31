@@ -234,7 +234,7 @@ count and pairs of words).
 | 67 | 74 | `ANGLE` | word word word |
 | 68 | 75 | `REP_SAMPLE` | word word |
 | 69 | 76 | `THROW` | word word word word word word word |
-| 70 | 77 | `WATER` | word |
+| 70 | 77 | `WATER` | word; AITD1: non-zero cuts every actor's points below y -600, 0 stops it |
 | 71 | 78 | `PICTURE` | word word word |
 | 72 | 79 | `STOP_SAMPLE` | - |
 | 73 | 80 | `NEXT_MUSIC` | word |
@@ -248,7 +248,7 @@ count and pairs of words).
 | 81 | - | `CONTINUE_TRACK` | - |
 | 82 | - | `ANIM_RESET` | word word |
 | 83 | - | `RESET_MOVE_MANUAL` | - |
-| 84 | - | `PLUIE` | word |
+| 84 | - | `PLUIE` | - (AITD2 does nothing and leaves the word, 0 in every script, to run as `DO_MOVE`) |
 | 85 | - | `ANIM_HYBRIDE_ONCE` | word word |
 | 86 | - | `ANIM_HYBRIDE_REPEAT` | word word |
 | 87 | - | `MODIF_C_VAR` | word expr |
@@ -344,11 +344,15 @@ again on the next frame.
 | 2 | 2 | `END` | - | stop; `NUM_TRACK` reads -1 |
 | 3 | 3 | `REWIND` | - | start the track again |
 | 4 | 4 | `MARK` | n | set `MARK` for the script |
+| - | 5 | `WALK` | - | walk: `ANIM_MOVE` plays the walk |
+| - | 6 | `RUN` | - | run |
+| - | 7 | `STAND` | - | stand, or turn |
+| - | 8 | `BACK` | - | step back |
 | 5 | - | `STOP` | - | wait for `CONTINUE_TRACK` |
 | 6 | 9 | `ROTATE` | beta | turn to an angle |
 | 7 | 10 | `COL_OFF` | - | stop colliding with actors |
 | 8 | 11 | `COL_ON` | - | collide again |
-| 9 | - | `SKIP_WORD` | word | - |
+| 9 | 12 | `SKIP_WORD` | word | - |
 | 10 | 13 | `FALL_OFF` | - | no gravity |
 | 11 | 14 | `FALL_ON` | - | gravity again |
 | 12 | 15 | `GOTO_POS_Y` | room x y z time | walk to a point while changing height |
@@ -357,5 +361,7 @@ again on the next frame.
 | 15 | 18 | `STAIRS_Z` | x y z | climb, height following z |
 | 16 | 19 | `ANGLES` | alpha beta gamma | set the angles |
 
-AITD1 opcodes 5, 6, 7, 8 and 12 take no operand. Their effect is not yet
-known, and the engine skips them.
+In AITD1 a track sets the actor's speed itself with `WALK`, `RUN`,
+`STAND` and `BACK` (INDARK.EXE 0xd708..0xd738), the value `ANIM_MOVE`
+reads to pick the animation; `WARP` and `END` stand it too. No shipped
+track uses `BACK` or `SKIP_WORD`.

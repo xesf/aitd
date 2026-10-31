@@ -23,6 +23,18 @@
 
 u8 *g_screen;
 s16 g_clip_y_default = 10000;  /* 0x4350e1 */
+s16 g_water;                   /* AITD1 [0x85c]: models cut below the water */
+
+/* The height above which a model's points are not drawn: Alone in the
+ * Dark 1's WATER cuts every actor at -600 (INDARK.EXE 0x15a1d patches the
+ * transform's compare), the later titles take the room's ground. */
+static s16 actor_clip_y(const struct actor *a)
+{
+    if (game_id() == GAME_AITD1) {
+        return g_water ? -600 : 10000;
+    }
+    return (a->flags & 0x400) ? 10000 : g_clip_y_default;
+}
 s16 g_fade_request;            /* 0x43505c */
 s16 g_black_screen;            /* 0x43505a */
 s32 g_force_redraw;            /* 0x435138 */
@@ -537,7 +549,7 @@ void draw_static_actors(void)
             continue;
         }
 
-        r3d_set_clip_y((a->flags & 0x400) ? 10000 : g_clip_y_default);
+        r3d_set_clip_y(actor_clip_y(a));
         actor_light(a);
         r3d_draw_body((s16)(a->step_x + a->world_x), (s16)(a->step_y + a->world_y),
                       (s16)(a->step_z + a->world_z), a->alpha, a->beta, a->gamma,
@@ -644,7 +656,7 @@ void draw_frame(s16 full)
                 if (body == NULL) {
                     continue;
                 }
-                r3d_set_clip_y((a->flags & 0x400) ? 10000 : g_clip_y_default);
+                r3d_set_clip_y(actor_clip_y(a));
                 actor_light(a);
                 r3d_draw_body((s16)(a->step_x + a->world_x),
                               (s16)(a->step_y + a->world_y),

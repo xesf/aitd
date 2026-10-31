@@ -1363,7 +1363,11 @@ void life_run(s16 life, int flag)
             actor_throw(w[0], w[1], w[2], w[3], w[4], w[5], w[6]);
             break;
         }
-        case LIFE_OP_WATER: break;
+        case LIFE_OP_WATER:     /* INDARK.EXE 0xc311 */
+            if (game_id() == GAME_AITD1) {
+                g_water = (s16)(fetch() != 0);
+            }
+            break;
         case LIFE_OP_PICTURE: {
             s16 entry = fetch(), time = fetch();
             s16 sample = time_gate() ? eval() : fetch();
