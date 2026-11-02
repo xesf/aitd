@@ -7,6 +7,8 @@ in the `VERSION` file, and `aitd --version` prints it.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Added
 - An editor, opened with F10 over the main menu or the game, with viewers
   for the pictures, the models, the font, the texts and the life scripts
