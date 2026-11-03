@@ -62,9 +62,14 @@ function(aitd_vpk folder title_id name)
     target_link_libraries(${exe} SceDisplay_stub SceCtrl_stub SceAudio_stub
                           ScePower_stub SceSysmem_stub pthread m)
     vita_create_self(${exe}.self ${exe})
-    # LiveArea art made from the player's own data by `make art`, when it
-    # is there; without it the package has the system's default look.
-    set(art ${ROOT}/build/art/${folder}/vita)
+    # LiveArea art: the copy in sce_sys/<GAME> when it is there, else the
+    # one `make art` makes from the player's own data. Without either the
+    # package has the system's default look.
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/${folder}/icon0.png)
+        set(art ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/${folder})
+    else()
+        set(art ${ROOT}/build/art/${folder}/vita)
+    endif()
     if(EXISTS ${art}/icon0.png)
         vita_create_vpk(aitd-${folder}.vpk ${title_id} ${exe}.self
                         VERSION ${VITA_VERSION} NAME "${name}"

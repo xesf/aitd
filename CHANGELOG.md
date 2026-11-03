@@ -7,6 +7,13 @@ in the `VERSION` file, and `aitd --version` prints it.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-03
+
+### Changed
+- The Vita packages carry their own LiveArea art, from `platforms/vita/sce_sys/<GAME>`,
+  in place of the art `make art` makes from the game data. The art of Jack in
+  the Dark and of the Time Gate icons is unchanged.
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
